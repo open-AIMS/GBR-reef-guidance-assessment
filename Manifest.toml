@@ -2,7 +2,7 @@
 
 julia_version = "1.9.4"
 manifest_format = "2.0"
-project_hash = "3ed33f027960f692398a34ce29c6564bece14951"
+project_hash = "7ec1d970cb74fb4fae7dce6d440df2ff3bc50b52"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -270,9 +270,9 @@ version = "0.15.5"
 
 [[deps.CoDa]]
 deps = ["AxisArrays", "Distances", "Distributions", "FillArrays", "LinearAlgebra", "Printf", "Random", "StaticArrays", "Statistics", "Tables"]
-git-tree-sha1 = "2c19c08875c7a27e95844e527adc7d37cdc31a4c"
+git-tree-sha1 = "0ae819d8911029b988479b8b447bf4fad4b5bfa7"
 uuid = "5900dafe-f573-5c72-b367-76665857777b"
-version = "1.3.0"
+version = "1.4.0"
 
 [[deps.CodecLz4]]
 deps = ["Lz4_jll", "TranscodingStreams"]
@@ -1079,6 +1079,12 @@ git-tree-sha1 = "012e604e1c7458645cb8b436f8fba789a51b257f"
 uuid = "9b13fd28-a010-5f03-acff-a1bbcff69959"
 version = "1.0.0"
 
+[[deps.Infiltrator]]
+deps = ["InteractiveUtils", "Markdown", "REPL", "UUIDs"]
+git-tree-sha1 = "04de041e4590428cccbb026d86e5d670513be2e3"
+uuid = "5903a43b-9cc3-4c30-8d17-598619ec4e9b"
+version = "1.6.4"
+
 [[deps.Inflate]]
 git-tree-sha1 = "ea8031dea4aff6bd41f1df8f2fdfb25b33626381"
 uuid = "d25df0c9-e2be-5dd7-82c8-3ad0b3e990b9"
@@ -1360,9 +1366,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LinearAlgebraX]]
 deps = ["LinearAlgebra", "Mods", "Permutations", "Primes", "SimplePolynomials"]
-git-tree-sha1 = "8889b8aa6821c0ee73828a2139314b4d596e7dbc"
+git-tree-sha1 = "f45c914bba600a0a7b6acf39d9374ca44dd28220"
 uuid = "9b3f67b0-2d00-526e-9884-9e4938f8fb88"
-version = "0.2.2"
+version = "0.2.3"
 
 [[deps.LittleCMS_jll]]
 deps = ["Artifacts", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pkg"]
@@ -1515,9 +1521,9 @@ uuid = "66fc600b-dfda-50eb-8b99-91cfa97b1301"
 version = "1.1.7"
 
 [[deps.Mods]]
-git-tree-sha1 = "e3dfc14bf08a3a983e932cddb22018336cab0e1c"
+git-tree-sha1 = "072c23c3d4b1f2f56501c0e9873bbe74231b508f"
 uuid = "7475f97c-0381-53b1-977b-4c60186c8d62"
-version = "1.3.4"
+version = "2.0.0"
 
 [[deps.MosaicViews]]
 deps = ["MappedArrays", "OffsetArrays", "PaddedViews", "StackViews"]
@@ -2069,9 +2075,9 @@ version = "0.3.1"
 
 [[deps.SimplePolynomials]]
 deps = ["Mods", "Multisets", "Polynomials", "Primes"]
-git-tree-sha1 = "e14e1a7063179a90c2981faf3c8cbf12aacccdaf"
+git-tree-sha1 = "7063828369cafa93f3187b3d0159f05582011405"
 uuid = "cc47b68c-3164-5771-a705-2bc0097375a0"
-version = "0.2.16"
+version = "0.2.17"
 
 [[deps.SimpleRandom]]
 deps = ["Distributions", "LinearAlgebra", "Random"]
