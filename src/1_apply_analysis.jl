@@ -112,17 +112,17 @@ regions = [
 
     res75 = mapwindow(meets_suitability_threshold(0.75), suitable, (-4:5, -4:5), border=Fill(0)) .|> Gray
     result_raster = res75
-    write(joinpath(RESULT_DIR, "$(reg)_suitability75.tiff"), result_raster, force=true)
+    write(joinpath(RESULT_DIR, "$(reg)_suitability75.tif"), result_raster, force=true)
     res75 = nothing  # mark for garbage collector
 
     res95 = mapwindow(meets_suitability_threshold(0.95), suitable, (-4:5, -4:5), border=Fill(0)) .|> Gray
-    write(joinpath(RESULT_DIR, "$(reg)_suitability95.tiff"), res95, force=true)
+    write(joinpath(RESULT_DIR, "$(reg)_suitability95.tif"), res95, force=true)
 
     result_raster .= label_components(res95)
-    write(joinpath(RESULT_DIR, "$(reg)_grouped_suitability.tiff"), result_raster, force=true)
+    write(joinpath(RESULT_DIR, "$(reg)_grouped_suitability.tif"), result_raster, force=true)
 
     # Apply mode filter on ~double the area
     mode_res = mapwindow(c_mode, result_raster, (-9:10, -9:10))
     result_raster .= label_components(mode_res)
-    write(joinpath(RESULT_DIR, "$(reg)_grouped_filtered_suitability.tiff"), result_raster, force=true)
+    write(joinpath(RESULT_DIR, "$(reg)_grouped_filtered_suitability.tif"), result_raster, force=true)
 end
