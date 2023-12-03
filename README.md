@@ -2,6 +2,18 @@
 
 Analyses to support workshop discussions.
 
+## Scripts
+
+All scripts assume `src` is the root. References to external directories may be specified
+as relative to the `src` directory.
+
+```bash
+$ cd src
+$ julia --project=..
+```
+
+Scripts are labelled by their expected run order.
+
 
 ## Data Sources
 
@@ -25,3 +37,25 @@ Geomorphic:
 
 
 Bathymetry and slope data obtained via M. Poutinen.
+
+## Data layout
+
+Expected data directory layout:
+
+Sub-directory names should be consistent and match.
+Benthic habitat raster covers whole of GBR so no sub-directories are necessary.
+
+```bash
+DATA_DIR
+├───bathy
+│   ├───Cairns-Cooktown
+│   ├───FarNorthern
+│   ├───Mackay-Capricorn
+│   └───Townsville-Whitsunday
+├───benthic
+└───slope
+    ├───Cairns-Cooktown
+    ├───FarNorthern
+    ├───Mackay-Capricorn
+    └───Townsville-Whitsunday
+```
