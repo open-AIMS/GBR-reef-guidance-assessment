@@ -12,8 +12,12 @@ $ cd src
 $ julia --project=..
 ```
 
-Scripts are labelled by their expected run order.
+Scripts are labelled by their expected run order, and are written to be as stand-alone as
+possible. It should be possible to run one script, so long as other scripts earlier in the
+indicated order have been run previously.
 
+e.g., Script 3 could be run after script 1 and 2, so long as 1 and 2 were run at some point
+previously.
 
 ## Data Sources
 
@@ -31,19 +35,24 @@ Slope 10m Grid:
     To be confirmed.
 
 Geomorphic:
-    Currently unused.
-
     https://gbrmpa.maps.arcgis.com/home/item.html?id=93fd689452e44e74801845b7935c54c4
 
+GBRMPA Zones:
+    - https://geoportal.gbrmpa.gov.au/datasets/GBRMPA::great-barrier-reef-marine-park-zoning/explore
+    - https://geoportal.gbrmpa.gov.au/datasets/GBRMPA::management-areas-of-the-great-barrier-reef-marine-park/explore?location=-17.583829%2C150.586624%2C6.38
 
-Bathymetry and slope data obtained via M. Poutinen.
+
+Note: Bathymetry and slope data obtained via M. Poutinen.
 
 ## Data layout
 
 Expected data directory layout:
 
 Sub-directory names should be consistent and match.
-Benthic habitat raster covers whole of GBR so no sub-directories are necessary.
+Benthic habitat raster (inside `benthic`) covers whole of GBR so no sub-directories are necessary.
+Similarly, `geomorphic` holds the whole-of-GBR geomorphic zonation raster
+
+`zones` holds GBRMPA zone layers in geojson format.
 
 ```bash
 DATA_DIR
@@ -53,9 +62,18 @@ DATA_DIR
 │   ├───Mackay-Capricorn
 │   └───Townsville-Whitsunday
 ├───benthic
-└───slope
-    ├───Cairns-Cooktown
-    ├───FarNorthern
-    ├───Mackay-Capricorn
-    └───Townsville-Whitsunday
+├───geomorphic
+├───slope
+│   ├───Cairns-Cooktown
+│   ├───FarNorthern
+│   ├───Mackay-Capricorn
+│   └───Townsville-Whitsunday
+└───zones
 ```
+
+Recommended Colors
+
+Flats: #7570b3  (purple)
+Slopes: #1b9e77  (green)
+
+https://colorbrewer2.org/#type=qualitative&scheme=Dark2&n=3
