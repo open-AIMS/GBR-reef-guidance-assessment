@@ -1,6 +1,7 @@
 using Rasters
 import GeoDataFrames as GDF
 import ArchGDAL as AG
+using CSV
 
 using Statistics, StatsBase
 using Glob
@@ -89,3 +90,6 @@ GDF.write(
     layer_name="region_suitability",
     geom_columns=(:geometry,)
 )
+
+subdf = region_features[:, [:AREA_DESCR, :n_flat_components, :potential_flat_area_ha, :suitable_flat_area_ha, :potential_slope_area_ha, :suitable_slope_area_ha]]
+CSV.write("../qgis/potential_areas.csv", subdf)

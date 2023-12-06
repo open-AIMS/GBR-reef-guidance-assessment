@@ -1,5 +1,5 @@
-AREA_DESCR,n_flat_components,potential_flat_area_ha,suitable_flat_area_ha,potential_slope_area_ha,suitable_slope_area_ha
-Mackay/Capricorn Management Area,1983,6806957,2932228201,3389580,2932228201
-Townsville/Whitsunday Management Area,1375,3451474,1616799163,3115378,1616799163
-Cairns/Cooktown Management Area,506,3038136,872902170,2614606,872902170
-Far Northern Management Area,872,6952380,1483103634,3730163,1483103634
+AREA_DESCR,n_flat_components,potential_flat_area_ha,suitable_flat_area_ha,n_slope_components,potential_slope_area_ha,suitable_slope_area_ha
+Mackay/Capricorn Management Area,1983,6806957,2932228201,1400,3389580,2932228201
+Townsville/Whitsunday Management Area,1375,3451474,1616799163,1556,3115378,1616799163
+Cairns/Cooktown Management Area,506,3038136,872902170,1769,2614606,872902170
+Far Northern Management Area,872,6952380,1483103634,2627,3730163,1483103634
