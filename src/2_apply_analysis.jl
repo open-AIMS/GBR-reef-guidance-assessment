@@ -130,6 +130,7 @@ include("common.jl")
 
         # Need a copy of raster data type to support writing to `tif`
         result_raster = convert.(Int32, copy(suitable_flats))
+        rebuild(result_raster; missingval=0)
 
         # res75 = mapwindow(suitability_func(0.75), suitable, (-4:5, -4:5), border=Fill(0)) .|> Gray
         # result_raster .= res75
