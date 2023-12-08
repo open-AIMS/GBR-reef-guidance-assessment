@@ -17,9 +17,11 @@ region_path = joinpath(
 region_features = copy(GDF.read(region_path))
 region_features.n_flat_components .= 0
 region_features.n_potential_flat .= 0
+region_features.n_potential_flat_ha .= 0.0
 
 region_features.n_slope_components .= 0
 region_features.n_potential_slope .= 0
+region_features.n_potential_slope_ha .= 0.0
 
 
 @showprogress dt=10 for reg in REGIONS
@@ -27,20 +29,21 @@ region_features.n_potential_slope .= 0
     reg_idx = occursin.(reg[1:3], region_features.AREA_DESCR)
 
     d = Raster(
-        joinpath(RESULT_DIR, "$(reg)_grouped_flats_95.tif"), 
+        joinpath(RESULT_DIR, "$(reg)_grouped_flats_85.tif"), 
         lazy=true
     )
     suitable_flats = countmap(read(d))  # get number of pixels per cluster
     region_features[reg_idx, :n_flat_components] .= length(keys(suitable_flats))
     region_features[reg_idx, :n_potential_flat] .= sum(values(suitable_flats))
+    region_features[reg_idx, :n_potential_flat_ha] .= sum(values(suitable_flats)) / 100.0
 
     d = Raster(
-        joinpath(RESULT_DIR, "$(reg)_grouped_slopes_95.tif"),
+        joinpath(RESULT_DIR, "$(reg)_grouped_slopes_85.tif"),
         lazy=true
     )
     suitable_slopes = countmap(read(d))  # get number of pixels per cluster
     region_features[reg_idx, :n_slope_components] .= length(keys(suitable_slopes))
-    region_features[reg_idx, :n_potential_slope] .= sum(values(suitable_slopes))
+    region_features[reg_idx, :n_potential_slope_ha] .= sum(values(suitable_slopes)) / 100.0
 end
 
 
@@ -53,5 +56,5 @@ GDF.write(
     geom_columns=(:geometry,)
 )
 
-subdf = region_features[:, [:AREA_DESCR, :n_flat_components, :n_potential_flat, :n_slope_components, :n_potential_slope]]
+subdf = region_features[:, [:AREA_DESCR, :n_flat_components, :n_potential_flat_ha, :n_slope_components, :n_potential_slope_ha]]
 CSV.write("../qgis/potential_areas.csv", subdf)
