@@ -19,28 +19,38 @@ indicated order have been run previously.
 e.g., Script 3 could be run after script 1 and 2, so long as 1 and 2 were run at some point
 previously.
 
+## Manual steps
+
+Once the layers have been added, create an MBTiles file with:
+
+Processing Toolbox -> Raster Tools -> Generate XYZ tiles (MBTiles)
+
 ## Data Sources
 
 Benthic Habitat Layer:
-    Great Barrier Reef 10m Grid (GBR10) GBRMP Benthic
-    Great Barrier Reef Marine Park Authority
-    https://gbrmpa.maps.arcgis.com/home/item.html?id=d1c58d71667d490ba650c8fd07d6f7ee
-    https://metadata.imas.utas.edu.au/geonetwork/srv/eng/catalog.search#/metadata/492a87d95e8243728486718e7aed02a8
+- Great Barrier Reef 10m Grid (GBR10) GBRMP Benthic
+  Great Barrier Reef Marine Park Authority
+  https://gbrmpa.maps.arcgis.com/home/item.html?id=d1c58d71667d490ba650c8fd07d6f7ee
+  https://metadata.imas.utas.edu.au/geonetwork/srv/eng/catalog.search#/metadata/492a87d95e8243728486718e7aed02a8
 
 
 Bathymetry 10m Grid:
-    https://gbrmpa.maps.arcgis.com/home/item.html?id=f644f02ec646496eb5d31ad4f9d0fc64
+- https://gbrmpa.maps.arcgis.com/home/item.html?id=f644f02ec646496eb5d31ad4f9d0fc64
 
 Slope 10m Grid:
-    To be confirmed.
+
+To be confirmed.
 
 Geomorphic:
-    https://gbrmpa.maps.arcgis.com/home/item.html?id=93fd689452e44e74801845b7935c54c4
+- https://gbrmpa.maps.arcgis.com/home/item.html?id=93fd689452e44e74801845b7935c54c4
 
 GBRMPA Zones:
-    - https://geoportal.gbrmpa.gov.au/datasets/GBRMPA::great-barrier-reef-marine-park-zoning/explore
-    - https://geoportal.gbrmpa.gov.au/datasets/GBRMPA::management-areas-of-the-great-barrier-reef-marine-park/explore?location=-17.583829%2C150.586624%2C6.38
+- https://geoportal.gbrmpa.gov.au/datasets/GBRMPA::great-barrier-reef-marine-park-zoning/explore
+- https://geoportal.gbrmpa.gov.au/datasets/GBRMPA::management-areas-of-the-great-barrier-reef-marine-park/explore?location=-17.583829%2C150.586624%2C6.38
 
+
+GBRMPA Bioregions:
+- https://geoportal.gbrmpa.gov.au/datasets/GBRMPA::reef-marine-bioregions-of-the-great-barrier-reef/about
 
 Note: Bathymetry and slope data obtained via M. Poutinen.
 
