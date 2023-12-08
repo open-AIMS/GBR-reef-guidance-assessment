@@ -83,7 +83,7 @@ DATA_DIR
 
 Recommended Colors
 
-Flats: #7570b3  (purple)
-Slopes: #1b9e77  (green)
+- Flats: #7570b3  (purple)
+- Slopes: #1b9e77  (green)
 
 https://colorbrewer2.org/#type=qualitative&scheme=Dark2&n=3
