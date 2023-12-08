@@ -129,38 +129,72 @@ include("common.jl")
         )
 
         # Need a copy of raster data type to support writing to `tif`
-        result_raster = convert.(Int32, copy(suitable_flats))
+        result_raster = convert.(Int16, copy(suitable_flats))
         rebuild(result_raster; missingval=0)
 
-        # res75 = mapwindow(suitability_func(0.75), suitable, (-4:5, -4:5), border=Fill(0)) .|> Gray
-        # result_raster .= res75
-        # write(joinpath(RESULT_DIR, "$(reg)_suitability75.tif"), result_raster; force=true)
+        # 85% threshold
+        # Assess flats
+        res85 = mapwindow(suitability_func(0.85), suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray
+        fpath = joinpath(RESULT_DIR, "$(reg)_suitable_flats_85.tif")
+        if !isfile(fpath)
+            result_raster .= res85
+            write(fpath, result_raster; force=true)
+        end
 
-        # # Explicitly call GC to free up memory as we go!
-        # res75 = nothing
-        # GC.gc()
+        fpath = joinpath(RESULT_DIR, "$(reg)_grouped_flats_85.tif")
+        if !isfile(fpath)
+            result_raster .= label_components(res85)
+            write(fpath, result_raster; force=true)
+        end
 
-        # res85 = mapwindow(suitability_func(0.85), suitable, (-4:5, -4:5), border=Fill(0)) .|> Gray
-        # result_raster .= res85
-        # write(joinpath(RESULT_DIR, "$(reg)_suitability85.tif"), result_raster; force=true)
-        # res85 = nothing
-        # GC.gc()
+        # Assess slopes
+        res85 = mapwindow(suitability_func(0.95), suitable_slopes, (-4:5, -4:5), border=Fill(0)) .|> Gray
+        fpath = joinpath(RESULT_DIR, "$(reg)_suitable_slopes_85.tif")
+        if !isfile(fpath)
+            result_raster .= res85
+            write(fpath, result_raster; force=true)
+        end
 
+        fpath = joinpath(RESULT_DIR, "$(reg)_grouped_slopes_85.tif")
+        if !isfile(fpath)
+            result_raster .= label_components(res85)
+            write(fpath, result_raster; force=true)
+        end
+
+        res85 = nothing
+        GC.gc()
+
+        ####
+
+        # 95% threshold
         # Assess flats
         res95 = mapwindow(suitability_func(0.95), suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray
-        result_raster .= res95
-        write(joinpath(RESULT_DIR, "$(reg)_suitable_flats_95.tif"), result_raster; force=true)
+        fpath = joinpath(RESULT_DIR, "$(reg)_suitable_flats_95.tif")
+        if !isfile(fpath)
+            result_raster .= res95
+            write(fpath, result_raster; force=true)
+        end
 
-        result_raster .= label_components(res95)
-        write(joinpath(RESULT_DIR, "$(reg)_grouped_flats_95.tif"), result_raster; force=true)
+        fpath = joinpath(RESULT_DIR, "$(reg)_grouped_flats_95.tif")
+        if !isfile(fpath)
+            result_raster .= label_components(res95)
+            write(fpath, result_raster; force=true)
+        end
 
         # Assess slopes
         res95 = mapwindow(suitability_func(0.95), suitable_slopes, (-4:5, -4:5), border=Fill(0)) .|> Gray
-        result_raster .= res95
-        write(joinpath(RESULT_DIR, "$(reg)_suitable_slopes_95.tif"), result_raster; force=true)
+        fpath = joinpath(RESULT_DIR, "$(reg)_grouped_slopes_95.tif")
+        if !isfile(fpath)
+            result_raster .= res95
+            write(fpath, result_raster; force=true)
+        end
+        
+        fpath = joinpath(RESULT_DIR, "$(reg)_grouped_slopes_95.tif")
+        if !isfile(fpath)
+            result_raster .= label_components(res95)
+            write(fpath, result_raster; force=true)
+        end
 
-        result_raster .= label_components(res95)
-        write(joinpath(RESULT_DIR, "$(reg)_grouped_slopes_95.tif"), result_raster; force=true)
         res95 = nothing
         GC.gc()
 
