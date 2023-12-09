@@ -1,6 +1,6 @@
 """Count potential locations for each region.
 
-This is a bit suspect, and superceded by Step 4.
+Somewhat superceded by Step 4.
 Kept as it may come in handy later.
 """
 
