@@ -23,11 +23,11 @@ region_path = joinpath(
 region_features = copy(GDF.read(region_path))
 region_features.n_flat_components .= 0
 region_features.n_potential_flat .= 0
-region_features.n_potential_flat_Mha .= 0.0
+region_features.n_potential_flat_ha .= 0.0
 
 region_features.n_slope_components .= 0
 region_features.n_potential_slope .= 0
-region_features.n_potential_slope_Mha .= 0.0
+region_features.n_potential_slope_ha .= 0.0
 
 
 @showprogress dt=10 for reg in REGIONS
@@ -40,7 +40,7 @@ region_features.n_potential_slope_Mha .= 0.0
     grouped_flats = countmap(flats)  # get number of pixels per cluster
     region_features[reg_idx, :n_flat_components] .= length(keys(grouped_flats))
     region_features[reg_idx, :n_potential_flat] .= sum(values(grouped_flats))
-    region_features[reg_idx, :n_potential_flat_Mha] .= (sum(values(grouped_flats)) / 100.0) / 1e6
+    region_features[reg_idx, :n_potential_flat_ha] .= count(flats .> 0.0) / 100.0
     flats = nothing
     GC.gc()
 
@@ -50,7 +50,7 @@ region_features.n_potential_slope_Mha .= 0.0
     grouped_slopes = countmap(slopes)  # get number of pixels per cluster
     region_features[reg_idx, :n_slope_components] .= length(keys(grouped_slopes))
     region_features[reg_idx, :n_potential_slope] .= sum(values(grouped_slopes))
-    region_features[reg_idx, :n_potential_slope_Mha] .= sum(values(grouped_slopes)) / 100.0 / 1e6
+    region_features[reg_idx, :n_potential_slope_ha] .= count(slopes .> 0.0) / 100.0
     slopes = nothing
     GC.gc()
 end
@@ -64,5 +64,5 @@ GDF.write(
     geom_columns=(:geometry,)
 )
 
-subdf = region_features[:, [:AREA_DESCR, :n_flat_components, :n_potential_flat_Mha, :n_slope_components, :n_potential_slope_Mha]]
-CSV.write("../qgis/potential_areas.csv", subdf)
+subdf = region_features[:, [:AREA_DESCR, :n_flat_components, :n_potential_flat_ha, :n_slope_components, :n_potential_slope_ha]]
+CSV.write("../qgis/region_potential_areas.csv", subdf)
