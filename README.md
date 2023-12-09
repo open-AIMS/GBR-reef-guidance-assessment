@@ -41,6 +41,9 @@ Slope 10m Grid:
 
 To be confirmed.
 
+GBRMPA Features:
+- https://data.gov.au/dataset/ds-dga-51199513-98fa-46e6-b766-8e1e1c896869/details
+
 Geomorphic:
 - https://gbrmpa.maps.arcgis.com/home/item.html?id=93fd689452e44e74801845b7935c54c4
 
@@ -64,6 +67,8 @@ Similarly, `geomorphic` holds the whole-of-GBR geomorphic zonation raster
 
 `zones` holds GBRMPA zone layers in geojson format.
 
+`features` holds the GBRMPA GBR-wide feature set.
+
 ```bash
 DATA_DIR
 ├───bathy
@@ -72,6 +77,7 @@ DATA_DIR
 │   ├───Mackay-Capricorn
 │   └───Townsville-Whitsunday
 ├───benthic
+├───features
 ├───geomorphic
 ├───slope
 │   ├───Cairns-Cooktown
