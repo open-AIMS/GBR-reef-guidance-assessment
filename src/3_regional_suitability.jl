@@ -1,3 +1,9 @@
+"""Count potential locations for each region.
+
+This is a bit suspect, and superceded by Step 4.
+Kept as it may come in handy later.
+"""
+
 using Rasters
 import GeoDataFrames as GDF
 import ArchGDAL as AG
@@ -28,25 +34,26 @@ region_features.n_potential_slope_Mha .= 0.0
     # Partial match on region descriptor
     reg_idx = occursin.(reg[1:3], region_features.AREA_DESCR)
 
-    d = Raster(
-        joinpath(RESULT_DIR, "$(reg)_grouped_flats_85.tif"), 
-        lazy=true
+    flats = Raster(
+        joinpath(RESULT_DIR, "$(reg)_grouped_flats_85.tif")
     )
-    grouped_flats = countmap(read(d))  # get number of pixels per cluster
+    grouped_flats = countmap(flats)  # get number of pixels per cluster
     region_features[reg_idx, :n_flat_components] .= length(keys(grouped_flats))
     region_features[reg_idx, :n_potential_flat] .= sum(values(grouped_flats))
     region_features[reg_idx, :n_potential_flat_Mha] .= (sum(values(grouped_flats)) / 100.0) / 1e6
+    flats = nothing
+    GC.gc()
 
-    d = Raster(
-        joinpath(RESULT_DIR, "$(reg)_grouped_slopes_85.tif"),
-        lazy=true
+    slopes = Raster(
+        joinpath(RESULT_DIR, "$(reg)_grouped_slopes_85.tif")
     )
-    grouped_slopes = countmap(read(d))  # get number of pixels per cluster
+    grouped_slopes = countmap(slopes)  # get number of pixels per cluster
     region_features[reg_idx, :n_slope_components] .= length(keys(grouped_slopes))
     region_features[reg_idx, :n_potential_slope] .= sum(values(grouped_slopes))
     region_features[reg_idx, :n_potential_slope_Mha] .= sum(values(grouped_slopes)) / 100.0 / 1e6
+    slopes = nothing
+    GC.gc()
 end
-
 
 # There's some issue with the FID column preventing successful write out
 # so we ignore the column when writing results out.

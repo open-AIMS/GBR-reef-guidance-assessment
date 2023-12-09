@@ -1,3 +1,5 @@
+"""Prepare data for analysis."""
+
 using Rasters
 import GeoDataFrames as GDF
 import ArchGDAL as AG

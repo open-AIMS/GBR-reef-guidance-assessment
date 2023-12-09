@@ -1,3 +1,6 @@
+"""Identify suitable locations per region."""
+
+
 using Distributed
 using Rasters
 
