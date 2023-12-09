@@ -22,13 +22,13 @@ reef_path = joinpath(
 )
 
 reef_features = GDF.read(reef_path)
-reef_features.n_potential_flats .= 0
-reef_features.n_potential_slopes .= 0
-reef_features.n_potential_flats_ha .= 0.0
-reef_features.n_potential_slopes_ha .= 0.0
+reef_features.n_flat .= 0
+reef_features.n_slope .= 0
+reef_features.n_flat_ha .= 0.0
+reef_features.n_slope_ha .= 0.0
 
-reef_features.flats_score .= 0.0
-reef_features.slopes_score .= 0.0
+reef_features.flat_scr .= 0.0
+reef_features.slope_scr .= 0.0
 
 """
     count_suitable(raster, reef)::Int64
@@ -38,21 +38,21 @@ given `raster`.
 
 This has to be applied one by one for each reef as any malformed geometries lead to a crash.
 """
-function count_suitable(raster, reef)::Int64
-    local total::Union{Int, Missing} = 0
+function count_suitable(raster, reef)::Union{Int64, Missing}
+    local total::Union{Int, Missing} = missing
     try
         total = Rasters.zonal(sum, raster; of=reef, shape=:polygon, boundary=:touches)
-        if ismissing(total)
-            total = 0
-        end
 
+        if !ismissing(total) && total == 0
+            total = missing
+        end
     catch err
         if !(err isa TaskFailedException)
             rethrow(err)
         end
 
         @info "Failed to extract stats for $(reef.GBR_NAME) - $(reef.UNIQUE_ID)"
-        total = 0
+        total = missing
     end
 
     return total
@@ -78,22 +78,29 @@ end
     # Taking a copy does not work, so a quick workaround is to simply read the geometries
     # in again.
     reefs = GDF.read(reef_path)
-    AG.reproject(reefs.geometry, GFT.EPSG(4326), crs(target_flats); order=:trad)
+    reefs.geometry = AG.reproject(reefs.geometry, GFT.EPSG(4326), crs(target_flats); order=:trad)
 
     for reef in eachrow(reefs)
-        # Count number of locations that meet flats and slopes criteria
+        # Count number of locations that meet flats and slopes criteria.
+        # Have to loop over each reef individually as some geometries causes a crash.
+        # These should be safe to skip, and will resolve to "missing".
+        # Because reefs are looped over for each region, we don't replace values as we go
+        # as values for a reef may have been filled out in a previous loop.
 
         # Match by OBJECTID, which should be the row number but don't trust it...
         target_row = reef_features.OBJECTID .== reef.OBJECTID
-        reef_features[target_row, :n_potential_flats] .= count_suitable(target_flats, reef.geometry)
-        reef_features[target_row, :n_potential_flats_ha] .= reef_features[target_row, :n_potential_flats] / 100.0
+        flat_val = count_suitable(target_flats, reef.geometry)
+        if !ismissing(flat_val)
+            reef_features[target_row, :n_flat] .= flat_val
+            reef_features[target_row, :n_flat_ha] .= flat_val / 100.0
+        end
 
         # Do again for slopes
-        reef_features[target_row, :n_potential_slopes] .= count_suitable(target_slopes, reef.geometry)
-        reef_features[target_row, :n_potential_slopes_ha] .= reef_features[target_row, :n_potential_slopes] / 100.0
-
-        reef_features[target_row, :flats_score] .= reef_features[target_row, :n_potential_flats_ha] / reef_features[target_row, :Area_HA]
-        reef_features[target_row, :slopes_score] .= reef_features[target_row, :n_potential_slopes_ha] / reef_features[target_row, :Area_HA]
+        slope_val = count_suitable(target_slopes, reef.geometry)
+        if !ismissing(slope_val)
+            reef_features[target_row, :n_slope] .= slope_val
+            reef_features[target_row, :n_slope_ha] .= slope_val / 100.0
+        end
     end
 
     target_flats = nothing
@@ -101,16 +108,22 @@ end
     GC.gc()
 end
 
-reef_features[:, :flats_score] .= reef_features[:, :flats_score] / maximum(reef_features[:, :flats_score])
-reef_features[:, :slopes_score] .= reef_features[:, :slopes_score] / maximum(reef_features[:, :slopes_score])
+valid_locs = reef_features.Area_HA .!= 0
+reef_features[valid_locs, :flat_scr] .= reef_features[valid_locs, :n_flat_ha] ./ reef_features[valid_locs, :Area_HA]
+reef_features[valid_locs, :slope_scr] .= reef_features[valid_locs, :n_slope_ha] ./ reef_features[valid_locs, :Area_HA]
 
+reef_features[:, :flat_scr] .= reef_features[:, :flat_scr] / maximum(reef_features[:, :flat_scr])
+reef_features[:, :slope_scr] .= reef_features[:, :slope_scr] / maximum(reef_features[:, :slope_scr])
+
+# Have to write out results as shapefile because of ArcGIS not handling GeoPackages for
+# some reason...
 GDF.write(
     joinpath(QGIS_DIR, "reef_suitability.shp"), 
-    reef_features[:, [:geometry, :LOC_NAME_S, :UNIQUE_ID, :Area_HA, :n_potential_flats, :n_potential_flats_ha, :n_potential_slopes, :n_potential_slopes_ha, :flats_score, :slopes_score]];
+    reef_features[:, [:geometry, :LOC_NAME_S, :UNIQUE_ID, :Area_HA, :n_flat, :n_flat_ha, :n_slope, :n_slope_ha, :flat_scr, :slope_scr]];
     layer_name="reef_suitability",
     geom_columns=(:geometry,),
     crs=EPSG(4326)
 )
 
-subdf = reef_features[:, [:LOC_NAME_S, :UNIQUE_ID, :Area_HA, :n_potential_flats, :n_potential_flats_ha, :n_potential_slopes, :n_potential_slopes_ha, :flats_score, :slopes_score]]
+subdf = reef_features[:, [:LOC_NAME_S, :UNIQUE_ID, :Area_HA, :n_flat, :n_flat_ha, :n_slope, :n_slope_ha, :flat_scr, :slope_scr]]
 CSV.write("../qgis/potential_reef_areas.csv", subdf)
