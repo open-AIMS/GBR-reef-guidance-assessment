@@ -1,6 +1,24 @@
 """
 Collate number of potentially suitable locations per reef, as defined by
 GBRMPA Features.
+
+Notes:
+
+The current implementation naively repeatedly loops over all reefs for each region, filling
+a DataFrame as it goes. The primary reason for this approach is a limitation in how
+geometries are handled. At least one causes an error to be raised (which I didn't have time
+to investigate). Rather than collating the zonal statistics in one go, we're forced to loop
+over each reef individually, for each GBR region.
+
+We treat any results that are `missing` or `0` as having no suitable area and ignore these.
+As the result DataFrame is initialized with 0 values in the target columns, they only get
+changed if non-zero or non-missing values are found.
+
+This could be improved by keeping a log of which reefs were already successfully scanned,
+and skipping these in subsequent region loops. Doing so would reduce processing time.
+
+As it currently only takes ~2mins (on a machine with 128GB of ram), I've decided to leave it
+as is.
 """
 
 using Rasters
@@ -16,8 +34,8 @@ include("common.jl")
 
 # D:\development\ADRIA_data\spatial_datasets\Bathy data 10m\features
 reef_path = joinpath(
-    DATA_DIR, 
-    "features", 
+    DATA_DIR,
+    "features",
     "Great_Barrier_Reef_Features.shp"
 )
 
@@ -74,7 +92,7 @@ end
     # For some reason the geometries references in the GeoDataFrame are referenced
     # so any transforms also affect the original.
     # Any later transforms appear invalid (as it is no longer in EPSG:4326) and so leads
-    # to a crash. 
+    # to a crash.
     # Taking a copy does not work, so a quick workaround is to simply read the geometries
     # in again.
     reefs = GDF.read(reef_path)
@@ -118,7 +136,7 @@ reef_features[:, :slope_scr] .= reef_features[:, :slope_scr] / maximum(reef_feat
 # Have to write out results as shapefile because of ArcGIS not handling GeoPackages for
 # some reason...
 GDF.write(
-    joinpath(QGIS_DIR, "reef_suitability.shp"), 
+    joinpath(QGIS_DIR, "reef_suitability.shp"),
     reef_features[:, [:geometry, :LOC_NAME_S, :UNIQUE_ID, :Area_HA, :n_flat, :n_flat_ha, :n_slope, :n_slope_ha, :flat_scr, :slope_scr]];
     layer_name="reef_suitability",
     geom_columns=(:geometry,),
