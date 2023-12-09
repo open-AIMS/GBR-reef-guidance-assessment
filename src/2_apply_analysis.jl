@@ -178,7 +178,7 @@ include("common.jl")
 
         # Assess slopes
         res95 = mapwindow(suitability_func(0.95), suitable_slopes, (-4:5, -4:5), border=Fill(0)) .|> Gray
-        fpath = joinpath(RESULT_DIR, "$(reg)_grouped_slopes_95.tif")
+        fpath = joinpath(RESULT_DIR, "$(reg)_suitable_slopes_95.tif")
         if !isfile(fpath)
             result_raster .= res95
             write(fpath, result_raster; force=true)
