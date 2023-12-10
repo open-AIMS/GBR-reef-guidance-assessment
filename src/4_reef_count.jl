@@ -1,24 +1,6 @@
 """
 Collate number of potentially suitable locations per reef, as defined by
 GBRMPA Features.
-
-Notes:
-
-The current implementation naively repeatedly loops over all reefs for each region, filling
-a DataFrame as it goes. The primary reason for this approach is a limitation in how
-geometries are handled. At least one causes an error to be raised (which I didn't have time
-to investigate). Rather than collating the zonal statistics in one go, we're forced to loop
-over each reef individually, for each GBR region.
-
-We treat any results that are `missing` or `0` as having no suitable area and ignore these.
-As the result DataFrame is initialized with 0 values in the target columns, they only get
-changed if non-zero or non-missing values are found.
-
-This could be improved by keeping a log of which reefs were already successfully scanned,
-and skipping these in subsequent region loops. Doing so would reduce processing time.
-
-As it currently only takes ~2mins (on a machine with 128GB of ram), I've decided to leave it
-as is.
 """
 
 using Rasters
@@ -40,10 +22,12 @@ reef_path = joinpath(
 )
 
 reef_features = GDF.read(reef_path)
+reef_features.region .= ""
+reef_features.reef_name .= ""
 reef_features.n_flat .= 0
 reef_features.n_slope .= 0
-reef_features.n_flat_ha .= 0.0
-reef_features.n_slope_ha .= 0.0
+reef_features.flat_ha .= 0.0
+reef_features.slope_ha .= 0.0
 
 reef_features.flat_scr .= 0.0
 reef_features.slope_scr .= 0.0
@@ -60,10 +44,6 @@ function count_suitable(raster, reef)::Union{Int64, Missing}
     local total::Union{Int, Missing} = missing
     try
         total = Rasters.zonal(sum, raster; of=reef, shape=:polygon, boundary=:touches)
-
-        if !ismissing(total) && total == 0
-            total = missing
-        end
     catch err
         if !(err isa TaskFailedException)
             rethrow(err)
@@ -98,50 +78,60 @@ end
     reefs = GDF.read(reef_path)
     reefs.geometry = AG.reproject(reefs.geometry, GFT.EPSG(4326), crs(target_flats); order=:trad)
 
-    for reef in eachrow(reefs)
+    for (target_row, reef) in enumerate(eachrow(reefs))
         # Count number of locations that meet flats and slopes criteria.
         # Have to loop over each reef individually as some geometries causes a crash.
-        # These should be safe to skip, and will resolve to "missing".
-        # Because reefs are looped over for each region, we don't replace values as we go
-        # as values for a reef may have been filled out in a previous loop.
+        # These should be safe to skip, and will resolve to `missing`.
+        if reef_features[target_row, :region] != ""
+            # Reef already associated with a region and therefore have been parsed in a
+            # previous loop, so we skip.
+            continue
+        end
 
-        # Match by OBJECTID, which should be the row number but don't trust it...
-        target_row = reef_features.OBJECTID .== reef.OBJECTID
         flat_val = count_suitable(target_flats, reef.geometry)
         if !ismissing(flat_val)
-            reef_features[target_row, :n_flat] .= flat_val
-            reef_features[target_row, :n_flat_ha] .= flat_val / 100.0
+            reef_features[target_row, :n_flat] = flat_val
+            reef_features[target_row, :flat_ha] = flat_val / 100.0
         end
 
         # Do again for slopes
         slope_val = count_suitable(target_slopes, reef.geometry)
         if !ismissing(slope_val)
-            reef_features[target_row, :n_slope] .= slope_val
-            reef_features[target_row, :n_slope_ha] .= slope_val / 100.0
+            reef_features[target_row, :n_slope] = slope_val
+            reef_features[target_row, :slope_ha] = slope_val / 100.0
+        end
+
+        reef_features[target_row, :reef_name] = reef.LOC_NAME_S
+
+        if !ismissing(flat_val) || !ismissing(slope_val)
+            reef_features[target_row, :region] = reg
         end
     end
-
+    
     target_flats = nothing
     target_slopes = nothing
     GC.gc()
 end
 
 valid_locs = reef_features.Area_HA .!= 0
-reef_features[valid_locs, :flat_scr] .= reef_features[valid_locs, :n_flat_ha] ./ reef_features[valid_locs, :Area_HA]
-reef_features[valid_locs, :slope_scr] .= reef_features[valid_locs, :n_slope_ha] ./ reef_features[valid_locs, :Area_HA]
+reef_features[valid_locs, :flat_scr] .= round.(reef_features[valid_locs, :flat_ha] ./ reef_features[valid_locs, :Area_HA], digits=4)
+reef_features[valid_locs, :slope_scr] .= round.(reef_features[valid_locs, :slope_ha] ./ reef_features[valid_locs, :Area_HA], digits=4)
 
-reef_features[:, :flat_scr] .= reef_features[:, :flat_scr] / maximum(reef_features[:, :flat_scr])
-reef_features[:, :slope_scr] .= reef_features[:, :slope_scr] / maximum(reef_features[:, :slope_scr])
+for reg in REGIONS
+    target_reg = reef_features.region .== reg
+    reef_features[target_reg, :flat_scr] .= round.(reef_features[target_reg, :flat_scr] / maximum(reef_features[target_reg, :flat_scr]), digits=4)
+    reef_features[target_reg, :slope_scr] .= round.(reef_features[target_reg, :slope_scr] / maximum(reef_features[target_reg, :slope_scr]), digits=4)
+end
 
 # Have to write out results as shapefile because of ArcGIS not handling GeoPackages for
 # some reason...
 GDF.write(
     joinpath(QGIS_DIR, "reef_suitability.shp"),
-    reef_features[:, [:geometry, :LOC_NAME_S, :UNIQUE_ID, :Area_HA, :n_flat, :n_flat_ha, :n_slope, :n_slope_ha, :flat_scr, :slope_scr]];
+    reef_features[:, [:geometry, :region, :reef_name, :flat_ha, :slope_ha, :Area_HA, :n_flat, :n_slope, :flat_scr, :slope_scr, :UNIQUE_ID]];
     layer_name="reef_suitability",
     geom_columns=(:geometry,),
     crs=EPSG(4326)
 )
 
-subdf = reef_features[:, [:LOC_NAME_S, :UNIQUE_ID, :Area_HA, :n_flat, :n_flat_ha, :n_slope, :n_slope_ha, :flat_scr, :slope_scr]]
+subdf = reef_features[:, [:region, :reef_name, :flat_ha, :slope_ha, :Area_HA, :n_flat, :n_slope, :flat_scr, :slope_scr, :UNIQUE_ID]]
 CSV.write("../qgis/potential_reef_areas.csv", subdf)
