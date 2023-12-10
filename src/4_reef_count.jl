@@ -118,6 +118,7 @@ reef_features[valid_locs, :flat_scr] .= round.(reef_features[valid_locs, :flat_h
 reef_features[valid_locs, :slope_scr] .= round.(reef_features[valid_locs, :slope_ha] ./ reef_features[valid_locs, :Area_HA], digits=4)
 
 for reg in REGIONS
+    # Determine float/slope score for each region
     target_reg = reef_features.region .== reg
     reef_features[target_reg, :flat_scr] .= round.(reef_features[target_reg, :flat_scr] / maximum(reef_features[target_reg, :flat_scr]), digits=4)
     reef_features[target_reg, :slope_scr] .= round.(reef_features[target_reg, :slope_scr] / maximum(reef_features[target_reg, :slope_scr]), digits=4)
