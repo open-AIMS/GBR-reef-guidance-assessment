@@ -21,7 +21,7 @@ previously.
 
 ## Manual steps
 
-Once the layers have been added, create an MBTiles file with:
+In QGIS, once the raster layers have been added, create an MBTiles file with:
 
 Processing Toolbox -> Raster Tools -> Generate XYZ tiles (MBTiles)
 
@@ -39,7 +39,7 @@ Bathymetry 10m Grid:
 
 Slope 10m Grid:
 
-To be confirmed.
+Calculated by Dr M. Puotinen based on the bathymetry.
 
 GBRMPA Features:
 - https://data.gov.au/dataset/ds-dga-51199513-98fa-46e6-b766-8e1e1c896869/details
@@ -48,8 +48,8 @@ Geomorphic:
 - https://gbrmpa.maps.arcgis.com/home/item.html?id=93fd689452e44e74801845b7935c54c4
 
 GBRMPA Zones:
-- https://geoportal.gbrmpa.gov.au/datasets/GBRMPA::great-barrier-reef-marine-park-zoning/explore
 - https://geoportal.gbrmpa.gov.au/datasets/GBRMPA::management-areas-of-the-great-barrier-reef-marine-park/explore?location=-17.583829%2C150.586624%2C6.38
+- https://geoportal.gbrmpa.gov.au/datasets/GBRMPA::great-barrier-reef-marine-park-zoning/explore
 
 
 GBRMPA Bioregions:
