@@ -1,5 +1,3 @@
-# using GeoJSON
-# using JSON
 using CSV
 using DataFrames
 using GeoDataFrames
@@ -14,7 +12,6 @@ const criteria =  ["Benthic-Map",
 # Function to read and print GeoJSON file
 function read_and_print_geojson(filepath, criteria)
     for c in criteria        
-    DATA=[]        
     directory_path = joinpath(filepath, c)                                                  # GeoJSON file containing directory
     geojson_files = filter(file -> endswith(file, ".geojson"), readdir(directory_path))     # Filter GeoJSON files
     geojson_files_path = [joinpath(directory_path, geojson_file) for geojson_file in geojson_files]
@@ -26,20 +23,6 @@ function read_and_print_geojson(filepath, criteria)
                 println("$(c)\tSize: ", size(df), "\tNames: ", names(df))
                 println(first(df, 5))
 
-                # for feature in df.features
-                #     properties_json = JSON.json(feature.properties)
-                #     geometry_coords = JSON.json(feature.geometry)
-                #     push!(DATA, (properties_json, geometry_coords))
-                # end
-
-                # geojson_data = GeoJSON.read(joinpath(directory_path, geojson_files[i]))
-                # println("$(c)\tType: ", typeof(geojson_data), "\tfeatures: ", length(geojson_data.features))
-                # for feature in geojson_data.features
-                #     properties_json = JSON.json(feature.properties)
-                #     geometry_coords = JSON.json(feature.geometry)
-                #     push!(DATA, (properties_json, geometry_coords))
-                # end
-            
             # Write data to a CSV file
             try 
                 CSV.write(joinpath(ALLEN_DIR, "outputs", "df_data_$(c).csv"), df)#, delim=',', writeheader=false)
