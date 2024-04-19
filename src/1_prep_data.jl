@@ -1,6 +1,7 @@
 """Prepare data for analysis."""
 
 using Rasters
+using NCDatasets
 import GeoDataFrames as GDF
 import ArchGDAL as AG
 
@@ -29,7 +30,7 @@ region_path = joinpath(
 )
 region_features = GDF.read(region_path)
 
-@showprogress dt=10 "Prepping benthic/geomorphic data..." for reg in REGIONS
+@showprogress dt=10 "Prepping benthic/geomorphic/wave data..." for reg in REGIONS
     reg_idx = occursin.(reg[1:3], region_features.AREA_DESCR)
 
     src_bathy_path = first(glob("*.tif", joinpath(DATA_DIR, "bathy", reg)))
@@ -52,5 +53,21 @@ region_features = GDF.read(region_path)
 
         target_geomorphic= nothing
         GC.gc()
+    end
+
+    if !isfile(joinpath(RESULT_DIR, "$(reg)_waves.tif"))
+        if reg == "Townsville-Whitsunday"
+            tw_waves_1 = Rasters.Raster(joinpath(DATA_DIR,"waves/TownsvilleWhitsunday_VarWind_ubed_90.nc"); key=:ubed90, lazy=true, missingval=missingval(src_bathy))
+            tw_waves_2 = Rasters.Raster(joinpath(DATA_DIR,"waves/TownsvilleWhitsunday_VarWind_ubed_90_additional.nc")) # contains additional information for reefs in the following cropped region
+            tw_waves_2_cropped = tw_waves_2[X(Between(675150,699000)), Y(Between(7765000,7755000))]
+            tw_waves = Rasters.mosaic(last, tw_waves_1, tw_waves_2_cropped) # inputting values from the cropped region of the second dataset to the total dataset
+            tw_waves = Rasters.resample(tw_waves, to=src_bathy)
+            write(joinpath(RESULT_DIR, "$(reg)_waves.tif"), tw_waves; force=true)
+        else
+            target_waves_path = first(glob("*.tif", joinpath(DATA_DIR, "waves", reg)))
+            target_waves = Rasters.Raster(target_waves_path, key=:ubed90, lazy=true, missingval=missingval(src_bathy))
+            target_waves = Rasters.resample(target_waves, to=src_bathy)
+            write(joinpath(RESULT_DIR, "$(reg)_waves.tif"), target_waves; force=true)
+        end
     end
 end

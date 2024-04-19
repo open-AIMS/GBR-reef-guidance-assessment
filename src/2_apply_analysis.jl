@@ -107,6 +107,9 @@ include("common.jl")
         src_geomorphic_path = "../figs/$(reg)_geomorphic.tif"
         src_geomorphic = Raster(src_geomorphic_path, lazy=true)
 
+        src_waves_path = "..figs/$(reg)_waves.tif"
+        src_waves = Raster(src_waves_path, lazy=true)
+
         # Source image is of 10m^2 pixels
         # A hectare is 100x100 meters, so we're looking for contiguous areas where
         # some proportional area (here 75% or 95%) meet criteria of
@@ -121,14 +124,16 @@ include("common.jl")
             (src_geomorphic .∈ [FLAT_IDS]) .&
             (src_benthic .∈ [BENTHIC_IDS]) .&
             (-9.0 .<= src_bathy .<= -2.0) .&
-            (0.0 .<= src_slope .<= 40.0)
+            (0.0 .<= src_slope .<= 40.0) .&
+            (x .<= src_waves .<= y) # Add some criteria for waves once Hs data is available and considered
         )
 
         suitable_slopes = read(
             (src_geomorphic .∈ [SLOPE_IDS]) .&
             (src_benthic .∈ [BENTHIC_IDS]) .&
             (-9.0 .<= src_bathy .<= -2.0) .&
-            (0.0 .<= src_slope .<= 40.0)
+            (0.0 .<= src_slope .<= 40.0) .&
+            (x .<= src_waves .<= y) # Add some criteria for waves once Hs data is available and considered
         )
 
         # Need a copy of raster data type to support writing to `tif`
@@ -183,7 +188,7 @@ include("common.jl")
             result_raster .= res95
             write(fpath, result_raster; force=true)
         end
-        
+
         fpath = joinpath(RESULT_DIR, "$(reg)_grouped_slopes_95.tif")
         if !isfile(fpath)
             result_raster .= label_components(res95)
