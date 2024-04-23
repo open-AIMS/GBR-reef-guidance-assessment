@@ -107,7 +107,7 @@ include("common.jl")
         src_geomorphic_path = "../figs/$(reg)_geomorphic.tif"
         src_geomorphic = Raster(src_geomorphic_path, lazy=true)
 
-        src_waves_path = "..figs/$(reg)_waves.tif"
+        src_waves_path = "../figs/$(reg)_waves.tif"
         src_waves = Raster(src_waves_path, lazy=true)
 
         # Source image is of 10m^2 pixels
@@ -211,4 +211,4 @@ include("common.jl")
 end
 
 
-@showprogress dt=10 desc="Analyzing..." pmap(assess_region, REGIONS)
+@showprogress dt = 10 desc = "Analyzing..." pmap(assess_region, REGIONS)
