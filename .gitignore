@@ -2,3 +2,5 @@
 .vscode/
 
 outputs/
+
+src/.config.toml
