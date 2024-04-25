@@ -1,4 +1,9 @@
-"""Prepare data for analysis."""
+"""
+Prepare data for analysis.
+
+Reproject data from WGS84 to UTM Zone 54 - 56.
+Ensure all rasters are the same size/shape for each region of interest.
+"""
 
 include("common.jl")
 
