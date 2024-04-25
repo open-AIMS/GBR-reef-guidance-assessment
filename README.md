@@ -175,8 +175,15 @@ Longitude: 401619.2269136696, 859799.2269136696
 
 Note the east-most longitude is outside the nominal bounds for UTM Zone 55S.
 
-Thankfully, we are able to write to netCDF format without complaints, with the caveat
-that the prepared data will also lack a valid CRS.
+As a tentative workaround, it is assumed that the embedded extents in the wave netCDFs are
+incorrect. Extents of the wave data typically match the size/shape of bathymetry data
+(i.e., the number of rows/columns are the same). When missing data is cropped away, the
+remaining wave data is well within the bathymetry bounds. Where the sizes do not match,
+the bounds of the wave data is extended so it does (the additional rows/columns are filled
+with values denoting `missing` data).
+
+The bathymetry data structure is then copied (so metadata on its extent, projection, etc.
+are retained), and finally, the wave data is copied across.
 
 ## Presentation
 
