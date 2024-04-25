@@ -53,7 +53,7 @@ region_features = GDF.read(region_path)
 
         # Extend bounds of wave data to match bathymetry if needed
         if size(src_bathy) !== size(target_waves)
-            target_waves = extend(target_waves; to=AG.extent(src_bathy))
+            target_waves = extend(crop(target_waves; to=src_bathy); to=AG.extent(src_bathy))
             @assert size(src_bathy) == size(target_waves)
         end
 
@@ -64,7 +64,9 @@ region_features = GDF.read(region_path)
         # We assume the wave coordinates are incorrect and move on by copying the bathymetry
         # data structure and replace its values with wave data.
         tmp = copy(src_bathy)
-        tmp.data .= target_waves.data
+
+        # Replace data (important: flip the y-axis!)
+        tmp.data .= target_waves.data[:, end:-1:1]
         target_waves = tmp
 
         # Set to known missing value
