@@ -60,12 +60,12 @@ end
 @showprogress dt=10 desc="Collating zonal stats..." for reg in REGIONS
     # Load raster
     target_flats = Raster(
-        joinpath(OUTPUT_DIR, "$(reg)_suitable_flats_85.tif"),
+        joinpath(OUTPUT_DIR, "$(reg)_suitable_flats_95.tif"),
         mappedcrs=EPSG(4326)
     )
 
     target_slopes = Raster(
-        joinpath(OUTPUT_DIR, "$(reg)_suitable_slopes_85.tif"),
+        joinpath(OUTPUT_DIR, "$(reg)_suitable_slopes_95.tif"),
         mappedcrs=EPSG(4326)
     )
 
