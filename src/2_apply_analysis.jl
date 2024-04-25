@@ -141,6 +141,9 @@ include("common.jl")
         result_raster = convert.(Int16, copy(suitable_flats))
         rebuild(result_raster; missingval=0)
 
+        suitable_flats = nothing
+        GC.gc()
+
         # # 85% threshold
         # res = mapwindow(suitability_func(0.85), suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray
         # fpath = joinpath(OUTPUT_DIR, "$(reg)_suitable_flats_85.tif")
@@ -181,6 +184,9 @@ include("common.jl")
 
         fpath = joinpath(OUTPUT_DIR, "$(reg)_grouped_slopes_95.tif")
         _write_data(fpath, res, result_raster)
+
+        suitable_slopes = nothing
+        GC.gc()
 
         res = nothing
         GC.gc()
