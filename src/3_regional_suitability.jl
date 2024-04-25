@@ -15,8 +15,8 @@ using Glob
 include("common.jl")
 
 region_path = joinpath(
-    DATA_DIR, 
-    "zones", 
+    MPA_DATA_DIR,
+    "zones",
     "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
 )
 
@@ -35,7 +35,7 @@ region_features.n_potential_slope_ha .= 0.0
     reg_idx = occursin.(reg[1:3], region_features.AREA_DESCR)
 
     flats = Raster(
-        joinpath(RESULT_DIR, "$(reg)_grouped_flats_85.tif")
+        joinpath(OUTPUT_DIR, "$(reg)_grouped_flats_85.tif")
     )
     grouped_flats = countmap(flats)  # get number of pixels per cluster
     region_features[reg_idx, :n_flat_components] .= length(keys(grouped_flats))
@@ -45,7 +45,7 @@ region_features.n_potential_slope_ha .= 0.0
     GC.gc()
 
     slopes = Raster(
-        joinpath(RESULT_DIR, "$(reg)_grouped_slopes_85.tif")
+        joinpath(OUTPUT_DIR, "$(reg)_grouped_slopes_85.tif")
     )
     grouped_slopes = countmap(slopes)  # get number of pixels per cluster
     region_features[reg_idx, :n_slope_components] .= length(keys(grouped_slopes))
@@ -58,7 +58,7 @@ end
 # There's some issue with the FID column preventing successful write out
 # so we ignore the column when writing results out.
 GDF.write(
-    joinpath(QGIS_DIR, "regional_suitability.gpkg"), 
+    joinpath(QGIS_DIR, "regional_suitability.gpkg"),
     region_features[:, Not(:FID)];
     layer_name="region_suitability",
     geom_columns=(:geometry,)

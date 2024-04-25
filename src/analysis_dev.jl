@@ -13,11 +13,11 @@ using Statistics, StatsBase
 
 
 # Examine Bathymetry data (10m resolution)
-DATA_DIR = "C:/Users/tiwanaga/development/ADRIA_data/spatial_datasets/Bathy data 10m"
+MPA_DATA_DIR = "C:/Users/tiwanaga/development/ADRIA_data/spatial_datasets/Bathy data 10m"
 
-# tsv_data = joinpath(DATA_DIR, "Townsville-Whitsunday/SDB_AUS_TownsvilleWhitsunday_EOMAP_20180603_20180903_10m_MSL_geotiff.tif")
-cairns_data = joinpath(DATA_DIR, "bathy/Cairns-Cooktown/SDB_AUS_CairnsCooktown_EOMAP_20180514_20181016_10m_MSL_geotiff.tif")
-cairns_slope_data = joinpath(DATA_DIR, "slope/Cairns-Cooktown/slope_cnscook.tif")
+# tsv_data = joinpath(MPA_DATA_DIR, "Townsville-Whitsunday/SDB_AUS_TownsvilleWhitsunday_EOMAP_20180603_20180903_10m_MSL_geotiff.tif")
+cairns_data = joinpath(MPA_DATA_DIR, "bathy/Cairns-Cooktown/SDB_AUS_CairnsCooktown_EOMAP_20180514_20181016_10m_MSL_geotiff.tif")
+cairns_slope_data = joinpath(MPA_DATA_DIR, "slope/Cairns-Cooktown/slope_cnscook.tif")
 
 moore_dpkg_path = "C:/Users/tiwanaga/development/ADRIA_data/Moore_2023-09-14_rc/site_data/Moore_2023-09-14_rc.gpkg"
 gbr_dpkg_path = "C:/Users/tiwanaga/development/RME/rme_ml_2023_03_30b/data_files/region/reefmod_gbr.gpkg"

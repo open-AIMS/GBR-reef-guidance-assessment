@@ -16,7 +16,7 @@ include("common.jl")
 
 # D:\development\ADRIA_data\spatial_datasets\Bathy data 10m\features
 reef_path = joinpath(
-    DATA_DIR,
+    MPA_DATA_DIR,
     "features",
     "Great_Barrier_Reef_Features.shp"
 )
@@ -60,12 +60,12 @@ end
 @showprogress dt=10 desc="Collating zonal stats..." for reg in REGIONS
     # Load raster
     target_flats = Raster(
-        joinpath(RESULT_DIR, "$(reg)_suitable_flats_85.tif"),
+        joinpath(OUTPUT_DIR, "$(reg)_suitable_flats_85.tif"),
         mappedcrs=EPSG(4326)
     )
 
     target_slopes = Raster(
-        joinpath(RESULT_DIR, "$(reg)_suitable_slopes_85.tif"),
+        joinpath(OUTPUT_DIR, "$(reg)_suitable_slopes_85.tif"),
         mappedcrs=EPSG(4326)
     )
 
@@ -107,7 +107,7 @@ end
             reef_features[target_row, :region] = reg
         end
     end
-    
+
     target_flats = nothing
     target_slopes = nothing
     GC.gc()
