@@ -2,6 +2,70 @@
 
 Analyses to support workshop discussions.
 
+## Project Layout
+
+Assumes `src` is the project root. Each file in `src` is expected to be run in order.
+
+```code
+GBR-FeatureAnalysis/
+├─ src/           # Analysis
+├─ outputs/       # Intermediate data files
+├─ figs/          # Figures
+├─ .gitignore
+├─ Project.toml   # Julia project spec
+├─ LICENSE.md
+├─ README.md      # this file
+```
+
+In addition to the above, spatial data should be stored outside the repository and its
+location defined in a `.config.toml` file placed within `src`.
+
+```TOML
+[processing]
+N_CORES = 2  # Number of cores to use for multi-processing steps
+
+[gbr_bathy]
+MPA_DATA_DIR = "path to GBR data"  # location of GBR datasets
+
+[allen]
+ALLEN_ATLAS_DIR = "path to Allen Atlas data"  # location of Allen Atlas datasets
+```
+
+### Data layout
+
+Expected data directory layout:
+
+Sub-directory names should be consistent and match.
+Benthic habitat raster (inside `benthic`) covers whole of GBR so no sub-directories are necessary.
+Similarly, `geomorphic` holds the whole-of-GBR geomorphic zonation raster
+
+`zones` holds GBRMPA zone layers in geojson format.
+
+`features` holds the GBRMPA GBR-wide feature set.
+
+```bash
+MPA_DATA_DIR
+├───bathy
+│   ├───Cairns-Cooktown
+│   ├───FarNorthern
+│   ├───Mackay-Capricorn
+│   └───Townsville-Whitsunday
+├───benthic
+├───features
+├───geomorphic
+├───slope
+│   ├───Cairns-Cooktown
+│   ├───FarNorthern
+│   ├───Mackay-Capricorn
+│   └───Townsville-Whitsunday
+├───waves
+│   ├───Cairns-Cooktown
+│   ├───FarNorthern
+│   ├───Mackay-Capricorn
+│   └───Townsville-Whitsunday
+└───zones
+```
+
 ## Scripts
 
 All scripts assume `src` is the root. References to external directories may be specified
@@ -59,35 +123,62 @@ https://geoportal.gbrmpa.gov.au/datasets/GBRMPA::great-barrier-reef-marine-park-
 
 https://geoportal.gbrmpa.gov.au/datasets/GBRMPA::reef-marine-bioregions-of-the-great-barrier-reef/about
 
-## Data layout
+### Wave data
 
-Expected data directory layout:
+Callaghan, David (2023). Great Barrier Reef non-cyclonic and on-reef wave model predictions.
+The University of Queensland.
+Data Collection.
+https://doi.org/10.48610/8246441
+https://espace.library.uq.edu.au/view/UQ:8246441
 
-Sub-directory names should be consistent and match.
-Benthic habitat raster (inside `benthic`) covers whole of GBR so no sub-directories are necessary.
-Similarly, `geomorphic` holds the whole-of-GBR geomorphic zonation raster
+#### Notes
 
-`zones` holds GBRMPA zone layers in geojson format.
+`Hs` (Significant wave height) : average height of the top 1/3 highest waves in a section
+of ocean; in metres Gives a general idea of sea state, which is the general roughness
+(or not) of a part of the sea A reasonable proxy for the potential for wave impacts on
+structures like reefs.
 
-`features` holds the GBRMPA GBR-wide feature set.
+Often this might be the only data available.
 
-```bash
-DATA_DIR
-├───bathy
-│   ├───Cairns-Cooktown
-│   ├───FarNorthern
-│   ├───Mackay-Capricorn
-│   └───Townsville-Whitsunday
-├───benthic
-├───features
-├───geomorphic
-├───slope
-│   ├───Cairns-Cooktown
-│   ├───FarNorthern
-│   ├───Mackay-Capricorn
-│   └───Townsville-Whitsunday
-└───zones
-```
+#### Projections
+
+Wave data provided can span across two UTM zones.
+Saving processed data as geotiffs will fail due to bounds checking; the GDAL implementation
+will refuse to write to disk if the data falls outside of the indicated projection bounds.
+
+This may be why the wave data (provided in netCDF format) does not include a CRS.
+
+For example, most of the Townsville-Whitsunday region falls under UTM Zone 55S extents
+(EPSG: 32755).
+
+Latitude: 1116915.04, 10000000.0
+Longitude: 166021.44, 833978.56
+
+Units are meters in Northings/Eastings. Simply, the greater the Longitude (Eastings) value,
+the further east the extent. The greater the Latitude (Northings) value, the further north
+the extent.
+
+The bathymetry data for the same region spans across:
+
+Latitude: 7709845.2670042375, 8045915.2670042375
+Longitude: 394844.2269136696, 875934.2269136696
+
+The wave data spans across:
+
+Latitude: 7709850.2670042375, 8045910.2670042375
+Longitude: 394849.2269136696, 875929.2269136696
+
+After trimming to bathymetry extents:
+
+Latitude: 7729280.2670042375, 8040970.2670042375
+Longitude: 401619.2269136696, 859799.2269136696
+
+Note the east-most longitude is outside the nominal bounds for UTM Zone 55S.
+
+Thankfully, we are able to write to netCDF format without complaints, with the caveat
+that the prepared data will also lack a valid CRS.
+
+## Presentation
 
 Recommended Colors
 
