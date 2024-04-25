@@ -1,5 +1,6 @@
 using Distributed
 using TOML
+using GLMakie, GeoMakie
 
 try
     global CONFIG = TOML.parsefile(".config.toml")
@@ -26,6 +27,7 @@ end
         using Rasters
         using NCDatasets
 
+        using DataFrames
         import GeoDataFrames as GDF
         import GeoFormatTypes as GFT
         import ArchGDAL as AG
@@ -64,4 +66,73 @@ end
         "Mackay-Capricorn" => "+proj=utm +zone=56 +south +datum=WGS84",
         "FarNorthern"=>"+proj=utm +zone=54 +south +datum=WGS84"
     )
+end
+
+
+function plot_map(gdf::DataFrame; geom_col=:geometry, color=nothing)
+    f = Figure(; size=(600, 900))
+    ga = GeoAxis(
+        f[1,1];
+        dest="+proj=latlong +datum=WGS84",
+        xlabel="Longitude",
+        ylabel="Latitude",
+        xticklabelpad=15,
+        yticklabelpad=40,
+        xticklabelsize=10,
+        yticklabelsize=10,
+        aspect=AxisAspect(0.75),
+        xgridwidth=0.5,
+        ygridwidth=0.5,
+    )
+
+    plottable = GeoMakie.geo2basic(AG.forceto.(gdf[!, geom_col], AG.wkbPolygon))
+
+    if !isnothing(color)
+        poly!(ga, plottable, color=color)
+    else
+        poly!(ga, plottable)
+    end
+
+    # Need to auto-set limits explicitly, otherwise tick labels don't appear properly (?)
+    # autolimits!(ga)
+    xlims!(ga)
+    ylims!(ga)
+
+    display(f)
+
+    return f
+end
+function plot_map!(ga::GeoAxis, gdf::DataFrame; geom_col=:geometry, color=nothing)::Nothing
+
+    plottable = GeoMakie.geo2basic(AG.forceto.(gdf[!, geom_col], AG.wkbPolygon))
+
+    if !isnothing(color)
+        poly!(ga, plottable, color=color)
+    else
+        poly!(ga, plottable)
+    end
+
+    # Need to auto-set limits explicitly, otherwise tick labels don't appear properly (?)
+    # autolimits!(ga)
+    xlims!(ga)
+    ylims!(ga)
+
+    return nothing
+end
+function plot_map!(gdf::DataFrame; geom_col=:geometry, color=nothing)::Nothing
+    ga = current_axis()
+    plottable = GeoMakie.geo2basic(AG.forceto.(gdf[!, geom_col], AG.wkbPolygon))
+
+    if !isnothing(color)
+        poly!(ga, plottable, color=color)
+    else
+        poly!(ga, plottable)
+    end
+
+    # Need to auto-set limits explicitly, otherwise tick labels don't appear properly (?)
+    # autolimits!(ga)
+    xlims!(ga)
+    ylims!(ga)
+
+    return nothing
 end
