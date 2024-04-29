@@ -14,7 +14,6 @@ using ProgressMeter
 
 include("common.jl")
 
-# D:\development\ADRIA_data\spatial_datasets\Bathy data 10m\features
 reef_path = joinpath(
     MPA_DATA_DIR,
     "features",
