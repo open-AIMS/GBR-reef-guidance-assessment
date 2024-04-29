@@ -22,12 +22,12 @@ location defined in a `.config.toml` file placed within `src`.
 
 ```TOML
 [processing]
-N_CORES = 2  # Number of cores to use for multi-processing steps
+N_PROCS = 2  # Number of cores to use for multi-processing steps
 
-[gbr_bathy]
+[mpa_data]
 MPA_DATA_DIR = "path to GBR data"  # location of GBR datasets
 
-[allen]
+[aca_data]
 ALLEN_ATLAS_DIR = "path to Allen Atlas data"  # location of Allen Atlas datasets
 ```
 
