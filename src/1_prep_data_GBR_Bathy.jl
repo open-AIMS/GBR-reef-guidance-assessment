@@ -63,14 +63,14 @@ region_features = GDF.read(region_path)
         end
 
         # Hacky workaround:
-        # Due to projection schenanigans, the extents appears to be offset by ~5m.
+        # Due to projection issues, the extents of the GBR bathymetry and wave rasters appear to be offset by 5m.
         # The extent of the data may also cross two UTM zones, even if the wave data
         # is well within the bathymetry bounds.
         # We assume the wave coordinates are incorrect and move on by copying the bathymetry
         # data structure and replace its values with wave data.
         tmp = copy(src_bathy)
 
-        # Replace data (important: flip the y-axis!)
+        # Wave data is formatted upside-down compared to bathymetry data - Flip Y axis:
         tmp.data .= target_waves.data[:, end:-1:1]
         target_waves = tmp
 
