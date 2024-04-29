@@ -19,12 +19,12 @@ gbr_morphic_path = "$(MPA_DATA_DIR)/geomorphic/GBR10 GBRMP Geomorphic.tif"
 gbr_geomorphic = Raster(gbr_morphic_path, crs=EPSG(4326), lazy=true)
 
 
-# Get polygon of management areas
-region_path = joinpath(
-    MPA_DATA_DIR,
-    "zones",
-    "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
-)
+# # Get polygon of management areas
+# region_path = joinpath(
+#     MPA_DATA_DIR,
+#     "zones",
+#     "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
+# )
 region_features = GDF.read(region_path)
 
 @showprogress dt = 10 "Prepping benthic/geomorphic/wave data..." for reg in REGIONS
@@ -71,7 +71,7 @@ region_features = GDF.read(region_path)
         tmp = copy(src_bathy)
 
         # Replace data (important: flip the y-axis!)
-        tmp.data .= target_waves.data[:, end:-1:1]
+        tmp.data .= coalesce.(target_waves.data[:, end:-1:1], -9999.0)
         target_waves = tmp
 
         # Set to known missing value
