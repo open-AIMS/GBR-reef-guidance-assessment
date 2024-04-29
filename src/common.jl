@@ -12,6 +12,19 @@ catch err
     rethrow(err)
 end
 
+# Get polygon of management areas
+region_path = joinpath(
+    MPA_DATA_DIR,
+    "zones",
+    "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
+)
+
+reef_path = joinpath(
+    MPA_DATA_DIR,
+    "features",
+    "Great_Barrier_Reef_Features.shp"
+)
+
 if nworkers() == 1 && (CONFIG["processing"]["N_PROCS"] > 1)
     addprocs(CONFIG["processing"]["N_PROCS"]; dir=@__DIR__)
 end
