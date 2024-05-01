@@ -1,6 +1,8 @@
 using Distributed
 using TOML
 using GLMakie, GeoMakie
+using ProgressMeter
+
 
 try
     global CONFIG = TOML.parsefile(".config.toml")
@@ -11,19 +13,6 @@ catch err
 
     rethrow(err)
 end
-
-# Get polygon of management areas
-region_path = joinpath(
-    MPA_DATA_DIR,
-    "zones",
-    "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
-)
-
-reef_path = joinpath(
-    MPA_DATA_DIR,
-    "features",
-    "Great_Barrier_Reef_Features.shp"
-)
 
 if nworkers() == 1 && (CONFIG["processing"]["N_PROCS"] > 1)
     addprocs(CONFIG["processing"]["N_PROCS"]; dir=@__DIR__)
@@ -58,6 +47,19 @@ end
     global CONFIG = TOML.parsefile(".config.toml")
     global MPA_DATA_DIR = CONFIG["mpa_data"]["MPA_DATA_DIR"]
     global ALLEN_ATLAS_DIR = CONFIG["aca_data"]["ALLEN_ATLAS_DIR"]
+
+    # Get polygon of management areas
+    global region_path = joinpath(
+        MPA_DATA_DIR,
+        "zones",
+        "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
+    )
+
+    global reef_path = joinpath(
+        MPA_DATA_DIR,
+        "features",
+        "Great_Barrier_Reef_Features.shp"
+    )
 
     # Folder names (TODO: Generalize)
     global REGIONS = String[
