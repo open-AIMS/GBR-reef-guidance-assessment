@@ -7,10 +7,7 @@ Ensure all rasters are the same size/shape for each region of interest.
 
 include("common.jl")
 
-
-# Reproject benthic data into common CRSs
-# Avoids the need to repeatedly reproject within each step
-
+# Load whole-GBR benthic and geomorphic data
 gbr_benthic_path = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
 gbr_benthic = Raster(gbr_benthic_path, crs=EPSG(4326), lazy=true)
 
@@ -18,23 +15,24 @@ gbr_benthic = Raster(gbr_benthic_path, crs=EPSG(4326), lazy=true)
 gbr_morphic_path = "$(MPA_DATA_DIR)/geomorphic/GBR10 GBRMP Geomorphic.tif"
 gbr_geomorphic = Raster(gbr_morphic_path, crs=EPSG(4326), lazy=true)
 
-
-# # Get polygon of management areas
-# region_path = joinpath(
-#     MPA_DATA_DIR,
-#     "zones",
-#     "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
-# )
+# Get polygons of management areas
+region_path = joinpath(
+    MPA_DATA_DIR,
+    "zones",
+    "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
+)
 region_features = GDF.read(region_path)
 
+# Reproject benthic data into common Coordinate Reference Systems
+# Avoids the need to repeatedly reproject within each step
 @showprogress dt = 10 "Prepping benthic/geomorphic/wave data..." for reg in REGIONS
     reg_idx = occursin.(reg[1:3], region_features.AREA_DESCR)
 
     src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
     src_bathy = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
 
+    # Only create files that are needed
     if !isfile(joinpath(OUTPUT_DIR, "$(reg)_benthic.tif"))
-        # Only recreate files if needed
         target_benthic = Rasters.trim(mask(gbr_benthic; with=region_features[reg_idx, :]))
         target_benthic = resample(target_benthic, to=src_bathy)
         write(joinpath(OUTPUT_DIR, "$(reg)_benthic.tif"), target_benthic; force=true)
@@ -60,14 +58,17 @@ region_features = GDF.read(region_path)
         if size(src_bathy) !== size(target_waves)
             target_waves = extend(crop(target_waves; to=src_bathy); to=AG.extent(src_bathy))
             @assert size(src_bathy) == size(target_waves)
+
+            replace_missing!(target_waves,-9999.0)
         end
 
         # Hacky workaround:
         # Due to projection schenanigans, the extents appears to be offset by ~5m.
         # The extent of the data may also cross two UTM zones, even if the wave data
         # is well within the bathymetry bounds.
-        # We assume the wave coordinates are incorrect and move on by copying the bathymetry
-        # data structure and replace its values with wave data.
+        # We assume the wave coordinates are incorrect, but the cells are the same,
+        # and move on by copying the bathymetry data structure and replace its values with wave data.
+
         tmp = copy(src_bathy)
 
         # Replace data (important: flip the y-axis!)
@@ -75,7 +76,7 @@ region_features = GDF.read(region_path)
         target_waves = tmp
 
         # Set to known missing value
-        target_waves.data[target_waves.data .< -9999.0] .= -9999.0
+        target_waves.data[target_waves.data.<-9999.0] .= -9999.0
         replace_missing!(target_waves, -9999.0)
 
         write(joinpath(OUTPUT_DIR, "$(reg)_waves.tif"), target_waves; force=true)
