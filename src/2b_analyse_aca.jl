@@ -32,18 +32,18 @@ aca_output_dir = joinpath(OUTPUT_DIR, "ACA")
 
     aca_output_dir = joinpath(OUTPUT_DIR, "ACA")
 
-    function suitability_func(threshold::Float64)::Function
-        function is_suitable(subsection::AbstractMatrix)::Int32
-            total = sum(subsection)
-            if total == 0.0
-                return 0.0
-            end
 
-            return Int32((total / length(subsection)) .>= threshold)
+    function prop_suitable(subsection::AbstractMatrix)::Float32
+        total = sum(subsection)
+        if total == 0.0
+            return 0.0
         end
 
-        return is_suitable
+        return Float32((total / length(subsection)))
     end
+
+
+
 
     function _write_data(fpath::String, data, cache)::Nothing
         if !isfile(fpath)
@@ -105,22 +105,31 @@ aca_output_dir = joinpath(OUTPUT_DIR, "ACA")
 
     function assess_region(reg)
         aca_bathy_path = joinpath(aca_output_dir, "$(reg)_bathy.tif")
-        allen_bathy = Raster(aca_bathy_path, crs=EPSG(4326), lazy=true)    
-    
-        # allen_turbid_path = joinpath(aca_output_dir, "$(reg)_turbid.tif")
-        # allen_turbi = Raster(allen_turbid_path, crs=EPSG(4326), lazy=true)    
-    
+        allen_bathy = Raster(aca_bathy_path, lazy=true)
+
+        #src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
+        #src_bathy = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
+
+        allen_turbid_path = joinpath(aca_output_dir, "$(reg)_turbid.tif")
+        allen_turbid = Raster(allen_turbid_path, lazy=true)
+
+        # Filter suitable areas that have a depth 2-9m and turbidity lower than 5.2FNU
         suitable_areas = read(
-            (-9.0 .<= allen_bathy .<= -2.0)  # depth criteria
-            # .& (allen_turbi .<= 52)    # LOW Turbidity = “52” in the turbidity maps = “5.2 FNU”
-        )    
+            (900.0 .<= allen_bathy .>= 200.0) .& (allen_turbid .<= 52)    # LOW Turbidity = “52” in the turbidity maps = “5.2 FNU”
+        )
+
+        allen_turbid = nothing
         allen_bathy = nothing
         # allen_turbi = nothing
-        GC.gc()    
-    
+        GC.gc()
+
+
+        # Maybe this following code should be run outside of the region loop/function?
+        # because the geojson datasets are GBR wide and finding the suitable polygons takes a lot of time
+
         flat_aca_ids = ["Inner Reef Flat", "Outer Reef Flat", "Plateau"]           # identify flats
         slope_aca_ids = ["Sheltered Reef Slope", "Reef Slope", "Back Reef Slope"]  # identify slopes        allen_bathy_path = first(glob("*.tif", joinpath(ALLEN_ATLAS_DIR, "Bathymetry---composite-depth")))
-        
+
         allen_geo_path = first(glob("*.geojson", joinpath(ALLEN_ATLAS_DIR, "Geomorphic-Map")))
         allen_geo = GDF.read(allen_geo_path)
 
@@ -130,7 +139,7 @@ aca_output_dir = joinpath(OUTPUT_DIR, "ACA")
         GC.gc()
 
         # Attempted fix for Rasters.mask ERROR: InexactError: Bool(-9999.0)
-        # suitable_areas = ismissing.(suitable_areas) .| suitable_areas 
+        # suitable_areas = ismissing.(suitable_areas) .| suitable_areas
 
         suitable_flats = Rasters.mask(suitable_areas; with=all_flats)
         suitable_slopes = Rasters.mask(suitable_areas; with=all_slopes)
@@ -140,16 +149,21 @@ aca_output_dir = joinpath(OUTPUT_DIR, "ACA")
         aca_benthic = GDF.read(aca_benthic_path)
 
         suitable_benthic = filter(row -> row[:class] in benthic_aca_ids, aca_benthic)
+        suitable_flats = Rasters.mask(suitable_flats; with=suitable_benthic)
+        suitable_slopes = Rasters.mask(suitable_slopes; with=suitable_benthic)
+
+        suitable_benthic = nothing
+        GC.gc()
 
         ###############################################
         #### RUNS TO HERE ####
         ###############################################
-    
-    
+
+
         # Need a copy of raster data type to support writing to `tif`
-        result_raster = convert.(Int16, copy(suitable_flats))
-        rebuild(result_raster; missingval=0)    
-    
+        result_raster = convert.(Float32, copy(suitable_flats))
+        rebuild(result_raster; missingval=0)
+
         ####
 
         # # Source image is of 10m^2 pixels
@@ -168,7 +182,7 @@ aca_output_dir = joinpath(OUTPUT_DIR, "ACA")
         #     (src_geomorphic .∈ [FLAT_IDS]) .&
         #     (src_benthic .∈ [BENTHIC_IDS]) .&
         #     (-9.0 .<= src_bathy .<= -2.0) .&
-        #     (0.0 .<= src_slope .<= 40.0) 
+        #     (0.0 .<= src_slope .<= 40.0)
         #     #.& (0.0 .<= src_waves .<= 1.0)
         # )
 
