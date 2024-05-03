@@ -1,40 +1,22 @@
 """Identify suitable locations for each region."""
 
-
-using Distributed
-using Rasters
-
-import GeoDataFrames as GDF
-import GeoFormatTypes as GFT
-import ArchGDAL as AG
-
-using ImageCore: Gray
-using ImageFiltering
-using ImageContrastAdjustment: adjust_histogram, LinearStretching
-using ImageMorphology: label_components, component_centroids
-
-using Statistics, StatsBase
-using Glob
-using ProgressMeter
-
-
 include("common.jl")
 
 
 @everywhere begin
     """
-    suitability_func(threshold::Float64)::Function
+    prop_suitable(subsection::AbstractMatrix)::Float32
 
-    Generate function that identifies whether a pixel that has an area that meets the
-    suitability threshold.
+    Calculate the the proportion of the subsection that is suitable for deployments.
+    Subsection is the surrounding hectare centred on each cell of a raster.
     """
-    function prop_suitable(subsection::AbstractMatrix)::Float64
+    function prop_suitable(subsection::AbstractMatrix)::Float32
         total = sum(subsection)
         if total == 0.0
             return 0.0
         end
 
-        return Float64((total / length(subsection)))
+        return Float32((total / length(subsection)))
     end
 
     function _write_data(fpath::String, data, cache)::Nothing
@@ -73,19 +55,11 @@ include("common.jl")
         src_waves = Raster(src_waves_path, lazy=true, crs=crs(src_bathy))
 
         # Source image is of 10m^2 pixels
-        # A hectare is 100x100 meters, so we're looking for contiguous areas where
-        # some proportional area (here 75% or 95%) meet criteria of
-        # (-9 <= depth <= -3, slope < 40, and habitat is Rock or Coral/Algae).
-        # 75% is assessed for comparison purposes.
-        # suitable = read(
-        #     depth_criteria(src_bathy) .& slope_criteria(src_slope) .& supports_coral(src_benthic)
-        # )
+        # A hectare is 100x100 meters, so we calculate the proportional area of each hectare
+        # that meet criteria of (-9 <= depth <= -3, slope < 40, habitat is Rock or
+        # Coral/Algae and 90th percentile of standing wave height is below 1m).
 
-        # We calculate the proportion of each hectare of data that is covered with
-
-        # See comment above re suitability functions - use of functions breaks `read()`
-        suitable_flats = read(
-            (src_geomorphic .∈ [FLAT_IDS]) .&
+        suitable_areas = read(
             (src_benthic .∈ [BENTHIC_IDS]) .&
             (-9.0 .<= src_bathy .<= -2.0) .&
             (0.0 .<= src_slope .<= 40.0) .&
@@ -93,11 +67,11 @@ include("common.jl")
         )
 
         # Need a copy of raster data type to support writing to `tif`
-        result_raster = convert.(Float64, copy(suitable_flats))
+        result_raster = convert.(Float32, copy(suitable_areas))
         rebuild(result_raster; missingval=0)
 
         # Assess flats
-        # suitable_flats = read((suitable_areas) .& (src_geomorphic .∈ [FLAT_IDS]))
+        suitable_flats = read((suitable_areas) .& (src_geomorphic .∈ [FLAT_IDS]))
 
         # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray
@@ -105,20 +79,11 @@ include("common.jl")
         _write_data(fpath, res, result_raster)
 
         suitable_flats = nothing
-        GC.gc()
-
         res = nothing
         GC.gc()
 
         # Assess slopes
-        suitable_slopes = read(
-            (src_geomorphic .∈ [SLOPE_IDS]) .&
-            (src_benthic .∈ [BENTHIC_IDS]) .&
-            (-9.0 .<= src_bathy .<= -2.0) .&
-            (0.0 .<= src_slope .<= 40.0) .&
-            (0.0 .<= src_waves .<= 1.0)
-        )
-        #suitable_slopes = read((suitable_areas) .& (src_geomorphic .∈ [SLOPE_IDS]))
+        suitable_slopes = read((suitable_areas) .& (src_geomorphic .∈ [SLOPE_IDS]))
 
         # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_slopes, (-4:5, -4:5), border=Fill(0)) .|> Gray
@@ -126,11 +91,9 @@ include("common.jl")
         _write_data(fpath, res, result_raster)
 
         suitable_slopes = nothing
-        GC.gc()
-
         res = nothing
         GC.gc()
     end
 end
 
-@showprogress dt = 10 desc = "Analyzing..." pmap(assess_region, REGIONS)
+@showprogress dt = 10 desc = "Analyzing..." map(assess_region, REGIONS)
