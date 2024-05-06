@@ -1,6 +1,5 @@
 """Identify suitable locations for each region."""
 
-
 using Distributed
 using Rasters
 
@@ -20,10 +19,9 @@ using ProgressMeter
 
 include("common.jl")
 
-
 @everywhere begin
     """
-    suitability_func(threshold::Float64)::Function
+        suitability_func(threshold::Float64)::Function
 
     Generate function that identifies whether a pixel that has an area that meets the
     suitability threshold.
@@ -71,7 +69,7 @@ include("common.jl")
         # 0x0c = 12 = Rubble
         # 0x0d = 13 = Rock
         # 0x0f = 15 = Coral/Algae
-        return (benthic .∈ [[0x0d, 0x0f]])
+        return (benthic .∈ [MPA_BENTHIC_IDS])
     end
 
     # Image filtering functions
@@ -108,14 +106,16 @@ include("common.jl")
         src_slope_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "slope", reg)))
         src_slope = Raster(src_slope_path, mappedcrs=EPSG(4326), lazy=true)
 
-        # Load pre-prepared benthic data
-        src_benthic_path = joinpath(OUTPUT_DIR, "$(reg)_benthic.tif")
+        # Load pre-prepared benthic data from OUTPUT_DIR
+        src_benthic_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif")
         src_benthic = Raster(src_benthic_path, lazy=true)
 
-        src_geomorphic_path = joinpath(OUTPUT_DIR, "$(reg)_geomorphic.tif")
+        # Load pre-prepared geomorphic data from OUTPUT_DIR
+        src_geomorphic_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif")
         src_geomorphic = Raster(src_geomorphic_path, lazy=true)
 
-        src_waves_path = joinpath(OUTPUT_DIR, "$(reg)_waves.tif")
+        # Load pre-prepared wave data from OUTPUT_DIR
+        src_waves_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves.tif")
         src_waves = Raster(src_waves_path, lazy=true, crs=crs(src_bathy))
 
         # Source image is of 10m^2 pixels
@@ -130,8 +130,8 @@ include("common.jl")
         # See comment above re suitability functions - use of functions breaks `read()`
         # Assess flats
         suitable_flats = read(
-            (src_geomorphic .∈ [FLAT_IDS]) .&
-            (src_benthic .∈ [BENTHIC_IDS]) .&
+            (src_geomorphic .∈ [MPA_FLAT_IDS]) .&
+            (src_benthic .∈ [MPA_BENTHIC_IDS]) .&
             (-9.0 .<= src_bathy .<= -2.0) .&
             (0.0 .<= src_slope .<= 40.0) .&
             (0.0 .<= src_waves .<= 1.0)
@@ -140,9 +140,6 @@ include("common.jl")
         # Need a copy of raster data type to support writing to `tif`
         result_raster = convert.(Int16, copy(suitable_flats))
         rebuild(result_raster; missingval=0)
-
-        suitable_flats = nothing
-        GC.gc()
 
         # # 85% threshold
         # res = mapwindow(suitability_func(0.85), suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray
@@ -154,16 +151,19 @@ include("common.jl")
 
         # 95% threshold
         res = mapwindow(suitability_func(0.95), suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray
-        fpath = joinpath(OUTPUT_DIR, "$(reg)_suitable_flats_95.tif")
+        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_flats_95.tif")
         _write_data(fpath, res, result_raster)
 
-        fpath = joinpath(OUTPUT_DIR, "$(reg)_grouped_flats_95.tif")
+        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_grouped_flats_95.tif")
         _write_data(fpath, res, result_raster)
+
+        suitable_flats = nothing
+        GC.gc()
 
         # Assess slopes
         suitable_slopes = read(
-            (src_geomorphic .∈ [SLOPE_IDS]) .&
-            (src_benthic .∈ [BENTHIC_IDS]) .&
+            (src_geomorphic .∈ [MPA_SLOPE_IDS]) .&
+            (src_benthic .∈ [MPA_BENTHIC_IDS]) .&
             (-9.0 .<= src_bathy .<= -2.0) .&
             (0.0 .<= src_slope .<= 40.0) .&
             (0.0 .<= src_waves .<= 1.0)
@@ -179,10 +179,10 @@ include("common.jl")
 
         # 95% threshold
         res = mapwindow(suitability_func(0.95), suitable_slopes, (-4:5, -4:5), border=Fill(0)) .|> Gray
-        fpath = joinpath(OUTPUT_DIR, "$(reg)_suitable_slopes_95.tif")
+        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes_95.tif")
         _write_data(fpath, res, result_raster)
 
-        fpath = joinpath(OUTPUT_DIR, "$(reg)_grouped_slopes_95.tif")
+        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_grouped_slopes_95.tif")
         _write_data(fpath, res, result_raster)
 
         suitable_slopes = nothing
@@ -192,6 +192,5 @@ include("common.jl")
         GC.gc()
     end
 end
-
 
 @showprogress dt = 10 desc = "Analyzing..." pmap(assess_region, REGIONS)
