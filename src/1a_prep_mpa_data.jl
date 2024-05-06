@@ -15,7 +15,6 @@ gbr_benthic = Raster(gbr_benthic_path, crs=EPSG(4326), lazy=true)
 gbr_morphic_path = "$(MPA_DATA_DIR)/geomorphic/GBR10 GBRMP Geomorphic.tif"
 gbr_geomorphic = Raster(gbr_morphic_path, crs=EPSG(4326), lazy=true)
 
-
 region_features = GDF.read(REGION_PATH)
 
 # Reproject benthic data into common Coordinate Reference Systems
