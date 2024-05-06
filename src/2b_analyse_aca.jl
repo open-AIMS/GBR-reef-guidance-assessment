@@ -25,6 +25,18 @@ include("common.jl")
     Generate function that identifies whether a pixel that has an area that meets the
     suitability threshold.
     """
+    function suitability_func(threshold::Float64)::Function
+        function is_suitable(subsection::AbstractMatrix)::Int32
+            total = sum(subsection)
+            if total == 0.0
+                return 0.0
+            end
+
+            return Int32((total / length(subsection)) .>= threshold)
+        end
+
+        return is_suitable
+    end
     function prop_suitable(subsection::AbstractMatrix)::Float32
         total = sum(subsection)
         if total == 0.0
@@ -32,6 +44,7 @@ include("common.jl")
         end
         return Float32((total / length(subsection)))
     end
+
 
     function _write_data(fpath::String, data, cache)::Nothing
         if !isfile(fpath)
