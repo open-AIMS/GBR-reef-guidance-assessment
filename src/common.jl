@@ -14,7 +14,7 @@ catch err
     rethrow(err)
 end
 
-if nworkers() == 1 && (CONFIG["processing"]["N_PROCS"] > 1) # if nworkers() < CONFIG["processing"]["N_PROCS"]) 
+if nworkers() < CONFIG["processing"]["N_PROCS"]
     addprocs(CONFIG["processing"]["N_PROCS"]; dir=@__DIR__)
 end
 
@@ -42,7 +42,7 @@ end
 
     FIG_DIR = "../figs/"
     global MPA_FIG_DIR = joinpath(FIG_DIR, "MPA")
-    global ACA_FIG_DIR = joinpath(FIG_DIR, "ACA")
+    global ACA_FIG_DIR = joinpath(FIG_DIR, "ACA")    
 
     QGIS_DIR = "../qgis/"
     global MPA_QGIS_DIR = joinpath(QGIS_DIR, "MPA")
