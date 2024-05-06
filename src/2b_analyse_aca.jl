@@ -1,7 +1,5 @@
 """Identify suitable locations for each region."""
 
-
-using Distributed
 using Rasters
 
 import GeoDataFrames as GDF
@@ -15,35 +13,25 @@ using ImageMorphology: label_components, component_centroids
 
 using Statistics, StatsBase
 using Glob
-using ProgressMeter
 
 
 include("common.jl")
 
-aca_output_dir = joinpath(OUTPUT_DIR, "ACA")
-
 @everywhere begin
+
     """
-    suitability_func(threshold::Float64)::Function
+        suitability_func(threshold::Float64)::Function
 
     Generate function that identifies whether a pixel that has an area that meets the
     suitability threshold.
     """
-
-    aca_output_dir = joinpath(OUTPUT_DIR, "ACA")
-
-
     function prop_suitable(subsection::AbstractMatrix)::Float32
         total = sum(subsection)
         if total == 0.0
             return 0.0
         end
-
         return Float32((total / length(subsection)))
     end
-
-
-
 
     function _write_data(fpath::String, data, cache)::Nothing
         if !isfile(fpath)
@@ -52,10 +40,8 @@ aca_output_dir = joinpath(OUTPUT_DIR, "ACA")
             else
                 cache .= data
             end
-
             write(fpath, cache; force=true)
         end
-
         return nothing
     end
 
@@ -103,69 +89,17 @@ aca_output_dir = joinpath(OUTPUT_DIR, "ACA")
         return mode(x)
     end
 
-    function assess_region(reg)
-        aca_bathy_path = joinpath(aca_output_dir, "$(reg)_bathy.tif")
-        allen_bathy = Raster(aca_bathy_path, lazy=true)
+    function analyze_allen()
+        bathy_rst = Raster(joinpath(ACA_DATA_DIR, "Bathymetry---composite-depth", "bathymetry_0.tif"), lazy=true)
+        turbid_rst = Raster(joinpath(ACA_DATA_DIR, "Turbidity-Q3-2023", "turbidity-quarterly_0.tif"), lazy=true) # mappedcrs=EPSG(4326), 
 
-        #src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-        #src_bathy = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
-
-        allen_turbid_path = joinpath(aca_output_dir, "$(reg)_turbid.tif")
-        allen_turbid = Raster(allen_turbid_path, lazy=true)
-
-        # Filter suitable areas that have a depth 2-9m and turbidity lower than 5.2FNU
-        suitable_areas = read(
-            (900.0 .<= allen_bathy .>= 200.0) .& (allen_turbid .<= 52)    # LOW Turbidity = “52” in the turbidity maps = “5.2 FNU”
-        )
-
-        allen_turbid = nothing
-        allen_bathy = nothing
-        # allen_turbi = nothing
-        GC.gc()
-
-
-        # Maybe this following code should be run outside of the region loop/function?
-        # because the geojson datasets are GBR wide and finding the suitable polygons takes a lot of time
-
-        flat_aca_ids = ["Inner Reef Flat", "Outer Reef Flat", "Plateau"]           # identify flats
-        slope_aca_ids = ["Sheltered Reef Slope", "Reef Slope", "Back Reef Slope"]  # identify slopes        allen_bathy_path = first(glob("*.tif", joinpath(ALLEN_ATLAS_DIR, "Bathymetry---composite-depth")))
-
-        allen_geo_path = first(glob("*.geojson", joinpath(ALLEN_ATLAS_DIR, "Geomorphic-Map")))
-        allen_geo = GDF.read(allen_geo_path)
-
-        all_flats = filter(row -> row[:class] in flat_aca_ids, allen_geo)
-        all_slopes = filter(row -> row[:class] in slope_aca_ids, allen_geo)
-        allen_geo = nothing
-        GC.gc()
-
-        # Attempted fix for Rasters.mask ERROR: InexactError: Bool(-9999.0)
-        # suitable_areas = ismissing.(suitable_areas) .| suitable_areas
-
-        suitable_flats = Rasters.mask(suitable_areas; with=all_flats)
-        suitable_slopes = Rasters.mask(suitable_areas; with=all_slopes)
-
-        benthic_aca_ids = ["Rock", "Coral/Algae"]
-        aca_benthic_path = first(glob("*.geojson", joinpath(ALLEN_ATLAS_DIR, "Benthic-Map")))
-        aca_benthic = GDF.read(aca_benthic_path)
-
-        suitable_benthic = filter(row -> row[:class] in benthic_aca_ids, aca_benthic)
-        suitable_flats = Rasters.mask(suitable_flats; with=suitable_benthic)
-        suitable_slopes = Rasters.mask(suitable_slopes; with=suitable_benthic)
-
-        suitable_benthic = nothing
-        GC.gc()
-
-        ###############################################
-        #### RUNS TO HERE ####
-        ###############################################
-
-
-        # Need a copy of raster data type to support writing to `tif`
-        result_raster = convert.(Float32, copy(suitable_flats))
-        rebuild(result_raster; missingval=0)
-
-        ####
-
+        suitable_raster = read(      # this uses a lot of memory 
+            (200.0 .<= bathy_rst .<= 900.0)  # depth criteria
+            .& (turbid_rst .<= 52)    # LOW Turbidity = “52” in the turbidity maps = “5.2 FNU”
+        )    
+        convert.(Int16, suitable_raster)
+        rebuild(suitable_raster; missingval=0)      
+        
         # # Source image is of 10m^2 pixels
         # # A hectare is 100x100 meters, so we're looking for contiguous areas where
         # # some proportional area (here 75% or 95%) meet criteria of
@@ -177,23 +111,20 @@ aca_output_dir = joinpath(OUTPUT_DIR, "ACA")
 
         # # See comment above re suitability functions - use of functions breaks `read()`
 
-        # # Assess flats
-        # suitable_flats = read(
-        #     (src_geomorphic .∈ [FLAT_IDS]) .&
-        #     (src_benthic .∈ [BENTHIC_IDS]) .&
-        #     (-9.0 .<= src_bathy .<= -2.0) .&
-        #     (0.0 .<= src_slope .<= 40.0)
-        #     #.& (0.0 .<= src_waves .<= 1.0)
-        # )
+        # mask suitable areas by raster files with geomorphic and benthic data previously saved as gpkg
+        benthic_morphic_poly = GDF.read(first(glob("*.gpkg", ACA_OUTPUT_DIR)))
+        suitable_areas = Rasters.mask(suitable_raster; benthic_morphic_poly) .|> Gray
 
-        # # Need a copy of raster data type to support writing to `tif`
-        # result_raster = convert.(Int16, copy(suitable_flats))
-        # rebuild(result_raster; missingval=0)
+        #####################
+        geomorphic_poly = GDF.read(joinpath(ACA_DATA_DIR, "Geomorphic-Map", "geomorphic.geojson")) # first(glob("*.geojson", joinpath(ACA_DATA_DIR, "Geomorphic-Map")))
+        # flats
+        # target geomorphic zones by flat and slope
+        target_flats = geomorphic_poly[geomorphic_poly.class .∈ [ACA_FLAT_IDS], :]      # Deep lagoon, Shallow Lagoon, Terrestrial Reef flat, Inner Reef Flat, Outer Reef Flat, Plateau
+        suitable_flats = Rasters.mask(suitable_areas; with=target_flats) .|> Gray
+        # Need a copy of raster data type to support writing to `tif`
+        result_raster_flats = convert.(Int16, copy(suitable_flats))
+        rebuild(result_raster_flats; missingval=0)
 
-        # suitable_flats = nothing
-        # GC.gc()
-
-        ####
 
         # # 85% threshold
         # res = mapwindow(suitability_func(0.85), suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray
@@ -205,20 +136,28 @@ aca_output_dir = joinpath(OUTPUT_DIR, "ACA")
 
         # 95% threshold
         res = mapwindow(suitability_func(0.95), suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray
-        fpath = joinpath(OUTPUT_DIR, "$(reg)_suitable_flats_95.tif")
+        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_flats_95.tif")
         _write_data(fpath, res, result_raster)
 
-        fpath = joinpath(OUTPUT_DIR, "$(reg)_grouped_flats_95.tif")
+        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_grouped_flats_95.tif")
         _write_data(fpath, res, result_raster)
 
-        # Assess slopes
-        suitable_slopes = read(
-            (src_geomorphic .∈ [SLOPE_IDS]) .&
-            (src_benthic .∈ [BENTHIC_IDS]) .&
-            (-9.0 .<= src_bathy .<= -2.0) .&
-            (0.0 .<= src_slope .<= 40.0) .&
-            (0.0 .<= src_waves .<= 1.0)
-        )
+        suitable_flats = nothing
+        GC.gc()     # delete?
+
+        res = nothing
+        GC.gc()
+
+        #####################
+        # slopes
+        target_slopes = geomorphic_poly[geomorphic_poly.class .∈ [ACA_SLOPE_IDS], :]    # Sheltered Reef Slope, Reef Slope, Back Reef Slope
+        suitable_slopes = Rasters.mask(suitable_areas; with=target_slopes) .|> Gray
+        # Need a copy of raster data type to support writing to `tif`
+        result_raster_slopes = convert.(Int16, copy(suitable_slopes))
+        rebuild(result_raster_slopes; missingval=0)
+
+        geomorphic_poly = nothing
+        GC.gc()
 
         # # 85% threshold
         # res = mapwindow(suitability_func(0.85), suitable_slopes, (-4:5, -4:5), border=Fill(0)) .|> Gray
@@ -230,19 +169,18 @@ aca_output_dir = joinpath(OUTPUT_DIR, "ACA")
 
         # 95% threshold
         res = mapwindow(suitability_func(0.95), suitable_slopes, (-4:5, -4:5), border=Fill(0)) .|> Gray
-        fpath = joinpath(OUTPUT_DIR, "$(reg)_suitable_slopes_95.tif")
+        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes_95.tif")
         _write_data(fpath, res, result_raster)
 
-        fpath = joinpath(OUTPUT_DIR, "$(reg)_grouped_slopes_95.tif")
+        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_grouped_slopes_95.tif")
         _write_data(fpath, res, result_raster)
 
         suitable_slopes = nothing
-        GC.gc()
+        GC.gc()     # delete?
 
         res = nothing
         GC.gc()
     end
 end
-
-
-@showprogress dt = 10 desc = "Analyzing..." pmap(assess_region, REGIONS)
+    
+@showprogress dt = 10 desc = "Analyzing..." pmap(analyze_allen)
