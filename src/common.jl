@@ -14,7 +14,7 @@ catch err
     rethrow(err)
 end
 
-if nworkers() == 1 && (CONFIG["processing"]["N_PROCS"] > 1)
+if nworkers() == 1 && (CONFIG["processing"]["N_PROCS"] > 1) # if nworkers() < CONFIG["processing"]["N_PROCS"]) 
     addprocs(CONFIG["processing"]["N_PROCS"]; dir=@__DIR__)
 end
 
@@ -54,17 +54,17 @@ end
 
     global CONFIG = TOML.parsefile(".config.toml")
     global MPA_DATA_DIR = CONFIG["mpa_data"]["MPA_DATA_DIR"]
-    global ALLEN_ATLAS_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
+    global ACA_DATA_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
     global GDA2020_DATA_DIR = CONFIG["gda2020_data"]["GDA2020_DATA_DIR"]
 
     # Get polygon of management areas
-    global region_path = joinpath(
+    global REGION_PATH = joinpath(
         MPA_DATA_DIR,
         "zones",
         "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
     )
 
-    global reef_path = joinpath(
+    global REEF_PATH = joinpath(
         MPA_DATA_DIR,
         "features",
         "Great_Barrier_Reef_Features.shp"
@@ -84,7 +84,17 @@ end
     global BENTHIC_IDS = [0x0d, 0x0f]  # Rock, Coral/Algae
     global WAVE_DATA_DIR = CONFIG["wave_data"]["WAVE_DATA_DIR"]
 
-    # Known Proj4 strings for each GBRMPA zone
+    # GBRMPA IDs Manually extracted from Raster Attribute Table(s)
+    global MPA_FLAT_IDS = [13, 14, 23]  # Inner Reef Flat, Outer Reef Flat, Plateau
+    global MPA_SLOPE_IDS = [21, 22, 24]  # Sheltered Reef Slope, Reef Slope, Back Reef Slope
+    global MPA_BENTHIC_IDS = [0x0d, 0x0f] # 0x0d = 13 = Rock # 0x0f = 15 = Coral/Algae
+
+    # ACA IDs Manually extracted from Raster Attribute Table(s)
+    global ACA_FLAT_IDS = ["Deep Lagoon", "Shallow Lagoon", "Terrestrial Reef Flat", "Plateau", "Inner Reef Flat", "Outer Reef Flat"]
+    global ACA_SLOPE_IDS = ["Sheltered Reef Slope", "Back Reef Slope", "Reef Slope"]
+    global ACA_BENTHIC_IDS = ["Coral/Algae", "Rock"]
+
+    # Known Proj strings for each GBRMPA zone
     global WAVE_REGION_CRS = Dict(
         "Townsville-Whitsunday" => "+proj=utm +zone=55 +south +datum=WGS84",
         "Cairns-Cooktown" => "+proj=utm +zone=55 +south +datum=WGS84",
