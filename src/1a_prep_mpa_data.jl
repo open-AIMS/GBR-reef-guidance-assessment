@@ -15,13 +15,8 @@ gbr_benthic = Raster(gbr_benthic_path, crs=EPSG(4326), lazy=true)
 gbr_morphic_path = "$(MPA_DATA_DIR)/geomorphic/GBR10 GBRMP Geomorphic.tif"
 gbr_geomorphic = Raster(gbr_morphic_path, crs=EPSG(4326), lazy=true)
 
-# Get polygons of management areas
-region_path = joinpath(
-    MPA_DATA_DIR,
-    "zones",
-    "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
-)
-region_features = GDF.read(region_path)
+
+region_features = GDF.read(REGION_PATH)
 
 # Reproject benthic data into common Coordinate Reference Systems
 # Avoids the need to repeatedly reproject within each step
@@ -32,25 +27,25 @@ region_features = GDF.read(region_path)
     src_bathy = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
 
     # Only create files that are needed
-    if !isfile(joinpath(OUTPUT_DIR, "$(reg)_benthic.tif"))
+    if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"))
         target_benthic = Rasters.trim(mask(gbr_benthic; with=region_features[reg_idx, :]))
         target_benthic = resample(target_benthic, to=src_bathy)
-        write(joinpath(OUTPUT_DIR, "$(reg)_benthic.tif"), target_benthic; force=true)
+        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"), target_benthic; force=true)
 
         target_benthic = nothing
         GC.gc()
     end
 
-    if !isfile(joinpath(OUTPUT_DIR, "$(reg)_geomorphic.tif"))
+    if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"))
         target_geomorphic = Rasters.trim(mask(gbr_geomorphic; with=region_features[reg_idx, :]))
         target_geomorphic = resample(target_geomorphic, to=src_bathy)
-        write(joinpath(OUTPUT_DIR, "$(reg)_geomorphic.tif"), target_geomorphic; force=true)
+        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"), target_geomorphic; force=true)
 
         target_geomorphic = nothing
         GC.gc()
     end
 
-    if !isfile(joinpath(OUTPUT_DIR, "$(reg)_waves.tif"))
+    if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves.tif"))
         target_waves_path = first(glob("*.nc", joinpath(MPA_DATA_DIR, "waves", reg)))
         target_waves = Raster(target_waves_path, key=:Hs90, crs=crs(src_bathy), mappedcrs=EPSG(4326), lazy=true)
 
@@ -59,7 +54,7 @@ region_features = GDF.read(region_path)
             target_waves = extend(crop(target_waves; to=src_bathy); to=AG.extent(src_bathy))
             @assert size(src_bathy) == size(target_waves)
 
-            replace_missing!(target_waves,-9999.0)
+            replace_missing!(target_waves, -9999.0)
         end
 
         # Hacky workaround:
@@ -76,10 +71,10 @@ region_features = GDF.read(region_path)
         target_waves = tmp
 
         # Set to known missing value
-        target_waves.data[target_waves.data.<-9999.0] .= -9999.0
+        target_waves.data[target_waves.data .< -9999.0] .= -9999.0
         replace_missing!(target_waves, -9999.0)
 
-        write(joinpath(OUTPUT_DIR, "$(reg)_waves.tif"), target_waves; force=true)
+        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves.tif"), target_waves; force=true)
 
         target_waves = nothing
         GC.gc()
