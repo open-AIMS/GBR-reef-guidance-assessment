@@ -1,4 +1,8 @@
-"""Identify suitable locations for each region."""
+"""
+Identify suitable locations based on bathymetric, turbidity, geomorphic and benthic criteria.
+Use raster and polygon data to analyze suitabile areas.
+Output raster files with areas meeting specified suitability thresholds.
+"""
 
 using Rasters
 

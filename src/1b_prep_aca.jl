@@ -16,9 +16,6 @@ if !isfile(first(glob("*.gpkg", ACA_OUTPUT_DIR)))
     benthic_poly = GDF.read(joinpath(ACA_DATA_DIR, "Benthic-Map", "benthic.geojson"))
     reef_poly = GDF.read(joinpath(ACA_DATA_DIR, "Reef-Extent", "reefextent.geojson"))
 
-    # geomorphic_classes = unique(geomorphic_poly.class)
-    # benthic_classes = unique(benthic_poly.class)
-
     target_geomorphic_features = geomorphic_poly.class .∈ Ref([ACA_FLAT_IDS..., ACA_SLOPE_IDS])
     target_benthic_features = benthic_poly.class .∈ Ref(ACA_BENTHIC_IDS)
 

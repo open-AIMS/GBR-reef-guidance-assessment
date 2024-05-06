@@ -1,6 +1,5 @@
 """Identify suitable locations for each region."""
 
-
 using Distributed
 using Rasters
 
@@ -22,12 +21,11 @@ include("common.jl")
 
 @everywhere begin
     """
-    suitability_func(threshold::Float64)::Function
+        suitability_func(threshold::Float64)::Function
 
     Generate function that identifies whether a pixel that has an area that meets the
     suitability threshold.
     """
-
     function suitability_func(threshold::Float64)::Function
         function is_suitable(subsection::AbstractMatrix)::Int32
             total = sum(subsection)
