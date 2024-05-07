@@ -78,12 +78,7 @@ end
         "FarNorthern",
     ]
 
-    # Manually extracted from Raster Attribute Table(s)
-    global FLAT_IDS = [13, 14, 23]  # Inner Reef Flat, Outer Reef Flat, Plateau
-    global SLOPE_IDS = [21, 22, 24]  # Sheltered Reef Slope, Reef Slope, Back Reef Slope
-    global BENTHIC_IDS = [0x0d, 0x0f]  # Rock, Coral/Algae
     global WAVE_DATA_DIR = CONFIG["wave_data"]["WAVE_DATA_DIR"]
-
     # GBRMPA IDs Manually extracted from Raster Attribute Table(s)
     global MPA_FLAT_IDS = [13, 14, 23]  # Inner Reef Flat, Outer Reef Flat, Plateau
     global MPA_SLOPE_IDS = [21, 22, 24]  # Sheltered Reef Slope, Reef Slope, Back Reef Slope

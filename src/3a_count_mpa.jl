@@ -145,7 +145,7 @@ GDF.write(
 
 # Write data to csv file
 subdf = reef_features[:, [:region, :reef_name, :flat_ha, :slope_ha, :Area_HA, :n_flat, :n_slope, :flat_scr, :slope_scr, :UNIQUE_ID]]
-CSV.write("../qgis/potential_reef_areas.csv", subdf)
+CSV.write(joinpath(MPA_QGIS_DIR, "potential_reef_areas.csv"), subdf)
 
 # Rank reefs by their regional suitability score
 reef_scores = reef_features[:, [
