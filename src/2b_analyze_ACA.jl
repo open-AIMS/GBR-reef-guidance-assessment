@@ -49,7 +49,6 @@ include("common.jl")
         return Float32((total / length(subsection)))
     end
 
-
     function _write_data(fpath::String, data, cache)::Nothing
         if !isfile(fpath)
             if occursin("grouped_", fpath)
@@ -105,99 +104,90 @@ include("common.jl")
 
         return mode(x)
     end
+end
 
-    function analyze_allen()
-        bathy_rst = Raster(joinpath(ACA_DATA_DIR, "Bathymetry---composite-depth", "bathymetry_0.tif"), lazy=true)
-        turbid_rst = Raster(joinpath(ACA_DATA_DIR, "Turbidity-Q3-2023", "turbidity-quarterly_0.tif"), lazy=true) # mappedcrs=EPSG(4326), 
+function analyze_allen()
+    bathy_rst = Raster(joinpath(ACA_DATA_DIR, "Bathymetry---composite-depth", "bathymetry_0.tif"), lazy=true)
+    turbid_rst = Raster(joinpath(ACA_DATA_DIR, "Turbidity-Q3-2023", "turbidity-quarterly_0.tif"), lazy=true) # mappedcrs=EPSG(4326), 
 
-        suitable_raster = read(      # this uses a lot of memory 
-            (200.0 .<= bathy_rst .<= 900.0)  # depth criteria
-            .& (turbid_rst .<= 52)    # LOW Turbidity = “52” in the turbidity maps = “5.2 FNU”
-        )    
-        convert.(Int16, suitable_raster)
-        rebuild(suitable_raster; missingval=0)      
-        
-        # # Source image is of 10m^2 pixels
-        # # A hectare is 100x100 meters, so we're looking for contiguous areas where
-        # # some proportional area (here 75% or 95%) meet criteria of
-        # # (-9 <= depth <= -3, slope < 40, and habitat is Rock or Coral/Algae).
-        # # 75% is assessed for comparison purposes.
-        # # suitable = read(
-        # #     depth_criteria(src_bathy) .& slope_criteria(src_slope) .& supports_coral(src_benthic)
-        # # )
+    # # Source image is of 10m^2 pixels
+    # # A hectare is 100x100 meters, so we're looking for contiguous areas where
+    # # some proportional area (here 75% or 95%) meet criteria
+    # # 200 <= depth <= 900 cm, and turbidty is no more than LOW.
 
-        # # See comment above re suitability functions - use of functions breaks `read()`
+    # # See comment above re suitability functions - use of functions breaks `read()`
+    
+    suitable_raster = read(
+        (200.0 .<= bathy_rst .<= 900.0)
+        .& (turbid_rst .<= 52)
+    )    
+    potential_bathy_turbid = convert.(UInt8, suitable_raster)
+    suitable_raster = nothing
+    GC.gc()
+    rebuild(potential_bathy_turbid; missingval=0)        
 
-        # mask suitable areas by raster files with geomorphic and benthic data previously saved as gpkg
-        benthic_morphic_poly = GDF.read(first(glob("*.gpkg", ACA_OUTPUT_DIR)))
-        suitable_areas = Rasters.mask(suitable_raster; benthic_morphic_poly) .|> Gray
+    # mask suitable areas by raster files with geomorphic and benthic data previously saved as gpkg
+    benthic_morphic_poly = GDF.read(first(glob("*.gpkg", ACA_OUTPUT_DIR)))
+    suitable_areas = Rasters.trim(mask(potential_bathy_turbid; with=benthic_morphic_poly))
 
-        #####################
-        geomorphic_poly = GDF.read(joinpath(ACA_DATA_DIR, "Geomorphic-Map", "geomorphic.geojson")) # first(glob("*.geojson", joinpath(ACA_DATA_DIR, "Geomorphic-Map")))
-        # flats
-        # target geomorphic zones by flat and slope
-        target_flats = geomorphic_poly[geomorphic_poly.class .∈ [ACA_FLAT_IDS], :]      # Deep lagoon, Shallow Lagoon, Terrestrial Reef flat, Inner Reef Flat, Outer Reef Flat, Plateau
-        suitable_flats = Rasters.mask(suitable_areas; with=target_flats) .|> Gray
-        # Need a copy of raster data type to support writing to `tif`
-        result_raster_flats = convert.(Int16, copy(suitable_flats))
-        rebuild(result_raster_flats; missingval=0)
+    benthic_morphic_poly = nothing
+    GC.gc()
 
+    # Assess geomorphic suitability
+    geomorphic_poly = GDF.read(joinpath(ACA_DATA_DIR, "Geomorphic-Map", "geomorphic.geojson"))
+    
+    # flats
+    target_flats = geomorphic_poly[geomorphic_poly.class .∈ [ACA_FLAT_IDS], :]
+    suitable_flats = Rasters.mask(suitable_areas; with=target_flats)
+    # Need a copy of raster data type to support writing to `tif`
+    result_raster_flats = convert.(UInt8, copy(suitable_flats))
+    rebuild(result_raster_flats; missingval=0)
 
-        # # 85% threshold
-        # res = mapwindow(suitability_func(0.85), suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray
-        # fpath = joinpath(OUTPUT_DIR, "$(reg)_suitable_flats_85.tif")
-        # _write_data(fpath, res, result_raster)
+    # # 85% threshold
+    # res = mapwindow(suitability_func(0.85), suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray
+    # fpath = joinpath(OUTPUT_DIR, "$(reg)_suitable_flats_85.tif")
+    # _write_data(fpath, res, result_raster)
 
-        # fpath = joinpath(OUTPUT_DIR, "$(reg)_grouped_flats_85.tif")
-        # _write_data(fpath, res, result_raster)
+    # 95% threshold
+    res = mapwindow(suitability_func(0.95), suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray
+    fpath = joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_flats_95.tif")
+    _write_data(fpath, res, result_raster)
 
-        # 95% threshold
-        res = mapwindow(suitability_func(0.95), suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray
-        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_flats_95.tif")
-        _write_data(fpath, res, result_raster)
+    suitable_flats = nothing
+    GC.gc()     # delete?
 
-        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_grouped_flats_95.tif")
-        _write_data(fpath, res, result_raster)
+    res = nothing
+    GC.gc()
 
-        suitable_flats = nothing
-        GC.gc()     # delete?
+    #####################
+    # slopes
+    target_slopes = geomorphic_poly[geomorphic_poly.class .∈ [ACA_SLOPE_IDS], :]    # Sheltered Reef Slope, Reef Slope, Back Reef Slope
+    suitable_slopes = Rasters.mask(suitable_areas; with=target_slopes)
+    geomorphic_poly = nothing
+    suitable_areas = nothing
+    GC.gc()
 
-        res = nothing
-        GC.gc()
+    # Need a copy of raster data type to support writing to `tif`
+    result_raster_slopes = convert.(UInt8, copy(suitable_slopes))
+    rebuild(result_raster_slopes; missingval=0)
 
-        #####################
-        # slopes
-        target_slopes = geomorphic_poly[geomorphic_poly.class .∈ [ACA_SLOPE_IDS], :]    # Sheltered Reef Slope, Reef Slope, Back Reef Slope
-        suitable_slopes = Rasters.mask(suitable_areas; with=target_slopes) .|> Gray
-        # Need a copy of raster data type to support writing to `tif`
-        result_raster_slopes = convert.(Int16, copy(suitable_slopes))
-        rebuild(result_raster_slopes; missingval=0)
+    # # 85% threshold
+    # res = mapwindow(suitability_func(0.85), suitable_slopes, (-4:5, -4:5), border=Fill(0)) .|> Gray
+    # fpath = joinpath(OUTPUT_DIR, "$(reg)_suitable_slopes_85.tif")
+    # _write_data(fpath, res, result_raster)
 
-        geomorphic_poly = nothing
-        GC.gc()
+    # 95% threshold
+    res = mapwindow(suitability_func(0.95), suitable_slopes, (-4:5, -4:5), border=Fill(0)) .|> Gray
+    fpath = joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_slopes_95.tif")
+    _write_data(fpath, res, result_raster)
 
-        # # 85% threshold
-        # res = mapwindow(suitability_func(0.85), suitable_slopes, (-4:5, -4:5), border=Fill(0)) .|> Gray
-        # fpath = joinpath(OUTPUT_DIR, "$(reg)_suitable_slopes_85.tif")
-        # _write_data(fpath, res, result_raster)
+    suitable_slopes = nothing
+    GC.gc()     # delete?
 
-        # fpath = joinpath(OUTPUT_DIR, "$(reg)_grouped_slopes_85.tif")
-        # _write_data(fpath, res, result_raster)
-
-        # 95% threshold
-        res = mapwindow(suitability_func(0.95), suitable_slopes, (-4:5, -4:5), border=Fill(0)) .|> Gray
-        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes_95.tif")
-        _write_data(fpath, res, result_raster)
-
-        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_grouped_slopes_95.tif")
-        _write_data(fpath, res, result_raster)
-
-        suitable_slopes = nothing
-        GC.gc()     # delete?
-
-        res = nothing
-        GC.gc()
-    end
+    res = nothing
+    GC.gc()
 end
     
-@showprogress dt = 10 desc = "Analyzing..." pmap(analyze_allen)
+# @showprogress dt = 10 desc = "Analyzing..." pmap(analyze_allen)
+
+analyze_allen()
