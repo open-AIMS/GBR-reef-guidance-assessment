@@ -79,17 +79,6 @@ end
         "FarNorthern",
     ]
 
-    # # set lower and upper bounds for each criteria
-    # # not yet implemented...
-    # global BATHY_LOWER = -9.0
-    # global BATHY_UPPER = -2.0
-    # 
-    # global SLOPE_LOWER = 0.0
-    # global SLOPE_UPPER = 40.0
-    # 
-    # global WAVES_LOWER = 0.0
-    # global WAVES_UPPER = 1.0
-
     # GBRMPA IDs Manually extracted from Raster Attribute Table(s)
     global MPA_FLAT_IDS = [13, 14, 23]  # Inner Reef Flat, Outer Reef Flat, Plateau
     global MPA_SLOPE_IDS = [21, 22, 24]  # Sheltered Reef Slope, Reef Slope, Back Reef Slope
