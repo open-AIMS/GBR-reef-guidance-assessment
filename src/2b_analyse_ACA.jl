@@ -49,7 +49,8 @@ function analyse_allen(reg)
 
     suitable_raster = read(
         (200.0 .<= bathy_rst .<= 900.0)
-        .& (turbid_rst .<= 52)
+        .&
+        (turbid_rst .<= 52)
     )
 
     # Create reef-scale raster with suitable bathy, turbidity, geomorphic and benthic criteria
@@ -66,7 +67,7 @@ function analyse_allen(reg)
     # Find suitable benthic areas
     benthic_poly = GDF.read(joinpath(ACA_DATA_DIR, "Benthic-Map", "benthic.geojson"))
 
-    target_benthic = benthic_poly[benthic_poly.class .∈ [ACA_BENTHIC_IDS], :]
+    target_benthic = benthic_poly[benthic_poly.class.∈[ACA_BENTHIC_IDS], :]
     Logging.with_logger(no_info) do
         suitable_areas = Rasters.trim(mask(suitable_reefs; with=target_benthic))
     end
@@ -82,12 +83,12 @@ function analyse_allen(reg)
     geomorphic_poly = GDF.read(joinpath(ACA_DATA_DIR, "Geomorphic-Map", "geomorphic.geojson"))
 
     # flats
-    target_flats = geomorphic_poly[geomorphic_poly.class .∈ [ACA_FLAT_IDS], :]
+    target_flats = geomorphic_poly[geomorphic_poly.class.∈[ACA_FLAT_IDS], :]
     Logging.with_logger(no_info) do
         suitable_flats = Rasters.mask(suitable_areas; with=target_flats)
     end
 
-    res = mapwindow(prop_suitable, suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray
+    res = mapwindow(prop_suitable, suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray #needs to be changed to calculate suitability for hectare not 37m^2
     fpath = joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_flats.tif")
     _write_data(fpath, res, result_raster)
 
@@ -96,7 +97,7 @@ function analyse_allen(reg)
     GC.gc()
 
     # slopes
-    target_slopes = geomorphic_poly[geomorphic_poly.class .∈ [ACA_SLOPE_IDS], :]
+    target_slopes = geomorphic_poly[geomorphic_poly.class.∈[ACA_SLOPE_IDS], :]
     Logging.with_logger(no_info) do
         suitable_slopes = Rasters.mask(suitable_areas; with=target_slopes)
     end

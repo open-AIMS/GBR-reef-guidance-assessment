@@ -36,7 +36,7 @@ if !isfile(first(glob("*.gpkg", ACA_OUTPUT_DIR)))
             continue
         end
     end
-    GDF.write(joinpath(ACA_OUTPUT_DIR, "aca_benthic_geomorphic.gpkg"), reef_poly[skipped_reefs .== "", :])
+    GDF.write(joinpath(ACA_OUTPUT_DIR, "aca_benthic_geomorphic.gpkg"), reef_poly[skipped_reefs.=="", :])
 end
 
 # 2. Processing of reef-wide rasters into smaller-GBRMPA regions
@@ -56,9 +56,6 @@ region_features[!, :geometry] = Vector{AG.IGeometry}(AG.forceto.(region_features
 @showprogress dt = 10 "Prepping benthic/geomorphic/wave data..." for reg in REGIONS
     reg_idx = occursin.(reg[1:3], region_features.AREA_DESCR)
 
-    # src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-    # aca_bathy = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
-
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"))
         # Cropping the raster speeds up the trim(mask()) step and reduces memory use - checked output in qgis
         target_bathy = Rasters.crop(aca_bathy; to=region_features[reg_idx, :])
@@ -74,7 +71,7 @@ region_features[!, :geometry] = Vector{AG.IGeometry}(AG.forceto.(region_features
         # Using aca_bathy as the basis for resampling for ACA data
         src_aca_bathy = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"), lazy=true)
 
-        target_turbid = Rasters.crop(aca_turbid; to = region_features[reg_idx, :])
+        target_turbid = Rasters.crop(aca_turbid; to=region_features[reg_idx, :])
         target_turbid = Rasters.trim(mask(target_turbid; with=region_features[reg_idx, :]))
         target_turbid = resample(target_turbid, to=src_aca_bathy)
 

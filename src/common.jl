@@ -28,6 +28,7 @@ end
 
         using Rasters
         using NCDatasets
+        using GeoInterface
 
         using DataFrames
         import GeoDataFrames as GDF
@@ -42,7 +43,7 @@ end
 
     FIG_DIR = "../figs/"
     global MPA_FIG_DIR = joinpath(FIG_DIR, "MPA")
-    global ACA_FIG_DIR = joinpath(FIG_DIR, "ACA")    
+    global ACA_FIG_DIR = joinpath(FIG_DIR, "ACA")
 
     QGIS_DIR = "../qgis/"
     global MPA_QGIS_DIR = joinpath(QGIS_DIR, "MPA")
@@ -53,7 +54,7 @@ end
     global ACA_OUTPUT_DIR = joinpath(OUTPUT_DIR, "ACA")
 
 
-    # global 
+    # global
     CONFIG = TOML.parsefile(".config.toml")
     global MPA_DATA_DIR = CONFIG["mpa_data"]["MPA_DATA_DIR"]
     global ACA_DATA_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
@@ -89,7 +90,7 @@ end
     global ACA_SLOPE_IDS = ["Sheltered Reef Slope", "Back Reef Slope", "Reef Slope"]
     global ACA_BENTHIC_IDS = ["Coral/Algae", "Rock"]
 
-    # Known Proj strings for each GBRMPA zone
+    # Known Proj strings for each GBRMPA zone - may remove in later cleanup?
     global WAVE_REGION_CRS = Dict(
         "Townsville-Whitsunday" => "+proj=utm +zone=55 +south +datum=WGS84",
         "Cairns-Cooktown" => "+proj=utm +zone=55 +south +datum=WGS84",
