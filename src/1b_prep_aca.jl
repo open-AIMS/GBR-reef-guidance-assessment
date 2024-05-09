@@ -7,7 +7,7 @@ Ensure all rasters are the same size/shape for each region of interest.
 
 include("common.jl")
 
-# 1. Processing of geojson files into a reef-wide geopackage
+# 1. Processing of geojson files into a reef-wide geopackage - can constrain processing by regions
 if !isfile(first(glob("*.gpkg", ACA_OUTPUT_DIR)))
     geomorphic_poly = GDF.read(joinpath(ACA_DATA_DIR, "Geomorphic-Map", "geomorphic.geojson"))
     benthic_poly = GDF.read(joinpath(ACA_DATA_DIR, "Benthic-Map", "benthic.geojson"))
@@ -19,6 +19,35 @@ if !isfile(first(glob("*.gpkg", ACA_OUTPUT_DIR)))
     geomorphic_poly = geomorphic_poly[target_geomorphic_features, :]
     benthic_poly = benthic_poly[target_benthic_features, :]
     GC.gc()
+
+
+
+    region_features = GDF.read(REGION_PATH)
+
+    intersecting_polys = DataFrame(geometry=[], label=[])
+    @floop for region in region_features.geometry
+        geo_is_in_region = AG.contains.([region], geomorphic_poly.geometry)
+        geomorph_reg = geomorphic_poly[geo_is_in_region, :]
+
+        ben_is_in_region = AG.contains.([region], benthic_poly.geometry)
+        benthic_reg = benthic_poly[ben_is_in_region, :]
+
+        for poly_a in eachrow(geomorph_reg)
+            for poly_b in eachrow(benthic_reg)
+                intersect = AG.intersection(poly_a.geometry, poly_b.geometry)
+                if !AG.isempty(intersect)
+                    push!(intersecting_polys, [intersect, region])
+                end
+            end
+        end
+    end
+
+
+    test_polys = []
+    @floop
+
+
+    suitable_polys = DataFrame(geometry = test_polys)
 
     # Assuming we skip any reefs where we do not have data across all criteria
     skipped_reefs = fill("", size(reef_poly, 1))
