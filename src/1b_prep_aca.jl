@@ -7,74 +7,60 @@ Ensure all rasters are the same size/shape for each region of interest.
 
 include("common.jl")
 
-# 1. Processing of geojson files into a reef-wide geopackage - can constrain processing by regions
-if !isfile(first(glob("*.gpkg", ACA_OUTPUT_DIR)))
-    geomorphic_poly = GDF.read(joinpath(ACA_DATA_DIR, "Geomorphic-Map", "geomorphic.geojson"))
-    benthic_poly = GDF.read(joinpath(ACA_DATA_DIR, "Benthic-Map", "benthic.geojson"))
-    reef_poly = GDF.read(joinpath(ACA_DATA_DIR, "Reef-Extent", "reefextent.geojson"))
+# 1. Processing of geojson files into smaller-GBRMPA regions
+# Loading GBR-wide data
+geomorphic_poly = GDF.read(joinpath(ACA_DATA_DIR, "Geomorphic-Map", "geomorphic.geojson"))
+benthic_poly = GDF.read(joinpath(ACA_DATA_DIR, "Benthic-Map", "benthic.geojson"))
+reef_poly = GDF.read(joinpath(ACA_DATA_DIR, "Reef-Extent", "reefextent.geojson"))
 
-    target_geomorphic_features = geomorphic_poly.class .∈ Ref([ACA_FLAT_IDS..., ACA_SLOPE_IDS])
-    target_benthic_features = benthic_poly.class .∈ Ref(ACA_BENTHIC_IDS)
+target_flats = geomorphic_poly.class .∈ Ref(ACA_FLAT_IDS)
+target_slopes = geomorphic_poly.class .∈ Ref(ACA_SLOPE_IDS)
+target_benthic_features = benthic_poly.class .∈ Ref(ACA_BENTHIC_IDS)
 
-    geomorphic_poly = geomorphic_poly[target_geomorphic_features, :]
-    benthic_poly = benthic_poly[target_benthic_features, :]
-    GC.gc()
+target_flat_poly = geomorphic_poly[target_flats, :]
+target_slope_poly = geomorphic_poly[target_slopes, :]
+target_benthic_poly = benthic_poly[target_benthic_features, :]
+GC.gc()
 
+# Subsetting data by region
+region_features = GDF.read(REGION_PATH)
 
+@floop for reg in eachrow(region_features)
+    reg_name = REGIONS[occursin.(reg.AREA_DESCR[1:3], REGIONS)][1]
+    region = reg.geometry
 
-    region_features = GDF.read(REGION_PATH)
+    if !isfile(joinpath(ACA_OUTPUT_DIR, "aca_target_flats_$(reg_name).gpkg"))
+        flat_is_in_region = AG.contains.([region], target_flat_poly.geometry)
+        target_flats_reg = target_flat_poly[flat_is_in_region, :]
 
-    intersecting_polys = DataFrame(geometry=[], label=[])
-    @floop for region in region_features.geometry
-        geo_is_in_region = AG.contains.([region], geomorphic_poly.geometry)
-        geomorph_reg = geomorphic_poly[geo_is_in_region, :]
+        GDF.write(joinpath(ACA_OUTPUT_DIR, "aca_target_flats_$(reg_name).gpkg"), target_flats_reg)
+    end
 
+    if !isfile(joinpath(ACA_OUTPUT_DIR, "aca_target_slopes_$(reg_name).gpkg"))
+        slope_is_in_region = AG.contains.([region], target_slope_poly.geometry)
+        target_slopes_reg = target_slope_poly[slope_is_in_region, :]
+
+        GDF.write(joinpath(ACA_OUTPUT_DIR, "aca_target_slopes_$(reg_name).gpkg"), target_slopes_reg)
+    end
+
+    if !isfile(joinpath(ACA_OUTPUT_DIR, "aca_benthic_$(reg_name).gpkg"))
         ben_is_in_region = AG.contains.([region], benthic_poly.geometry)
         benthic_reg = benthic_poly[ben_is_in_region, :]
 
-        for poly_a in eachrow(geomorph_reg)
-            for poly_b in eachrow(benthic_reg)
-                intersect = AG.intersection(poly_a.geometry, poly_b.geometry)
-                if !AG.isempty(intersect)
-                    push!(intersecting_polys, [intersect, region])
-                end
-            end
-        end
+        GDF.write(joinpath(ACA_OUTPUT_DIR, "aca_benthic_$(reg_name).gpkg"), benthic_reg)
     end
-
-
-    test_polys = []
-    @floop
-
-
-    suitable_polys = DataFrame(geometry = test_polys)
-
-    # Assuming we skip any reefs where we do not have data across all criteria
-    skipped_reefs = fill("", size(reef_poly, 1))
-    @floop for (idx, reef) in enumerate(eachrow(reef_poly))
-        reef_geom = reef.geometry
-        has_geomorphic = AG.intersects.([reef_geom], geomorphic_poly.geometry)
-        if all(has_geomorphic .== false)
-            skipped_reefs[idx] = "No geomorphic"
-            continue
-        end
-
-        has_benthic = AG.intersects.([reef_geom], benthic_poly.geometry)
-        if all(has_benthic .== false)
-            skipped_reefs[idx] = "No benthic"
-            continue
-        end
-    end
-    GDF.write(joinpath(ACA_OUTPUT_DIR, "aca_benthic_geomorphic.gpkg"), reef_poly[skipped_reefs.=="", :])
 end
 
+
 # 2. Processing of reef-wide rasters into smaller-GBRMPA regions
+# Loading GBR-wide data
 aca_bathy_path = "$(ACA_DATA_DIR)/Bathymetry---composite-depth/bathymetry_0.tif"
 aca_bathy = Raster(aca_bathy_path, mappedcrs=EPSG(4326), lazy=true)
 
 aca_turbid_path = "$(ACA_DATA_DIR)/Turbidity-Q3-2023/turbidity-quarterly_0.tif"
 aca_turbid = Raster(aca_turbid_path, lazy=true)
 
+# Subsetting data by region
 region_features = GDF.read(REGION_PATH)
 
 # Reproject region features to ensure they are consistent with aca_bathy
