@@ -1,0 +1,91 @@
+"""
+Cluster identified suitable locations
+"""
+
+using Rasters
+import GeoDataFrames as GDF
+import ArchGDAL as AG
+using CSV
+
+using Statistics, StatsBase
+using Glob
+
+using Clustering
+
+include("common.jl")
+
+function add_score(df::DataFrame)::DataFrame
+    score = df[:, :flat_scr] .+ df[:, :slope_scr]
+    df.score = score
+    return df
+end
+
+function add_suitable_area(df::DataFrame)::DataFrame
+    suitable_area = df[:,:flat_ha] .+ df[:,:slope_ha]
+    df.suitable_area = suitable_area
+    return df
+end
+
+function sort_limit_areas(targets::DataFrame; serviceable_area::Int64=1000)::DataFrame
+    # Initialize variables
+    threshold_area = 0
+    selected_rows = DataFrame()
+
+    scores_nonzero = targets.score .> 0
+    graded_targets = targets[scores_nonzero, :]
+    sorted_idxs = sort(graded_targets.score, rev=true)
+    # sorted_targets = graded_targets[sorted_idxs, :]
+    sorted_targets = sort(targets, :score, rev=true)
+
+    # Iterate through sorted targets to accumulate areas until reaching a threshold
+    for row in eachrow(sorted_targets)
+        threshold_area += row.suitable_area#(row.geometry)
+        if threshold_area <= serviceable_area
+            push!(selected_rows, row)
+        else
+            break
+        end
+    end
+    return selected_rows
+end
+
+function cluster_targets(df::DataFrame, num_clust::Int64)
+    # Calculate centroid of geometry for each row
+    centroid_shp = [AG.centroid(row.geometry) for row in eachrow(df)]
+
+    centroid_coords = [(AG.getx(centroid,0), AG.gety(centroid,0)) for centroid in centroid_shp]
+
+    # Convert the coordinates to a format suitable for clustering (e.g., an array)
+    coordinates_array = hcat([collect(c) for c in centroid_coords]...)
+
+    # Cluster centroids
+    clustering = kmeans(coordinates_array, num_clust)
+
+    df.cluster = clustering.assignments
+    return
+end
+
+# Load suitable targets dataframe
+suitable_targets = GDF.read(joinpath(MPA_QGIS_DIR, "reef_suitability.shp"))
+
+# Calculate score = flat_score + slope_score
+suitable_targets = add_score(suitable_targets)
+
+# Calculate suitable area = flat_ha + slope_ha
+suitable_targets = add_suitable_area(suitable_targets)
+
+sorted_targets = sort_limit_areas(suitable_targets; serviceable_area=1000)
+
+cluster_targets(sorted_targets, 10)
+
+
+# Write to file
+GDF.write(
+    joinpath(MPA_OUTPUT_DIR, "clustered_reefs.shp"),
+    sorted_targets[:, [:geometry, :region, :reef_name, :suitable_area, :flat_ha, :slope_ha, :Area_HA, :n_flat, :n_slope, :score, :flat_scr, :slope_scr, :UNIQUE_ID, :cluster]],
+    layer_name = "reef_targets",
+    geom_columns = (:geometry,),
+    crs = EPSG(4326)
+)
+
+
