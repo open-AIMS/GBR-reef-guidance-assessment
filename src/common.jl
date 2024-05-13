@@ -86,7 +86,7 @@ end
     global MPA_BENTHIC_IDS = [0x0d, 0x0f] # 0x0d = 13 = Rock # 0x0f = 15 = Coral/Algae
 
     # ACA IDs Manually extracted from Raster Attribute Table(s)
-    global ACA_FLAT_IDS = ["Deep Lagoon", "Shallow Lagoon", "Terrestrial Reef Flat", "Plateau", "Inner Reef Flat", "Outer Reef Flat"]
+    global ACA_FLAT_IDS = ["Terrestrial Reef Flat", "Plateau", "Inner Reef Flat", "Outer Reef Flat"]
     global ACA_SLOPE_IDS = ["Sheltered Reef Slope", "Back Reef Slope", "Reef Slope"]
     global ACA_BENTHIC_IDS = ["Coral/Algae", "Rock"]
 
