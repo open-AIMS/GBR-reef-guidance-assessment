@@ -6,12 +6,9 @@ Output raster files with suitability proportions.
 
 include("common.jl")
 
-# # Create logger to hide Rasters.mask() info output - mask() progress bars still displayed
-# no_info = Logging.ConsoleLogger(stderr, Logging.Warn)
-
 @everywhere begin
     """
-    prop_suitable(subsection::AbstractMatrix)::Float32
+        prop_suitable(subsection::AbstractMatrix)::Float32
 
     Calculate the the proportion of the subsection that is suitable for deployments.
     Subsection is the surrounding hectare centred on each cell of a raster.

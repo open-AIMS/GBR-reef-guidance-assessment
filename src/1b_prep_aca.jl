@@ -14,13 +14,13 @@ benthic_poly = GDF.read(joinpath(ACA_DATA_DIR, "Benthic-Map", "benthic.geojson")
 reef_poly = GDF.read(joinpath(ACA_DATA_DIR, "Reef-Extent", "reefextent.geojson"))
 
 target_flats = geomorphic_poly.class .∈ Ref(ACA_FLAT_IDS)
-target_slopes = geomorphic_poly.class .∈ Ref(ACA_SLOPE_IDS)
-target_benthic_features = benthic_poly.class .∈ Ref(ACA_BENTHIC_IDS)
-
 target_flat_poly = geomorphic_poly[target_flats, :]
+
+target_slopes = geomorphic_poly.class .∈ Ref(ACA_SLOPE_IDS)
 target_slope_poly = geomorphic_poly[target_slopes, :]
+
+target_benthic_features = benthic_poly.class .∈ Ref(ACA_BENTHIC_IDS)
 target_benthic_poly = benthic_poly[target_benthic_features, :]
-GC.gc()
 
 # Subsetting data by region
 region_features = GDF.read(REGION_PATH)
@@ -51,7 +51,6 @@ region_features = GDF.read(REGION_PATH)
     end
 end
 
-
 # 2. Processing of reef-wide rasters into smaller-GBRMPA regions
 # Loading GBR-wide data
 aca_bathy_path = "$(ACA_DATA_DIR)/Bathymetry---composite-depth/bathymetry_0.tif"
@@ -65,6 +64,7 @@ region_features = GDF.read(REGION_PATH)
 
 # Reproject region features to ensure they are consistent with aca_bathy
 proj_str = ProjString(AG.toPROJ4(AG.importWKT(crs(aca_bathy).val; order=:compliant)))
+
 region_features.geometry = AG.reproject(region_features.geometry, EPSG(4326), proj_str; order=:trad)
 region_features[!, :geometry] = Vector{AG.IGeometry}(AG.forceto.(region_features.geometry, AG.wkbMultiPolygon))
 
