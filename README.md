@@ -31,7 +31,7 @@ MPA_DATA_DIR = "path to GBR data"  # location of GBR datasets
 ALLEN_ATLAS_DIR = "path to Allen Atlas data"  # location of Allen Atlas datasets
 
 [wave_data]
-WAVE_DATA_DIR = "path to wave data" # location of wave dataset
+WAVE_DATA_DIR = "path to wave data" # location of wave NetCDF datasets
 
 [gda2020_data]
 GDA2020_DATA_DIR = "path to GBR management region feature datasets in EPSG:7844 (GDA2020)"
@@ -41,13 +41,16 @@ GDA2020_DATA_DIR = "path to GBR management region feature datasets in EPSG:7844 
 
 Expected data directory layout:
 
+Separate directories are used for GBRMPA (MPA), Allen Coral Atlas (ACA) and wave datasets.
 Sub-directory names should be consistent and match.
-Benthic habitat raster (inside `benthic`) covers whole of GBR so no sub-directories are necessary.
-Similarly, `geomorphic` holds the whole-of-GBR geomorphic zonation raster
 
-`zones` holds GBRMPA zone layers in geojson format.
+MPA_DATA_DIR : contains raster data at whole-GBR and GBRMPA-management-region scales.
+- `zones` holds GBRMPA zone layers in geojson format.
+- `features` holds the GBRMPA GBR-wide feature set.
 
-`features` holds the GBRMPA GBR-wide feature set.
+ACA_DATA_DIR : contains raster and vector data at whole-GBR scale.
+
+WAVE_DATA_DIR : contains wave NetCDF data at GBRMPA-management-region scale.
 
 ```bash
 MPA_DATA_DIR
@@ -83,6 +86,18 @@ ACA_DATA_DIR
 GDA2020_DATA_DIR
 ├───management_region_features
 └───GBR_features
+
+WAVE_DATA_DIR
+├───Hs
+│   ├───Cairns-Cooktown
+│   ├───FarNorthern
+│   ├───Mackay-Capricorn
+│   └───Townsville-Whitsunday
+├───Tp
+│   ├───Cairns-Cooktown
+│   ├───FarNorthern
+│   ├───Mackay-Capricorn
+│   └───Townsville-Whitsunday
 ```
 
 ## Scripts
@@ -95,12 +110,18 @@ $ cd src
 $ julia --project=..
 ```
 
-Scripts are labelled by their expected run order, and are written to be as stand-alone as
-possible. It should be possible to run one script, so long as other scripts earlier in the
+Scripts are labelled by their expected run order for GBRMPA (MPA) and Allen Coral Atlas (ACA),
+and are written to be as stand-alone as possible.
+It should be possible to run one script, so long as other scripts earlier in the
 indicated order have been run previously.
-
 e.g., Script 3 could be run after script 1 and 2, so long as 1 and 2 were run at some point
 previously.
+
+- `1*_.jl` : Separate data into regions to reduce computational requirements. Ensure consistent
+formats and Coordinate Reference Systems for datasets within MPA and ACA analyses.
+- `2*_.jl` : Filter raster data into cells that meet selected criteria and calculate the
+proportion of suitability in the hectare surrounding each cell.
+- `3*_.jl` : Count the number of cells that have a surrounding suitability >= 0.95.
 
 ## Manual steps
 
@@ -149,6 +170,9 @@ The University of Queensland.
 Data Collection.
 https://doi.org/10.48610/8246441
 https://espace.library.uq.edu.au/view/UQ:8246441
+
+### ACA data
+https://www.allencoralatlas.org/
 
 #### Notes
 
