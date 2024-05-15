@@ -58,6 +58,7 @@ end
     CONFIG = TOML.parsefile(".config.toml")
     global MPA_DATA_DIR = CONFIG["mpa_data"]["MPA_DATA_DIR"]
     global ACA_DATA_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
+    global WAVE_DATA_DIR = CONFIG["wave_data"]["WAVE_DATA_DIR"]
 
     # Get polygon of management areas
     global REGION_PATH = joinpath(
