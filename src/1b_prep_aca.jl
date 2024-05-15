@@ -26,7 +26,7 @@ target_benthic_poly = benthic_poly[target_benthic_features, :]
 region_features = GDF.read(REGION_PATH)
 
 @floop for region in eachrow(region_features)
-    reg_name = REGIONS[occursin.(reg.AREA_DESCR[1:3], REGIONS)][1]
+    reg_name = REGIONS[occursin.(region.AREA_DESCR[1:3], REGIONS)][1]
     region_geom = region.geometry
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "aca_target_flats_$(reg_name).gpkg"))
