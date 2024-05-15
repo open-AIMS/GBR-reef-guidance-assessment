@@ -64,11 +64,21 @@ MPA_DATA_DIR
 │   ├───FarNorthern
 │   ├───Mackay-Capricorn
 │   └───Townsville-Whitsunday
-└───waves
-    ├───Cairns-Cooktown
-    ├───FarNorthern
-    ├───Mackay-Capricorn
-    └───Townsville-Whitsunday
+└───zones
+
+ACA_DATA_DIR
+├───Bathymetry---composite-depth
+│   └───Raster data
+├───Benthic-Map
+│   └───Vector data
+├───boundary
+│   └───Vector data
+├───Geomorphic-Map
+│   └───Vector data
+├───Reef-Extent
+│   └───Vector data
+├───Turbidity-Q3-2023
+│   └───Raster data
 
 GDA2020_DATA_DIR
 ├───management_region_features
