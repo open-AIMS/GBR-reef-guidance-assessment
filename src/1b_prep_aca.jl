@@ -30,21 +30,21 @@ region_features = GDF.read(REGION_PATH)
     region_geom = region.geometry
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "aca_target_flats_$(reg_name).gpkg"))
-        flat_is_in_region = AG.contains.([region], target_flat_poly.geometry)
+        flat_is_in_region = AG.contains.([region_geom], target_flat_poly.geometry)
         target_flats_reg = target_flat_poly[flat_is_in_region, :]
 
         GDF.write(joinpath(ACA_OUTPUT_DIR, "aca_target_flats_$(reg_name).gpkg"), target_flats_reg)
     end
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "aca_target_slopes_$(reg_name).gpkg"))
-        slope_is_in_region = AG.contains.([region], target_slope_poly.geometry)
+        slope_is_in_region = AG.contains.([region_geom], target_slope_poly.geometry)
         target_slopes_reg = target_slope_poly[slope_is_in_region, :]
 
         GDF.write(joinpath(ACA_OUTPUT_DIR, "aca_target_slopes_$(reg_name).gpkg"), target_slopes_reg)
     end
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "aca_benthic_$(reg_name).gpkg"))
-        ben_is_in_region = AG.contains.([region], benthic_poly.geometry)
+        ben_is_in_region = AG.contains.([region_geom], benthic_poly.geometry)
         benthic_reg = benthic_poly[ben_is_in_region, :]
 
         GDF.write(joinpath(ACA_OUTPUT_DIR, "aca_benthic_$(reg_name).gpkg"), benthic_reg)
@@ -81,10 +81,11 @@ region_features[!, :geometry] = Vector{AG.IGeometry}(AG.forceto.(region_features
         target_bathy = nothing
         GC.gc()
     end
+    
+    # Using aca_bathy as the basis for resampling for ACA data
+    src_aca_bathy = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"), lazy=true)
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif"))
-        # Using aca_bathy as the basis for resampling for ACA data
-        src_aca_bathy = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"), lazy=true)
 
         target_turbid = Rasters.crop(aca_turbid; to=region_features[reg_idx, :])
         target_turbid = Rasters.trim(mask(target_turbid; with=region_features[reg_idx, :]))
