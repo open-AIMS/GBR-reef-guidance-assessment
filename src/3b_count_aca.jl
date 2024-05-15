@@ -3,14 +3,6 @@ Collate number of potentially suitable locations per reef, as defined by
 GBRMPA Features.
 """
 
-using Rasters
-import GeoDataFrames as GDF
-import ArchGDAL as AG
-using CSV
-
-using Statistics, StatsBase
-using Glob
-
 include("common.jl")
 
 reef_features = GDF.read(REEF_PATH)
@@ -32,8 +24,8 @@ given `raster`.
 
 This has to be applied one by one for each reef as any malformed geometries lead to a crash.
 """
-function count_suitable(raster, reef)::Union{Int64, Missing}
-    local total::Union{Int, Missing} = missing
+function count_suitable(raster, reef)::Union{Int64,Missing}
+    local total::Union{Int,Missing} = missing
     try
         total = Rasters.zonal(sum, raster; of=reef, shape=:polygon, boundary=:touches)
     catch err
@@ -49,24 +41,15 @@ function count_suitable(raster, reef)::Union{Int64, Missing}
 end
 
 # Loop over each reef and count number of slopes and flats that meet criteria
-@showprogress dt=10 desc="Collating zonal stats..." for reg in REGIONS
-    # Load raster
-    target_flats = Raster(
-        joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_flats_95.tif"),
-        mappedcrs=EPSG(4326)
-    )
+@showprogress dt = 10 desc = "Collating zonal stats..." for reg in REGIONS
+    # Load rasters and identify cells that are greater than or equal to 0.95
+    target_flats = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_flats.tif"))
+    target_flats = read(target_flats .>= 0.95)
 
-    target_slopes = Raster(
-        joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_slopes_95.tif"),
-        mappedcrs=EPSG(4326)
-    )
+    target_slopes = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_slopes.tif"))
+    target_slopes = read(target_slopes .>= 0.95)
 
-    # For some reason the geometries references in the GeoDataFrame are referenced
-    # so any transforms also affect the original.
-    # Any later transforms appear invalid (as it is no longer in EPSG:4326) and so leads
-    # to a crash.
-    # Taking a copy does not work, so a quick workaround is to simply read the geometries
-    # in again.
+    # Reproject reef features to maintain consistent crs with raster files
     reefs = GDF.read(REEF_PATH)
     reefs.geometry = AG.reproject(reefs.geometry, GFT.EPSG(4326), crs(target_flats); order=:trad)
 
@@ -80,13 +63,14 @@ end
             continue
         end
 
+        # Flats
         flat_val = count_suitable(target_flats, reef.geometry)
         if !ismissing(flat_val)
             reef_features[target_row, :n_flat] = flat_val
             reef_features[target_row, :flat_ha] = flat_val / 100.0
         end
 
-        # Do again for slopes
+        # Slopes
         slope_val = count_suitable(target_slopes, reef.geometry)
         if !ismissing(slope_val)
             reef_features[target_row, :n_slope] = slope_val
@@ -105,26 +89,50 @@ end
     GC.gc()
 end
 
+# Calculate the proportion of each reef area that meets 0.95 suitability criteria
 valid_locs = reef_features.Area_HA .!= 0
 reef_features[valid_locs, :flat_scr] .= round.(reef_features[valid_locs, :flat_ha] ./ reef_features[valid_locs, :Area_HA], digits=4)
 reef_features[valid_locs, :slope_scr] .= round.(reef_features[valid_locs, :slope_ha] ./ reef_features[valid_locs, :Area_HA], digits=4)
 
 for reg in REGIONS
-    # Determine float/slope score for each region
+    # `scr` then gives an index to find the reefs within a region that have the most
+    # proportion of their area suitable for deployments
     target_reg = reef_features.region .== reg
     reef_features[target_reg, :flat_scr] .= round.(reef_features[target_reg, :flat_scr] / maximum(reef_features[target_reg, :flat_scr]), digits=4)
     reef_features[target_reg, :slope_scr] .= round.(reef_features[target_reg, :slope_scr] / maximum(reef_features[target_reg, :slope_scr]), digits=4)
 end
 
-# Have to write out results as shapefile because of ArcGIS not handling GeoPackages for
-# some reason...
+# Have to write out results as shapefile because of ArcGIS not handling GeoPackages
 GDF.write(
     joinpath(ACA_QGIS_DIR, "reef_suitability.shp"),
-    reef_features[:, [:geometry, :region, :reef_name, :flat_ha, :slope_ha, :Area_HA, :n_flat, :n_slope, :flat_scr, :slope_scr, :UNIQUE_ID]];
+    reef_features[:, [
+        :geometry,
+        :region,
+        :reef_name,
+        :flat_ha,
+        :slope_ha,
+        :Area_HA,
+        :n_flat,
+        :n_slope,
+        :flat_scr,
+        :slope_scr,
+        :UNIQUE_ID
+    ]];
     layer_name="reef_suitability",
     geom_columns=(:geometry,),
     crs=EPSG(4326)
 )
 
-subdf = reef_features[:, [:region, :reef_name, :flat_ha, :slope_ha, :Area_HA, :n_flat, :n_slope, :flat_scr, :slope_scr, :UNIQUE_ID]]
+subdf = reef_features[:, [
+    :region,
+    :reef_name,
+    :flat_ha,
+    :slope_ha,
+    :Area_HA,
+    :n_flat,
+    :n_slope,
+    :flat_scr,
+    :slope_scr,
+    :UNIQUE_ID
+]]
 CSV.write(joinpath(ACA_QGIS_DIR, "potential_reef_areas.csv"), subdf)
