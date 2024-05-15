@@ -39,14 +39,19 @@ include("common.jl")
     function analyze_allen(reg)
         bathy_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"), lazy=true)
         turbid_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif"), lazy=true)
+        waves_Hs_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"), lazy=true)
+        waves_Tp_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"), lazy=true)
 
         # # Source image is of 10m^2 pixels
         # # A hectare is 100x100 meters, so we calculate the proportional area of each hectare
         # that meets criteria (200 <= depth <= 900 cm, and turbidty is no more than LOW (5.2 FNU))
-
+        # 90th percentile of standing wave height is below 1m, and wave period is less than 6 sec).
+        
         suitable_raster = read(
             (200.0 .<= bathy_rst .<= 900.0) .&
-            (turbid_rst .<= 52)
+            (turbid_rst .<= 52) .&
+            (0.0 .<= waves_Hs_rst .<= 1.0) .&
+            (waves_Tp_rst .<= 6.0)
         )
 
         # Create reef-scale raster with suitable bathy, turbidity and benthic criteria
