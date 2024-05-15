@@ -44,7 +44,7 @@ end
 
     global CONFIG = TOML.parsefile(".config.toml")
     global MPA_DATA_DIR = CONFIG["mpa_data"]["MPA_DATA_DIR"]
-    global ALLEN_ATLAS_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
+    global ACA_DATA_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
 
     # Folder names (TODO: Generalize)
     global REGIONS = String[
