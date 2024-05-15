@@ -31,7 +31,7 @@ MPA_DATA_DIR = "path to GBR data"  # location of GBR datasets
 ALLEN_ATLAS_DIR = "path to Allen Atlas data"  # location of Allen Atlas datasets
 
 [wave_data]
-WAVE_DATA_DIR = "C:/Users/rlippman/Documents/development/ADRIA_data/spatial_datasets/Callaghan" # location of wave dataset
+WAVE_DATA_DIR = "path to wave data" # location of wave dataset
 ```
 
 ### Data layout
