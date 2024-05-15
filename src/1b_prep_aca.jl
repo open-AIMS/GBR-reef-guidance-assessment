@@ -25,9 +25,9 @@ target_benthic_poly = benthic_poly[target_benthic_features, :]
 # Subsetting data by region
 region_features = GDF.read(REGION_PATH)
 
-@floop for reg in eachrow(region_features)
+@floop for region in eachrow(region_features)
     reg_name = REGIONS[occursin.(reg.AREA_DESCR[1:3], REGIONS)][1]
-    region = reg.geometry
+    region_geom = region.geometry
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "aca_target_flats_$(reg_name).gpkg"))
         flat_is_in_region = AG.contains.([region], target_flat_poly.geometry)
