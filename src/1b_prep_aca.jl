@@ -68,7 +68,7 @@ proj_str = ProjString(AG.toPROJ4(AG.importWKT(crs(aca_bathy).val; order=:complia
 region_features.geometry = AG.reproject(region_features.geometry, EPSG(4326), proj_str; order=:trad)
 region_features[!, :geometry] = Vector{AG.IGeometry}(AG.forceto.(region_features.geometry, AG.wkbMultiPolygon))
 
-@showprogress dt = 10 "Prepping bathymetric/turbidity data..." for reg in REGIONS
+@showprogress dt = 10 "Prepping bathymetric/turbidity/wave data..." for reg in REGIONS
     reg_idx = occursin.(reg[1:3], region_features.AREA_DESCR)
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"))
@@ -99,24 +99,17 @@ region_features[!, :geometry] = Vector{AG.IGeometry}(AG.forceto.(region_features
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"))
         target_waves_Hs_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Hs", reg)))
-        target_waves_Hs = Raster(target_waves_Hs_path, key=:Hs90, crs=crs(src_bathy), mappedcrs=EPSG(4326), lazy=true)
+        target_waves_Hs = Raster(target_waves_Hs_path, key=:Hs90, crs=crs(src_aca_bathy), mappedcrs=EPSG(4326), lazy=true)
 
         # Extend bounds of wave data to match bathymetry if needed
-        if size(src_bathy) !== size(target_waves_Hs)
-            target_waves_Hs = extend(crop(target_waves_Hs; to=src_bathy); to=AG.extent(src_bathy))
-            @assert size(src_bathy) == size(target_waves_Hs)
+        if size(src_aca_bathy) !== size(target_waves_Hs)
+            target_waves_Hs = extend(crop(target_waves_Hs; to=src_aca_bathy); to=AG.extent(src_aca_bathy))
+            @assert size(src_aca_bathy) == size(target_waves_Hs)
 
             replace_missing!(target_waves_Hs, -9999.0)
         end
 
-        # Hacky workaround:
-        # Due to projection schenanigans, the extents appears to be offset by ~5m.
-        # The extent of the data may also cross two UTM zones, even if the wave data
-        # is well within the bathymetry bounds.
-        # We assume the wave coordinates are incorrect, but the cells are the same,
-        # and move on by copying the bathymetry data structure and replace its values with wave data.
-
-        tmp_Hs = copy(src_bathy)
+        tmp_Hs = copy(src_aca_bathy)
 
         # Replace data (important: flip the y-axis!)
         tmp_Hs.data .= coalesce.(target_waves_Hs.data[:, end:-1:1], -9999.0)
@@ -134,24 +127,17 @@ region_features[!, :geometry] = Vector{AG.IGeometry}(AG.forceto.(region_features
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"))
         target_waves_Tp_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, Tp, reg)))
-        target_waves_Tp = Raster(target_waves_Tp_path, key=:Tp90, crs=crs(src_bathy), mappedcrs=EPSG(4326), lazy=true)
+        target_waves_Tp = Raster(target_waves_Tp_path, key=:Tp90, crs=crs(src_aca_bathy), mappedcrs=EPSG(4326), lazy=true)
 
         # Extend bounds of wave data to match bathymetry if needed
-        if size(src_bathy) !== size(target_waves_Tp)
-            target_waves_Tp = extend(crop(target_waves_Tp; to=src_bathy); to=AG.extent(src_bathy))
-            @assert size(src_bathy) == size(target_waves_Tp)
+        if size(src_aca_bathy) !== size(target_waves_Tp)
+            target_waves_Tp = extend(crop(target_waves_Tp; to=src_aca_bathy); to=AG.extent(src_aca_bathy))
+            @assert size(src_aca_bathy) == size(target_waves_Tp)
 
             replace_missing!(target_waves_Tp, -9999.0)
         end
 
-        # Hacky workaround:
-        # Due to projection schenanigans, the extents appears to be offset by ~5m.
-        # The extent of the data may also cross two UTM zones, even if the wave data
-        # is well within the bathymetry bounds.
-        # We assume the wave coordinates are incorrect, but the cells are the same,
-        # and move on by copying the bathymetry data structure and replace its values with wave data.
-
-        tmp_Tp = copy(src_bathy)
+        tmp_Tp = copy(src_aca_bathy)
 
         # Replace data (important: flip the y-axis!)
         tmp_Tp.data .= coalesce.(target_waves_Tp.data[:, end:-1:1], -9999.0)

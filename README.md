@@ -131,6 +131,12 @@ Data Collection.
 https://doi.org/10.48610/8246441
 https://espace.library.uq.edu.au/view/UQ:8246441
 
+Due to projection issues, the extents appears to be offset by ~5m.
+The extent of the data may also cross two UTM zones, even if the wave data
+is well within the bathymetry bounds.
+We assume the wave coordinates are incorrect, but the cells are the same,
+and move on by copying the bathymetry data structure and replace its values with wave data.
+
 #### Notes
 
 `Hs` (Significant wave height) : average height of the top 1/3 highest waves in a section
