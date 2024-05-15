@@ -196,7 +196,15 @@ Often this might be the only data available.
 Deployment conditions affect the vessel's ability to deploy, and are also dependent on the type of vessel.
 Small tenders are assumed to be used for pilot deployment scenarios for 2025.
 
+#### Resolution
+
+`MPA raster data` (Bathymetry, Benthic, Geomorphic, Slope, Waves) : 10 x 10m pixel size
+
+`ACA raster data` (Bathymetry, Turbidity, Waves) : 10 x 10m pixel size
+
 #### Projections
+
+##### MPA Data
 
 Wave data provided can span across two UTM zones.
 Saving processed data as geotiffs will fail due to bounds checking; the GDAL implementation
@@ -240,6 +248,11 @@ with values denoting `missing` data).
 
 The bathymetry data structure is then copied (so metadata on its extent, projection, etc.
 are retained), and finally, the wave data is copied across.
+
+##### ACA Data
+
+ACA raster data is in crs WGS 84 4326. This is used throughout the ACA preparation and
+analysis steps.
 
 ## Presentation
 
