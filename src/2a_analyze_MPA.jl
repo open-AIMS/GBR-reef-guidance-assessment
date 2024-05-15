@@ -5,7 +5,7 @@ include("common.jl")
 
 @everywhere begin
     """
-    prop_suitable(subsection::AbstractMatrix)::Float32
+        prop_suitable(subsection::AbstractMatrix)::Float32
 
     Calculate the the proportion of the subsection that is suitable for deployments.
     Subsection is the surrounding hectare centred on each cell of a raster.
@@ -50,20 +50,25 @@ include("common.jl")
         src_geomorphic_path = joinpath(OUTPUT_DIR, "$(reg)_geomorphic.tif")
         src_geomorphic = Raster(src_geomorphic_path, lazy=true)
 
-        # Load pre-prepared wave data
-        src_waves_path = joinpath(OUTPUT_DIR, "$(reg)_waves.tif")
-        src_waves = Raster(src_waves_path, lazy=true, crs=crs(src_bathy))
+        # Load pre-prepared wave height data
+        src_waves_Hs_path = joinpath(OUTPUT_DIR, "$(reg)_waves_Hs.tif")
+        src_waves_Hs = Raster(src_waves_Hs_path, lazy=true, crs=crs(src_bathy))
+
+        # Load pre-prepared wave period data
+        src_waves_Tp_path = joinpath(OUTPUT_DIR, "$(reg)_waves_Tp.tif")
+        src_waves_Tp = Raster(src_waves_Tp_path, lazy=true, crs=crs(src_bathy))
 
         # Source image is of 10m^2 pixels
         # A hectare is 100x100 meters, so we calculate the proportional area of each hectare
-        # that meet criteria of (-9 <= depth <= -3, slope < 40, habitat is Rock or
-        # Coral/Algae and 90th percentile of standing wave height is below 1m).
+        # that meet criteria of (-9 <= depth <= -3m, slope < 40 deg, habitat is Rock or Coral/Algae, 
+        # 90th percentile of standing wave height is below 1m, and wave period is less than 6 sec).
 
         suitable_areas = read(
             (src_benthic .∈ [BENTHIC_IDS]) .&
             (-9.0 .<= src_bathy .<= -2.0) .&
             (0.0 .<= src_slope .<= 40.0) .&
-            (0.0 .<= src_waves .<= 1.0)
+            (0.0 .<= src_waves_Hs .<= 1.0) .&
+            (0.0 .<= src_waves_Tp .<= 6.0)
         )
 
         # Need a copy of raster data type to support writing to `tif`
