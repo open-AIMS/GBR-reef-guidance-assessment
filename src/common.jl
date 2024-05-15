@@ -44,7 +44,7 @@ end
 
     global CONFIG = TOML.parsefile(".config.toml")
     global MPA_DATA_DIR = CONFIG["mpa_data"]["MPA_DATA_DIR"]
-    global ALLEN_ATLAS_DIR = CONFIG["aca_data"]["ALLEN_ATLAS_DIR"]
+    global ALLEN_ATLAS_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
 
     # Folder names (TODO: Generalize)
     global REGIONS = String[
@@ -58,6 +58,7 @@ end
     global FLAT_IDS = [13, 14, 23]  # Inner Reef Flat, Outer Reef Flat, Plateau
     global SLOPE_IDS = [21, 22, 24]  # Sheltered Reef Slope, Reef Slope, Back Reef Slope
     global BENTHIC_IDS = [0x0d, 0x0f]  # Rock, Coral/Algae
+    global WAVE_DATA_DIR = CONFIG["wave_data"]["WAVE_DATA_DIR"]
 
     # Known Proj4 strings for each GBRMPA zone
     global WAVE_REGION_CRS = Dict(
