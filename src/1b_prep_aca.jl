@@ -81,7 +81,7 @@ region_features[!, :geometry] = Vector{AG.IGeometry}(AG.forceto.(region_features
         target_bathy = nothing
         GC.gc()
     end
-    
+
     # Using aca_bathy as the basis for resampling for ACA data
     src_aca_bathy = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"), lazy=true)
 
@@ -94,13 +94,15 @@ region_features[!, :geometry] = Vector{AG.IGeometry}(AG.forceto.(region_features
         write(joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif"), target_turbid; force=true)
 
         target_turbid = nothing
-        src_aca_bathy = nothing
         GC.gc()
     end
 
+    # Wave data processing needs more work because the wave data does not have a crs and is
+    # not in a format similar to the ACA raster data (this was doable for MPA because the
+    # MPA raster data was in a similar format/extent).
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"))
         target_waves_Hs_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Hs", reg)))
-        target_waves_Hs = Raster(target_waves_Hs_path, key=:Hs90, crs=crs(src_aca_bathy), mappedcrs=EPSG(4326), lazy=true)
+        target_waves_Hs = Raster(target_waves_Hs_path, key=:Hs90, lazy=true)
 
         # Extend bounds of wave data to match bathymetry if needed
         if size(src_aca_bathy) !== size(target_waves_Hs)
@@ -127,8 +129,8 @@ region_features[!, :geometry] = Vector{AG.IGeometry}(AG.forceto.(region_features
     end
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"))
-        target_waves_Tp_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, Tp, reg)))
-        target_waves_Tp = Raster(target_waves_Tp_path, key=:Tp90, crs=crs(src_aca_bathy), mappedcrs=EPSG(4326), lazy=true)
+        target_waves_Tp_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Tp", reg)))
+        target_waves_Tp = Raster(target_waves_Tp_path, key=:Tp90, lazy=true)
 
         # Extend bounds of wave data to match bathymetry if needed
         if size(src_aca_bathy) !== size(target_waves_Tp)
