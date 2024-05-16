@@ -35,32 +35,32 @@ include("common.jl")
 
     function assess_region(reg)
         # Load bathymetry raster
-        src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-        src_bathy = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
+        src_bathy_path = joinpath(OUTPUT_DIR, "$(reg)_bathy.tif")
+        src_bathy = Raster(src_bathy_path; crs=EPSG(7844), lazy=true)
 
         # Load slope raster
-        src_slope_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "slope", reg)))
-        src_slope = Raster(src_slope_path, mappedcrs=EPSG(4326), lazy=true)
+        src_slope_path = joinpath(OUTPUT_DIR, "$(reg)_slope.tif")
+        src_slope = Raster(src_slope_path; crs=EPSG(7844), lazy=true)
 
         # Load pre-prepared benthic data
         src_benthic_path = joinpath(OUTPUT_DIR, "$(reg)_benthic.tif")
-        src_benthic = Raster(src_benthic_path, lazy=true)
+        src_benthic = Raster(src_benthic_path; crs=EPSG(7844), lazy=true)
 
         # Load pre-prepared geomorphic data
         src_geomorphic_path = joinpath(OUTPUT_DIR, "$(reg)_geomorphic.tif")
-        src_geomorphic = Raster(src_geomorphic_path, lazy=true)
+        src_geomorphic = Raster(src_geomorphic_path; crs=EPSG(7844), lazy=true)
 
         # Load pre-prepared wave height data
         src_waves_Hs_path = joinpath(OUTPUT_DIR, "$(reg)_waves_Hs.tif")
-        src_waves_Hs = Raster(src_waves_Hs_path, lazy=true, crs=crs(src_bathy))
+        src_waves_Hs = Raster(src_waves_Hs_path; crs=EPSG(7844), lazy=true)
 
         # Load pre-prepared wave period data
         src_waves_Tp_path = joinpath(OUTPUT_DIR, "$(reg)_waves_Tp.tif")
-        src_waves_Tp = Raster(src_waves_Tp_path, lazy=true, crs=crs(src_bathy))
+        src_waves_Tp = Raster(src_waves_Tp_path; crs=EPSG(7844), lazy=true)
 
         # Source image is of 10m^2 pixels
         # A hectare is 100x100 meters, so we calculate the proportional area of each hectare
-        # that meet criteria of (-9 <= depth <= -3m, slope < 40 deg, habitat is Rock or Coral/Algae, 
+        # that meet criteria of (-9 <= depth <= -3m, slope < 40 deg, habitat is Rock or Coral/Algae,
         # 90th percentile of standing wave height is below 1m, and wave period is less than 6 sec).
 
         suitable_areas = read(

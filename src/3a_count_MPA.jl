@@ -8,9 +8,8 @@ using CSV
 include("common.jl")
 
 reef_path = joinpath(
-    MPA_DATA_DIR,
-    "features",
-    "Great_Barrier_Reef_Features.shp"
+    GDA2020_DATA_DIR,
+    "Great_Barrier_Reef_Features_20_-4212769177867532467.gpkg"
 )
 
 reef_features = GDF.read(reef_path)

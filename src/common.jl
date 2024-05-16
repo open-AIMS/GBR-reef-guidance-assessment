@@ -38,9 +38,17 @@ end
         using ImageMorphology: label_components, component_centroids
     end
 
-    global FIG_DIR = "../figs/"
-    global OUTPUT_DIR = "../outputs/"
-    global QGIS_DIR = "../qgis/"
+    FIG_DIR = "../figs/"
+    global MPA_FIG_DIR = joinpath(FIG_DIR, "MPA")
+    global ACA_FIG_DIR = joinpath(FIG_DIR, "ACA")
+
+    QGIS_DIR = "../qgis/"
+    global MPA_QGIS_DIR = joinpath(QGIS_DIR, "MPA")
+    global ACA_QGIS_DIR = joinpath(QGIS_DIR, "ACA")
+
+    OUTPUT_DIR = "../outputs/"
+    global MPA_OUTPUT_DIR = joinpath(OUTPUT_DIR, "MPA")
+    global ACA_OUTPUT_DIR = joinpath(OUTPUT_DIR, "ACA")
 
     global CONFIG = TOML.parsefile(".config.toml")
     global MPA_DATA_DIR = CONFIG["mpa_data"]["MPA_DATA_DIR"]
