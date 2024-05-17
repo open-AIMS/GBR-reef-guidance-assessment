@@ -7,17 +7,26 @@ using CSV
 
 include("common.jl")
 
-reef_path = joinpath(
-    GDA2020_DATA_DIR,
-    "Great_Barrier_Reef_Features_20_-4212769177867532467.gpkg"
+# Load GDA-2020 GBR features dataset as a template for reprojection
+features_for_crs_path = joinpath(
+     GDA2020_DATA_DIR,
+     "Great_Barrier_Reef_Features_20_-4212769177867532467.gpkg"
 )
-rename!(reef_path, Dict(:SHAPE => :geometry))
+features_for_crs = GDF.read(features_for_crs_path)
+rename!(features_for_crs, Dict(:SHAPE => :geometry))
 
+# We need `Area_HA` and `UNIQUE_ID` from the GBR features dataset provided with MPA data,
+# however this is in crs GDA-94 so we have to reproject this dataset to GDA-2020.
+reef_path = joinpath(MPA_DATA_DIR, "features/Great_Barrier_Reef_Features.shp")
 reef_features = GDF.read(reef_path)
+reef_features.geometry = AG.reproject(reef_features.geometry, crs(reef_features[1,:geometry]), crs(features_for_crs[1,:geometry]); order=:trad)
+
 reef_features.region .= ""
 reef_features.reef_name .= ""
+
 reef_features.n_flat .= 0
 reef_features.n_slope .= 0
+
 reef_features.flat_ha .= 0.0
 reef_features.slope_ha .= 0.0
 
@@ -52,27 +61,21 @@ end
 @showprogress dt = 10 desc = "Collating zonal stats..." for reg in REGIONS
     # Load rasters
     target_flats = Raster(
-        joinpath(OUTPUT_DIR, "$(reg)_suitable_flats.tif"),
-        mappedcrs=EPSG(4326)
+        joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_flats.tif"),
+        crs=EPSG(7844),
+        lazy=true
     )
     # Identify whether cells have 95% (or greater) of their surrounding hectare suitable
-    target_flats = read(target_flats .>= 0.95)
+    target_flats = read(target_flats .>= 95)
 
     target_slopes = Raster(
-        joinpath(OUTPUT_DIR, "$(reg)_suitable_slopes.tif"),
-        mappedcrs=EPSG(4326)
+        joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes.tif"),
+        crs=EPSG(7844),
+        lazy=true
     )
-    target_slopes = read(target_slopes .>= 0.95)
+    target_slopes = read(target_slopes .>= 95)
 
-    # For some reason the geometries references in the GeoDataFrame are referenced
-    # so any transforms also affect the original.
-    # Any later transforms appear invalid (as it is no longer in EPSG:4326) and so leads
-    # to a crash.
-    # Taking a copy does not work, so a quick workaround is to simply read the geometries
-    # in again.
-    reefs = GDF.read(reef_path)
-    rename!(reefs, Dict(:SHAPE => :geometry))
-    # reefs.geometry = AG.reproject(reefs.geometry, GFT.EPSG(4326), crs(target_flats); order=:trad)
+    reefs = reef_features
 
     for (target_row, reef) in enumerate(eachrow(reefs))
         # Count number of locations that meet flats and slopes criteria.
@@ -123,7 +126,7 @@ end
 
 # Write data to shapefile (ArcGIS does not accept geopackage format)
 GDF.write(
-    joinpath(QGIS_DIR, "reef_suitability.shp"),
+    joinpath(MPA_QGIS_DIR, "reef_suitability.shp"),
     reef_features[:, [:geometry, :region, :reef_name, :flat_ha, :slope_ha, :Area_HA, :n_flat, :n_slope, :flat_scr, :slope_scr, :UNIQUE_ID]];
     layer_name="reef_suitability",
     geom_columns=(:geometry,),

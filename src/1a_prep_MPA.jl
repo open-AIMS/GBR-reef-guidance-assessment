@@ -1,7 +1,8 @@
 """
 Prepare data for analysis.
 
-Reproject data from WGS84/UTM Zone 54 - 56 to GDA-2020.
+Crop GBR-wide rasters into management regions.
+Reproject all data from WGS84 / UTM Zone 54 - 56 into consistent crs GDA-2020.
 Ensure all rasters are the same size/shape for each region of interest.
 """
 
