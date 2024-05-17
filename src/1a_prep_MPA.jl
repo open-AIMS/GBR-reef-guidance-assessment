@@ -1,7 +1,7 @@
 """
 Prepare data for analysis.
 
-Reproject data from WGS84 to UTM Zone 54 - 56.
+Reproject data from WGS84/UTM Zone 54 - 56 to GDA-2020.
 Ensure all rasters are the same size/shape for each region of interest.
 """
 

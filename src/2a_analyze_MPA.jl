@@ -2,7 +2,6 @@
 
 include("common.jl")
 
-
 @everywhere begin
     """
         prop_suitable(subsection::AbstractMatrix)::Float32
@@ -35,27 +34,27 @@ include("common.jl")
 
     function assess_region(reg)
         # Load bathymetry raster
-        src_bathy_path = joinpath(OUTPUT_DIR, "$(reg)_bathy.tif")
+        src_bathy_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
         src_bathy = Raster(src_bathy_path; crs=EPSG(7844), lazy=true)
 
         # Load slope raster
-        src_slope_path = joinpath(OUTPUT_DIR, "$(reg)_slope.tif")
+        src_slope_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif")
         src_slope = Raster(src_slope_path; crs=EPSG(7844), lazy=true)
 
         # Load pre-prepared benthic data
-        src_benthic_path = joinpath(OUTPUT_DIR, "$(reg)_benthic.tif")
+        src_benthic_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif")
         src_benthic = Raster(src_benthic_path; crs=EPSG(7844), lazy=true)
 
         # Load pre-prepared geomorphic data
-        src_geomorphic_path = joinpath(OUTPUT_DIR, "$(reg)_geomorphic.tif")
+        src_geomorphic_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif")
         src_geomorphic = Raster(src_geomorphic_path; crs=EPSG(7844), lazy=true)
 
         # Load pre-prepared wave height data
-        src_waves_Hs_path = joinpath(OUTPUT_DIR, "$(reg)_waves_Hs.tif")
+        src_waves_Hs_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif")
         src_waves_Hs = Raster(src_waves_Hs_path; crs=EPSG(7844), lazy=true)
 
         # Load pre-prepared wave period data
-        src_waves_Tp_path = joinpath(OUTPUT_DIR, "$(reg)_waves_Tp.tif")
+        src_waves_Tp_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif")
         src_waves_Tp = Raster(src_waves_Tp_path; crs=EPSG(7844), lazy=true)
 
         # Source image is of 10m^2 pixels
@@ -80,7 +79,7 @@ include("common.jl")
 
         # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray
-        fpath = joinpath(OUTPUT_DIR, "$(reg)_suitable_flats.tif")
+        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_flats.tif")
         _write_data(fpath, res, result_raster)
 
         suitable_flats = nothing
@@ -92,7 +91,7 @@ include("common.jl")
 
         # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_slopes, (-4:5, -4:5), border=Fill(0)) .|> Gray
-        fpath = joinpath(OUTPUT_DIR, "$(reg)_suitable_slopes.tif")
+        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes.tif")
         _write_data(fpath, res, result_raster)
 
         suitable_slopes = nothing

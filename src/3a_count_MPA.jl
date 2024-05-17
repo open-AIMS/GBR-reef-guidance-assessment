@@ -11,6 +11,7 @@ reef_path = joinpath(
     GDA2020_DATA_DIR,
     "Great_Barrier_Reef_Features_20_-4212769177867532467.gpkg"
 )
+rename!(reef_path, Dict(:SHAPE => :geometry))
 
 reef_features = GDF.read(reef_path)
 reef_features.region .= ""
@@ -70,7 +71,8 @@ end
     # Taking a copy does not work, so a quick workaround is to simply read the geometries
     # in again.
     reefs = GDF.read(reef_path)
-    reefs.geometry = AG.reproject(reefs.geometry, GFT.EPSG(4326), crs(target_flats); order=:trad)
+    rename!(reefs, Dict(:SHAPE => :geometry))
+    # reefs.geometry = AG.reproject(reefs.geometry, GFT.EPSG(4326), crs(target_flats); order=:trad)
 
     for (target_row, reef) in enumerate(eachrow(reefs))
         # Count number of locations that meet flats and slopes criteria.
@@ -125,7 +127,7 @@ GDF.write(
     reef_features[:, [:geometry, :region, :reef_name, :flat_ha, :slope_ha, :Area_HA, :n_flat, :n_slope, :flat_scr, :slope_scr, :UNIQUE_ID]];
     layer_name="reef_suitability",
     geom_columns=(:geometry,),
-    crs=EPSG(4326)
+    crs=EPSG(7844)
 )
 
 # Write data to csv file
