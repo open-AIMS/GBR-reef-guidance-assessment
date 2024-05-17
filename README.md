@@ -57,6 +57,7 @@ MPA_DATA_DIR
 │   ├───Mackay-Capricorn
 │   └───Townsville-Whitsunday
 ├───benthic
+├───features
 ├───geomorphic
 ├───slope
 │   ├───Cairns-Cooktown
@@ -72,7 +73,6 @@ MPA_DATA_DIR
 GDA2020_DATA_DIR
 ├───management_region_features
 └───GBR_features
-
 ```
 
 ## Scripts
