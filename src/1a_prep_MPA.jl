@@ -11,7 +11,6 @@ include("common.jl")
 gbr_benthic_path = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
 gbr_benthic = Raster(gbr_benthic_path, crs=EPSG(4326), lazy=true)
 
-
 gbr_morphic_path = "$(MPA_DATA_DIR)/geomorphic/GBR10 GBRMP Geomorphic.tif"
 gbr_geomorphic = Raster(gbr_morphic_path, crs=EPSG(4326), lazy=true)
 
@@ -55,25 +54,35 @@ regions_4326.geometry = AG.reproject(regions_4326.geometry, crs(regions_4326[1,:
     end
 
     if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"))
+        # Load template raster data
+        bathy_gda2020_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
+        bathy_gda2020 = Raster(bathy_gda2020_path; crs=EPSG(7844), lazy=true)
+
         # Trim raster to region of interest
         target_benthic = Rasters.trim(mask(gbr_benthic; with=regions_4326[reg_idx_4326, :]))
         # Reproject raster to GDA 2020
-        target_benthic = resample(target_benthic; crs=crs(regions_GDA2020[1,:geometry]))
+        target_benthic = resample(target_benthic; to=bathy_gda2020)
 
         write(joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"), target_benthic; force=true)
 
+        bathy_gda2020 = nothing
         target_benthic = nothing
         GC.gc()
     end
 
     if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"))
+        # Load template raster data
+        bathy_gda2020_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
+        bathy_gda2020 = Raster(bathy_gda2020_path; crs=EPSG(7844), lazy=true)
+
         # Trim raster to region of interest
         target_geomorphic = Rasters.trim(mask(gbr_geomorphic; with=regions_4326[reg_idx_4326, :]))
         # Reproject raster to GDA 2020
-        target_geomorphic = resample(target_geomorphic; crs=crs(regions_GDA2020[1,:geometry]))
+        target_geomorphic = resample(target_geomorphic; to=bathy_gda2020)
 
         write(joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"), target_geomorphic; force=true)
 
+        bathy_gda2020 = nothing
         target_geomorphic = nothing
         GC.gc()
     end
@@ -97,7 +106,7 @@ regions_4326.geometry = AG.reproject(regions_4326.geometry, crs(regions_4326[1,:
         tmp_Hs = copy(src_bathy)
 
         # Replace data (important: flip the y-axis!)
-        tmp_Hs.data .= coalesce.(target_waves_Hs.data[:, end:-1:1], -9999.0)
+        tmp_Hs.data .= target_waves_Hs.data[:, end:-1:1]
         target_waves_Hs = tmp_Hs
 
         # Set to known missing value
@@ -133,7 +142,7 @@ regions_4326.geometry = AG.reproject(regions_4326.geometry, crs(regions_4326[1,:
         tmp_Tp = copy(src_bathy)
 
         # Replace data (important: flip the y-axis!)
-        tmp_Tp.data .= coalesce.(target_waves_Tp.data[:, end:-1:1], -9999.0)
+        tmp_Tp.data .= target_waves_Tp.data[:, end:-1:1]
         target_waves_Tp = tmp_Tp
 
         # Set to known missing value
