@@ -9,13 +9,13 @@ include("common.jl")
     Calculate the the proportion of the subsection that is suitable for deployments.
     Subsection is the surrounding hectare centred on each cell of a raster.
     """
-    function prop_suitable(subsection::AbstractMatrix)::Float32
+    function prop_suitable(subsection::AbstractMatrix)::Int16
         total = sum(subsection)
         if total == 0.0
             return 0.0
         end
 
-        return Float32((total / length(subsection)))
+        return Int16(round((total / length(subsection))*100))
     end
 
     function _write_data(fpath::String, data, cache)::Nothing
@@ -59,8 +59,9 @@ include("common.jl")
 
         # Source image is of 10m^2 pixels
         # A hectare is 100x100 meters, so we calculate the proportional area of each hectare
-        # that meet criteria of (-9 <= depth <= -3m, slope < 40 deg, habitat is Rock or Coral/Algae,
-        # 90th percentile of standing wave height is below 1m, and wave period is less than 6 sec).
+        # that meet criteria of (-9 <= depth <= -3m, slope < 40 deg, habitat is Rock or
+        # Coral/Algae, 90th percentile of standing wave height is below 1m,
+        # and wave period is less than 6 sec).
 
         suitable_areas = read(
             (src_benthic .∈ [BENTHIC_IDS]) .&
@@ -70,15 +71,21 @@ include("common.jl")
             (0.0 .<= src_waves_Tp .<= 6.0)
         )
 
+        src_bathy = nothing
+        src_slope = nothing
+        src_benthic = nothing
+        src_waves_Hs = nothing
+        src_waves_Tp = nothing
+
         # Need a copy of raster data type to support writing to `tif`
-        result_raster = convert.(Float32, copy(suitable_areas))
+        result_raster = convert.(Int16, copy(suitable_areas))
         rebuild(result_raster; missingval=0)
 
         # Assess flats
-        suitable_flats = read((suitable_areas) .& (src_geomorphic .∈ [FLAT_IDS]))
+        suitable_flats = read(suitable_areas .& (src_geomorphic .∈ [FLAT_IDS]))
 
         # Calculate suitability of 10x10m surroundings of each cell
-        res = mapwindow(prop_suitable, suitable_flats, (-4:5, -4:5), border=Fill(0)) .|> Gray
+        res = mapwindow(prop_suitable, suitable_flats, (-4:5, -4:5), border=Fill(0))
         fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_flats.tif")
         _write_data(fpath, res, result_raster)
 
@@ -87,17 +94,18 @@ include("common.jl")
         GC.gc()
 
         # Assess slopes
-        suitable_slopes = read((suitable_areas) .& (src_geomorphic .∈ [SLOPE_IDS]))
+        suitable_slopes = read(suitable_areas .& (src_geomorphic .∈ [SLOPE_IDS]))
 
         # Calculate suitability of 10x10m surroundings of each cell
-        res = mapwindow(prop_suitable, suitable_slopes, (-4:5, -4:5), border=Fill(0)) .|> Gray
+        res = mapwindow(prop_suitable, suitable_slopes, (-4:5, -4:5), border=Fill(0))
         fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes.tif")
         _write_data(fpath, res, result_raster)
 
+        suitable_areas = nothing
         suitable_slopes = nothing
         res = nothing
         GC.gc()
     end
 end
 
-@showprogress dt = 10 desc = "Analyzing..." map(assess_region, REGIONS)
+@showprogress dt = 10 desc = "Analyzing..." pmap(assess_region, REGIONS)
