@@ -124,7 +124,7 @@ for reg in REGIONS
     reef_features[target_reg, :slope_scr] .= round.(reef_features[target_reg, :slope_scr] / maximum(reef_features[target_reg, :slope_scr]), digits=4)
 end
 
-# Write data to shapefile (ArcGIS does not accept geopackage format)
+# Write data to geopackage
 GDF.write(
     joinpath(MPA_QGIS_DIR, "reef_suitability.gpkg"),
     reef_features[:, [
