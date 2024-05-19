@@ -59,9 +59,9 @@ include("common.jl")
 
         # Source image is of 10m^2 pixels
         # A hectare is 100x100 meters, so we calculate the proportional area of each hectare
-        # that meet criteria of (-9 <= depth <= -3m, slope < 40 deg, habitat is Rock or
-        # Coral/Algae, 90th percentile of standing wave height is below 1m,
-        # and wave period is less than 6 sec).
+        # that meet criteria of (Benthic habitat is Rock or Coral/Algae, -9 <= depth <= -2m,
+        # slope < 40 deg, 90th percentile of standing wave height <= 1m,
+        # and wave period <= 6 sec).
 
         suitable_areas = read(
             (src_benthic .∈ [BENTHIC_IDS]) .&
