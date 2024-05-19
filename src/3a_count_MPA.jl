@@ -9,8 +9,8 @@ include("common.jl")
 
 # Load GDA-2020 GBR features dataset as a template for reprojection
 features_for_crs_path = joinpath(
-     GDA2020_DATA_DIR,
-     "Great_Barrier_Reef_Features_20_-4212769177867532467.gpkg"
+    GDA2020_DATA_DIR,
+    "Great_Barrier_Reef_Features_20_-4212769177867532467.gpkg"
 )
 features_for_crs = GDF.read(features_for_crs_path)
 rename!(features_for_crs, Dict(:SHAPE => :geometry))
@@ -19,7 +19,7 @@ rename!(features_for_crs, Dict(:SHAPE => :geometry))
 # however this is in crs GDA-94 so we have to reproject this dataset to GDA-2020.
 reef_path = joinpath(MPA_DATA_DIR, "features/Great_Barrier_Reef_Features.shp")
 reef_features = GDF.read(reef_path)
-reef_features.geometry = AG.reproject(reef_features.geometry, crs(reef_features[1,:geometry]), crs(features_for_crs[1,:geometry]); order=:trad)
+reef_features.geometry = AG.reproject(reef_features.geometry, crs(reef_features[1, :geometry]), crs(features_for_crs[1, :geometry]); order=:trad)
 
 reef_features.region .= ""
 reef_features.reef_name .= ""
@@ -126,10 +126,20 @@ end
 
 # Write data to shapefile (ArcGIS does not accept geopackage format)
 GDF.write(
-    joinpath(MPA_QGIS_DIR, "reef_suitability.shp"),
-    reef_features[:, [:geometry, :region, :reef_name, :flat_ha, :slope_ha, :Area_HA, :n_flat, :n_slope, :flat_scr, :slope_scr, :UNIQUE_ID]];
-    layer_name="reef_suitability",
-    geom_columns=(:geometry,),
+    joinpath(MPA_QGIS_DIR, "reef_suitability.gpkg"),
+    reef_features[:, [
+        :geometry,
+        :region,
+        :reef_name,
+        :flat_ha,
+        :slope_ha,
+        :Area_HA,
+        :n_flat,
+        :n_slope,
+        :flat_scr,
+        :slope_scr,
+        :UNIQUE_ID
+    ]];
     crs=EPSG(7844)
 )
 
