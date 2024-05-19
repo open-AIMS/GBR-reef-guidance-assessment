@@ -47,7 +47,7 @@ MPA_DATA_DIR : contains raster data at whole-GBR and GBRMPA-management-region sc
 
 ACA_DATA_DIR : contains raster and vector data at whole-GBR scale.
 
-WAVE_DATA_DIR : contains wave NetCDF data at GBRMPA-management-region scale.
+WAVE_DATA_DIR : contains wave data in NetCDF format at the scale ofGBRMPA-management-regions.
 
 ```bash
 MPA_DATA_DIR
@@ -77,8 +77,8 @@ ACA_DATA_DIR
 │   └───Vector data
 ├───Reef-Extent
 │   └───Vector data
-├───Turbidity-Q3-2023
-│   └───Raster data
+└───Turbidity-Q3-2023
+    └───Raster data
 
 WAVE_DATA_DIR
 ├───Hs
@@ -86,11 +86,11 @@ WAVE_DATA_DIR
 │   ├───FarNorthern
 │   ├───Mackay-Capricorn
 │   └───Townsville-Whitsunday
-├───Tp
-│   ├───Cairns-Cooktown
-│   ├───FarNorthern
-│   ├───Mackay-Capricorn
-│   └───Townsville-Whitsunday
+└───Tp
+    ├───Cairns-Cooktown
+    ├───FarNorthern
+    ├───Mackay-Capricorn
+    └───Townsville-Whitsunday
 ```
 
 ## Scripts
@@ -110,8 +110,8 @@ indicated order have been run previously.
 e.g., Script 3 could be run after script 1 and 2, so long as 1 and 2 were run at some point
 previously.
 
-- `1*_.jl` : Separate data into regions to reduce computational requirements. Ensure consistent
-formats and Coordinate Reference Systems for datasets within MPA and ACA analyses.
+- `1*_.jl` : Separate data into regions to reduce computational requirements. Ensure all data
+used in later steps are in EPSG:7844 (GDA 2020).
 - `2*_.jl` : Filter raster data into cells that meet selected criteria and calculate the
 proportion of suitability in the hectare surrounding each cell.
 - `3*_.jl` : Count the number of cells that have a surrounding suitability >= 0.95.
@@ -165,6 +165,7 @@ https://doi.org/10.48610/8246441
 https://espace.library.uq.edu.au/view/UQ:8246441
 
 ### ACA data
+
 https://www.allencoralatlas.org/
 
 #### Notes
@@ -178,9 +179,11 @@ Often this might be the only data available.
 
 #### Resolution
 
-`MPA raster data` (Bathymetry, Benthic, Geomorphic, Slope, Waves) : 10 x 10m pixel size
+`MPA raster data` (Bathymetry, Benthic, Geomorphic, Slope) : 10 x 10m pixel size
 
-`ACA raster data` (Bathymetry, Turbidity, Waves) : 10 x 10m pixel size
+`ACA raster data` (Bathymetry and Turbidity) : 10 x 10m pixel size
+
+`Waves NetCDF data` (Hs and Tp) : 10 x 10m pixel size
 
 #### Projections
 
