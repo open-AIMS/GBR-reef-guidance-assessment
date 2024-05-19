@@ -146,3 +146,31 @@ GDF.write(
 # Write data to csv file
 subdf = reef_features[:, [:region, :reef_name, :flat_ha, :slope_ha, :Area_HA, :n_flat, :n_slope, :flat_scr, :slope_scr, :UNIQUE_ID]]
 CSV.write("../qgis/potential_reef_areas.csv", subdf)
+
+# Rank reefs by their regional suitability score
+reef_scores = reef_features[:, [
+    :geometry,
+    :region,
+    :reef_name,
+    :flat_ha,
+    :slope_ha,
+    :Area_HA,
+    :n_flat,
+    :n_slope,
+    :flat_scr,
+    :slope_scr,
+    :UNIQUE_ID
+]]
+
+# Keep reefs that have some suitability score
+reef_scores[(suitability.flat_scr .!== 0.0) .| (suitability.slope_scr .!== 0.0), :]
+
+# Rank reefs by flat_scr and include the top 10 reefs
+highest_flats = DataFrames.combine(groupby(reefs_with_scores,:region), sdf -> sort(sdf,:flat_scr; rev=true), :region => eachindex => :rank)
+highest_flats[highest_flats.rank .∈ [1:10], :]
+GDF.write(joinpath(MPA_QGIS_DIR, "highest_ranked_reefs_flats.gpkg"), highest_flats; crs=EPSG(7844))
+
+# Rank reefs by slope_scr and include the top 10 reefs
+highest_slopes = DataFrames.combine(groupby(reefs_with_scores, :region), sdf -> sort(sdf, :slope_scr; rev=true), :region => eachindex => :rank)
+highest_slopes[highest_slopes.rank .∈ [1:10], :]
+GDF.write(joinpath(MPA_QGIS_DIR, "highest_ranked_reefs_slopes.gpkg"), highest_slopes; crs=EPSG(7844))
