@@ -29,19 +29,25 @@ MPA_DATA_DIR = "path to GBR data"  # location of GBR datasets
 
 [aca_data]
 ALLEN_ATLAS_DIR = "path to Allen Atlas data"  # location of Allen Atlas datasets
+
+[wave_data]
+WAVE_DATA_DIR = "path to wave data" # location of wave NetCDF datasets
 ```
 
 ### Data layout
 
 Expected data directory layout:
 
+Separate directories are used for GBRMPA (MPA), Allen Coral Atlas (ACA) and wave datasets.
 Sub-directory names should be consistent and match.
-Benthic habitat raster (inside `benthic`) covers whole of GBR so no sub-directories are necessary.
-Similarly, `geomorphic` holds the whole-of-GBR geomorphic zonation raster
 
-`zones` holds GBRMPA zone layers in geojson format.
+MPA_DATA_DIR : contains raster data at whole-GBR and GBRMPA-management-region scales.
+- `zones` holds GBRMPA zone layers in geojson format.
+- `features` holds the GBRMPA GBR-wide feature set.
 
-`features` holds the GBRMPA GBR-wide feature set.
+ACA_DATA_DIR : contains raster and vector data at whole-GBR scale.
+
+WAVE_DATA_DIR : contains wave data in NetCDF format at the scale ofGBRMPA-management-regions.
 
 ```bash
 MPA_DATA_DIR
@@ -58,12 +64,33 @@ MPA_DATA_DIR
 │   ├───FarNorthern
 │   ├───Mackay-Capricorn
 │   └───Townsville-Whitsunday
-├───waves
+└───zones
+
+ACA_DATA_DIR
+├───Bathymetry---composite-depth
+│   └───Raster data
+├───Benthic-Map
+│   └───Vector data
+├───boundary
+│   └───Vector data
+├───Geomorphic-Map
+│   └───Vector data
+├───Reef-Extent
+│   └───Vector data
+└───Turbidity-Q3-2023
+    └───Raster data
+
+WAVE_DATA_DIR
+├───Hs
 │   ├───Cairns-Cooktown
 │   ├───FarNorthern
 │   ├───Mackay-Capricorn
 │   └───Townsville-Whitsunday
-└───zones
+└───Tp
+    ├───Cairns-Cooktown
+    ├───FarNorthern
+    ├───Mackay-Capricorn
+    └───Townsville-Whitsunday
 ```
 
 ## Scripts
@@ -76,12 +103,18 @@ $ cd src
 $ julia --project=..
 ```
 
-Scripts are labelled by their expected run order, and are written to be as stand-alone as
-possible. It should be possible to run one script, so long as other scripts earlier in the
+Scripts are labelled by their expected run order for GBRMPA (MPA) and Allen Coral Atlas (ACA),
+and are written to be as stand-alone as possible.
+It should be possible to run one script, so long as other scripts earlier in the
 indicated order have been run previously.
-
 e.g., Script 3 could be run after script 1 and 2, so long as 1 and 2 were run at some point
 previously.
+
+- `1*_.jl` : Separate data into regions to reduce computational requirements. Ensure all data
+used in later steps are in EPSG:7844 (GDA 2020).
+- `2*_.jl` : Filter raster data into cells that meet selected criteria and calculate the
+proportion of suitability in the hectare surrounding each cell.
+- `3*_.jl` : Count the number of cells that have a surrounding suitability >= 0.95.
 
 ## Manual steps
 
@@ -131,6 +164,10 @@ Data Collection.
 https://doi.org/10.48610/8246441
 https://espace.library.uq.edu.au/view/UQ:8246441
 
+### ACA data
+
+https://www.allencoralatlas.org/
+
 #### Notes
 
 `Hs` (Significant wave height) : average height of the top 1/3 highest waves in a section
@@ -140,7 +177,17 @@ structures like reefs.
 
 Often this might be the only data available.
 
+#### Resolution
+
+`MPA raster data` (Bathymetry, Benthic, Geomorphic, Slope) : 10 x 10m pixel size
+
+`ACA raster data` (Bathymetry and Turbidity) : 10 x 10m pixel size
+
+`Waves NetCDF data` (Hs and Tp) : 10 x 10m pixel size
+
 #### Projections
+
+##### MPA Data
 
 Wave data provided can span across two UTM zones.
 Saving processed data as geotiffs will fail due to bounds checking; the GDAL implementation
@@ -184,6 +231,11 @@ with values denoting `missing` data).
 
 The bathymetry data structure is then copied (so metadata on its extent, projection, etc.
 are retained), and finally, the wave data is copied across.
+
+##### ACA Data
+
+ACA raster data is in crs WGS 84 4326. This is used throughout the ACA preparation and
+analysis steps.
 
 ## Presentation
 
