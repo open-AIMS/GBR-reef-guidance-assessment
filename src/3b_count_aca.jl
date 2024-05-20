@@ -3,13 +3,21 @@ Collate number of potentially suitable locations per reef, as defined by
 GBRMPA Features.
 """
 
+using CSV
+
 include("common.jl")
 
-reef_features = GDF.read(REEF_PATH)
+# We need `Area_HA` and `UNIQUE_ID` from the GBR features dataset provided with MPA data,
+# however this is in crs GDA-94 so we have to reproject this dataset to GDA-2020.
+reef_features = GDF.read(REEF_PATH_GDA94)
+reef_features.geometry = AG.reproject(reef_features.geometry, crs(reef_features[1, :geometry]), GDA2020_crs; order=:trad)
+
 reef_features.region .= ""
 reef_features.reef_name .= ""
+
 reef_features.n_flat .= 0
 reef_features.n_slope .= 0
+
 reef_features.flat_ha .= 0.0
 reef_features.slope_ha .= 0.0
 
@@ -43,15 +51,21 @@ end
 # Loop over each reef and count number of slopes and flats that meet criteria
 @showprogress dt = 10 desc = "Collating zonal stats..." for reg in REGIONS
     # Load rasters and identify cells that are greater than or equal to 0.95
-    target_flats = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_flats.tif"))
+    target_flats = Raster(
+        joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_flats.tif"),
+        crs=EPSG(7844),
+        lazy=true
+    )
     target_flats = read(target_flats .>= 0.95)
 
-    target_slopes = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_slopes.tif"))
+    target_slopes = Raster(
+        joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_slopes.tif"),
+        crs=EPSG(7844),
+        lazy=true
+    )
     target_slopes = read(target_slopes .>= 0.95)
 
-    # Reproject reef features to maintain consistent crs with raster files
-    reefs = GDF.read(REEF_PATH)
-    reefs.geometry = AG.reproject(reefs.geometry, GFT.EPSG(4326), crs(target_flats); order=:trad)
+    reefs = reef_features
 
     for (target_row, reef) in enumerate(eachrow(reefs))
         # Count number of locations that meet flats and slopes criteria.
@@ -104,7 +118,7 @@ end
 
 # Have to write out results as shapefile because of ArcGIS not handling GeoPackages
 GDF.write(
-    joinpath(ACA_QGIS_DIR, "reef_suitability.shp"),
+    joinpath(ACA_QGIS_DIR, "reef_suitability.gpkg"),
     reef_features[:, [
         :geometry,
         :region,
@@ -118,8 +132,6 @@ GDF.write(
         :slope_scr,
         :UNIQUE_ID
     ]];
-    layer_name="reef_suitability",
-    geom_columns=(:geometry,),
     crs=EPSG(4326)
 )
 
@@ -136,3 +148,31 @@ subdf = reef_features[:, [
     :UNIQUE_ID
 ]]
 CSV.write(joinpath(ACA_QGIS_DIR, "potential_reef_areas.csv"), subdf)
+
+# Rank reefs by their regional suitability score
+reef_scores = reef_features[:, [
+    :geometry,
+    :region,
+    :reef_name,
+    :flat_ha,
+    :slope_ha,
+    :Area_HA,
+    :n_flat,
+    :n_slope,
+    :flat_scr,
+    :slope_scr,
+    :UNIQUE_ID
+]]
+
+# Keep reefs that have some suitability score
+reefs_with_scores = reef_scores[(reef_scores.flat_scr .!== 0.0) .| (reef_scores.slope_scr .!== 0.0), :]
+
+# Rank reefs by flat_scr and include the top 10 reefs
+highest_flats = DataFrames.combine(groupby(reefs_with_scores, :region), sdf -> sort(sdf, :flat_scr; rev=true), :region => eachindex => :rank)
+highest_flats[highest_flats.rank .∈ [1:10], :]
+GDF.write(joinpath(ACA_QGIS_DIR, "highest_ranked_reefs_flats.gpkg"), highest_flats; crs=EPSG(7844))
+
+# Rank reefs by slope_scr and include the top 10 reefs
+highest_slopes = DataFrames.combine(groupby(reefs_with_scores, :region), sdf -> sort(sdf, :slope_scr; rev=true), :region => eachindex => :rank)
+highest_slopes[highest_slopes.rank .∈ [1:10], :]
+GDF.write(joinpath(ACA_QGIS_DIR, "highest_ranked_reefs_slopes.gpkg"), highest_slopes; crs=EPSG(7844))

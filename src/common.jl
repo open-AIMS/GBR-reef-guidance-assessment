@@ -53,20 +53,26 @@ end
     global MPA_OUTPUT_DIR = joinpath(OUTPUT_DIR, "MPA")
     global ACA_OUTPUT_DIR = joinpath(OUTPUT_DIR, "ACA")
 
-
-    # global
     CONFIG = TOML.parsefile(".config.toml")
     global MPA_DATA_DIR = CONFIG["mpa_data"]["MPA_DATA_DIR"]
     global ACA_DATA_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
+    global WAVE_DATA_DIR = CONFIG["wave_data"]["WAVE_DATA_DIR"]
+    global GDA2020_DATA_DIR = CONFIG["gda2020_data"]["GDA2020_DATA_DIR"]
+
+    regions_GDA2020_path = joinpath(GDA2020_DATA_DIR, "Great_Barrier_Reef_Marine_Park_Management_Areas_20_1685154518472315942.gpkg")
+    regions_GDA2020 = GDF.read(regions_GDA2020_path)
+    rename!(regions_GDA2020, Dict(:SHAPE => :geometry))
+    global GDA2020_crs = crs(regions_GDA2020[1,:geometry])
 
     # Get polygon of management areas
-    global REGION_PATH = joinpath(
+    global REGION_PATH_4326 = joinpath(
         MPA_DATA_DIR,
         "zones",
         "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
     )
 
-    global REEF_PATH = joinpath(
+    # The reef features GDA94 dataset has added `Area_HA` column needed in 3*_.jl
+    global REEF_PATH_GDA94 = joinpath(
         MPA_DATA_DIR,
         "features",
         "Great_Barrier_Reef_Features.shp"
