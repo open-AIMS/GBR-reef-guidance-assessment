@@ -100,21 +100,21 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"))
         # Need MPA bathy data as a template for wave data due to unknown crs/format
-        src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-        src_bathy = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
+        mpa_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
+        mpa_bathy = Raster(mpa_bathy_path, mappedcrs=EPSG(4326), lazy=true)
 
         target_waves_Hs_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Hs", reg)))
-        target_waves_Hs = Raster(target_waves_Hs_path, key=:Hs90, crs=crs(src_bathy), mappedcrs=EPSG(4326), lazy=true)
+        target_waves_Hs = Raster(target_waves_Hs_path, key=:Hs90, crs=crs(mpa_bathy), mappedcrs=EPSG(4326), lazy=true)
 
         # Extend bounds of wave data to match bathymetry if needed
-        if size(src_bathy) !== size(target_waves_Hs)
-            target_waves_Hs = extend(crop(target_waves_Hs; to=src_bathy); to=AG.extent(src_bathy))
-            @assert size(src_bathy) == size(target_waves_Hs)
+        if size(mpa_bathy) !== size(target_waves_Hs)
+            target_waves_Hs = extend(crop(target_waves_Hs; to=mpa_bathy); to=AG.extent(mpa_bathy))
+            @assert size(mpa_bathy) == size(target_waves_Hs)
 
             replace_missing!(target_waves_Hs, -9999.0)
         end
 
-        tmp_Hs = copy(src_bathy)
+        tmp_Hs = copy(mpa_bathy)
 
         # Replace data (important: flip the y-axis!)
         tmp_Hs.data .= target_waves_Hs.data[:, end:-1:1]
@@ -127,30 +127,35 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
         # Reproject raster to GDA 2020
         target_waves_Hs = Rasters.resample(target_waves_Hs; crs=GDA2020_crs)
 
+        # Have to resample to aca_bathy to ensure extent and resolution is consistent
+        aca_bathy = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG(7844), lazy=true)
+        target_waves_Hs = Rasters.resample(target_waves_Hs; to=aca_bathy)
+
         write(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"), target_waves_Hs; force=true)
 
-        src_bathy = nothing
+        mpa_bathy = nothing
+        aca_bathy = nothing
         target_waves_Hs = nothing
         GC.gc()
     end
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"))
         # Need MPA bathy data as a template for wave data due to unknown crs/format
-        src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-        src_bathy = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
+        mpa_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
+        mpa_bathy = Raster(mpa_bathy_path, mappedcrs=EPSG(4326), lazy=true)
 
         target_waves_Tp_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Tp", reg)))
-        target_waves_Tp = Raster(target_waves_Tp_path, key=:Tp90, crs=crs(src_bathy), mappedcrs=EPSG(4326), lazy=true)
+        target_waves_Tp = Raster(target_waves_Tp_path, key=:Tp90, crs=crs(mpa_bathy), mappedcrs=EPSG(4326), lazy=true)
 
         # Extend bounds of wave data to match bathymetry if needed
-        if size(src_bathy) !== size(target_waves_Tp)
-            target_waves_Tp = extend(crop(target_waves_Tp; to=src_bathy); to=AG.extent(src_bathy))
-            @assert size(src_bathy) == size(target_waves_Tp)
+        if size(mpa_bathy) !== size(target_waves_Tp)
+            target_waves_Tp = extend(crop(target_waves_Tp; to=mpa_bathy); to=AG.extent(mpa_bathy))
+            @assert size(mpa_bathy) == size(target_waves_Tp)
 
             replace_missing!(target_waves_Tp, -9999.0)
         end
 
-        tmp_Tp = copy(src_bathy)
+        tmp_Tp = copy(mpa_bathy)
 
         # Replace data (important: flip the y-axis!)
         tmp_Tp.data .= target_waves_Tp.data[:, end:-1:1]
@@ -163,9 +168,14 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
         # Reproject raster to GDA 2020
         target_waves_Tp = Rasters.resample(target_waves_Tp; crs=GDA2020_crs)
 
+        # Have to resample to aca_bathy to ensure extent and resolution is consistent
+        aca_bathy = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG(7844), lazy=true)
+        target_waves_Tp = Rasters.resample(target_waves_Tp; to=aca_bathy)
+
         write(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"), target_waves_Tp; force=true)
 
-        src_bathy = nothing
+        mpa_bathy = nothing
+        aca_bathy = nothing
         target_waves_Tp = nothing
         GC.gc()
     end
