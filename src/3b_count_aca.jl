@@ -9,7 +9,7 @@ include("common.jl")
 
 # We need `Area_HA` and `UNIQUE_ID` from the GBR features dataset provided with MPA data,
 # however this is in crs GDA-94 so we have to reproject this dataset to GDA-2020.
-reef_features = GDF.read(REEF_PATH_4326)
+reef_features = GDF.read(REEF_PATH_GDA94)
 reef_features.geometry = AG.reproject(reef_features.geometry, crs(reef_features[1, :geometry]), GDA2020_crs; order=:trad)
 
 reef_features.region .= ""

@@ -71,7 +71,8 @@ end
         "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
     )
 
-    global REEF_PATH_4326 = joinpath(
+    # The reef features GDA94 dataset has added `Area_HA` column needed in 3*_.jl
+    global REEF_PATH_GDA94 = joinpath(
         MPA_DATA_DIR,
         "features",
         "Great_Barrier_Reef_Features.shp"
