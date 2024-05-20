@@ -94,7 +94,7 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
         write(joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif"), target_turbid; force=true)
 
         target_turbid = nothing
-        src_aca_bathy = nothing
+        bathy_gda2020 = nothing
         GC.gc()
     end
 
