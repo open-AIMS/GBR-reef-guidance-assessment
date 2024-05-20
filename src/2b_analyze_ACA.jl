@@ -19,7 +19,7 @@ include("common.jl")
             return 0.0
         end
 
-        return Int16(round((total / length(subsection))*100))
+        return Int16(round((total / length(subsection)) * 100))
     end
 
     function _write_data(fpath::String, data, cache)::Nothing
