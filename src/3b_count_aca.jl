@@ -3,12 +3,14 @@ Collate number of potentially suitable locations per reef, as defined by
 GBRMPA Features.
 """
 
+using CSV
+
 include("common.jl")
 
 # We need `Area_HA` and `UNIQUE_ID` from the GBR features dataset provided with MPA data,
 # however this is in crs GDA-94 so we have to reproject this dataset to GDA-2020.
 reef_features = GDF.read(REEF_PATH)
-reef_features.geometry = AG.reproject(reef_features.geometry, crs(reef_features[1, :geometry], GDA2020_crs; order=:trad))
+reef_features.geometry = AG.reproject(reef_features.geometry, crs(reef_features[1, :geometry]), GDA2020_crs; order=:trad)
 
 reef_features.region .= ""
 reef_features.reef_name .= ""
@@ -163,7 +165,7 @@ reef_scores = reef_features[:, [
 ]]
 
 # Keep reefs that have some suitability score
-reef_scores[(suitability.flat_scr .!== 0.0) .| (suitability.slope_scr .!== 0.0), :]
+reefs_with_scores = reef_scores[(reef_scores.flat_scr .!== 0.0) .| (reef_scores.slope_scr .!== 0.0), :]
 
 # Rank reefs by flat_scr and include the top 10 reefs
 highest_flats = DataFrames.combine(groupby(reefs_with_scores, :region), sdf -> sort(sdf, :flat_scr; rev=true), :region => eachindex => :rank)
