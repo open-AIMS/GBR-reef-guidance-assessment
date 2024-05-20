@@ -56,10 +56,16 @@ end
     global CONFIG = TOML.parsefile(".config.toml")
     global MPA_DATA_DIR = CONFIG["mpa_data"]["MPA_DATA_DIR"]
     global ACA_DATA_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
+    global WAVE_DATA_DIR = CONFIG["wave_data"]["WAVE_DATA_DIR"]
     global GDA2020_DATA_DIR = CONFIG["gda2020_data"]["GDA2020_DATA_DIR"]
 
+    regions_GDA2020_path = joinpath(GDA2020_DATA_DIR, "Great_Barrier_Reef_Marine_Park_Management_Areas_20_1685154518472315942.gpkg")
+    regions_GDA2020 = GDF.read(regions_GDA2020_path)
+    rename!(regions_GDA2020, Dict(:SHAPE => :geometry))
+    global GDA2020_crs = crs(regions_GDA2020[1,:geometry])
+
     # Get polygon of management areas
-    global REGION_PATH = joinpath(
+    global REGION_PATH_4326 = joinpath(
         MPA_DATA_DIR,
         "zones",
         "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
@@ -79,7 +85,6 @@ end
         "FarNorthern",
     ]
 
-    global WAVE_DATA_DIR = CONFIG["wave_data"]["WAVE_DATA_DIR"]
     # GBRMPA IDs Manually extracted from Raster Attribute Table(s)
     global MPA_FLAT_IDS = [13, 14, 23]  # Inner Reef Flat, Outer Reef Flat, Plateau
     global MPA_SLOPE_IDS = [21, 22, 24]  # Sheltered Reef Slope, Reef Slope, Back Reef Slope
