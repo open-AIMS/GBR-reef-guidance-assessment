@@ -73,7 +73,7 @@ end
         "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
     )
 
-    global REEF_PATH = joinpath(
+    global REEF_PATH_4326 = joinpath(
         MPA_DATA_DIR,
         "features",
         "Great_Barrier_Reef_Features.shp"
