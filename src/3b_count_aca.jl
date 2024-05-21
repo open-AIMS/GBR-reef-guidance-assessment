@@ -25,7 +25,7 @@ reef_features.flat_scr .= 0.0
 reef_features.slope_scr .= 0.0
 
 """
-    count_suitable(raster, reef)::Int64
+    count_suitable(raster, reef)::Union{Int64, Missing}
 
 Count number of suitable pixels in an area as defined by the `reef` geometry, for the
 given `raster`.
