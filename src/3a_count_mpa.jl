@@ -7,19 +7,10 @@ using CSV
 
 include("common.jl")
 
-# Load GDA-2020 GBR features dataset as a template for reprojection
-features_for_crs_path = joinpath(
-    GDA2020_DATA_DIR,
-    "Great_Barrier_Reef_Features_20_-4212769177867532467.gpkg"
-)
-features_for_crs = GDF.read(features_for_crs_path)
-rename!(features_for_crs, Dict(:SHAPE => :geometry))
-
 # We need `Area_HA` and `UNIQUE_ID` from the GBR features dataset provided with MPA data,
 # however this is in crs GDA-94 so we have to reproject this dataset to GDA-2020.
-reef_path = joinpath(MPA_DATA_DIR, "features/Great_Barrier_Reef_Features.shp")
-reef_features = GDF.read(reef_path)
-reef_features.geometry = AG.reproject(reef_features.geometry, crs(reef_features[1, :geometry]), crs(features_for_crs[1, :geometry]); order=:trad)
+reef_features = GDF.read(REEF_PATH_GDA94)
+reef_features.geometry = AG.reproject(reef_features.geometry, crs(reef_features[1, :geometry]), GDA2020_crs; order=:trad)
 
 reef_features.region .= ""
 reef_features.reef_name .= ""
@@ -163,7 +154,7 @@ reef_scores = reef_features[:, [
 ]]
 
 # Keep reefs that have some suitability score
-reef_scores[(suitability.flat_scr .!== 0.0) .| (suitability.slope_scr .!== 0.0), :]
+reefs_with_scores = reef_scores[(reef_scores.flat_scr .!== 0.0) .| (reef_scores.slope_scr .!== 0.0), :]
 
 # Rank reefs by flat_scr and include the top 10 reefs
 highest_flats = DataFrames.combine(groupby(reefs_with_scores,:region), sdf -> sort(sdf,:flat_scr; rev=true), :region => eachindex => :rank)
