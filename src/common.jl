@@ -50,9 +50,9 @@ end
     global MPA_OUTPUT_DIR = joinpath(OUTPUT_DIR, "MPA")
     global ACA_OUTPUT_DIR = joinpath(OUTPUT_DIR, "ACA")
 
-    global CONFIG = TOML.parsefile(".config.toml")
+    CONFIG = TOML.parsefile(".config.toml")
     global MPA_DATA_DIR = CONFIG["mpa_data"]["MPA_DATA_DIR"]
-    global ALLEN_ATLAS_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
+    global ACA_DATA_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
     global GDA2020_DATA_DIR = CONFIG["gda2020_data"]["GDA2020_DATA_DIR"]
 
     # Folder names (TODO: Generalize)

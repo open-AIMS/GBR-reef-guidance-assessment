@@ -14,27 +14,137 @@ using Clustering
 
 include("common.jl")
 
-function add_score(df::DataFrame)::DataFrame
-    score = df[:, :flat_scr] .+ df[:, :slope_scr]
-    df.score = score
+"""Identify column IDs which hold Geometry data types."""
+function get_geometry_col(df::DataFrame)
+    col_types = string.(eltype.(eachcol(df)))
+    return first(findall(contains.(col_types, "Geometry")))
+end
+
+"""Get the geometry data as a vector"""
+function get_geometry(df::DataFrame)::Vector
+    geom_col = get_geometry_col(df)
+    if sum(geom_col) == 0
+        error("No geometry data found")
+    end
+
+    return df[:, geom_col]
+end
+
+
+"""
+    centroids(df::DataFrame)
+
+Extract and return long/lat from a GeoDataFrame.
+
+# Arguments
+- `df` : GeoDataFrame
+
+# Returns
+Array of tuples (x, y), where x and y relate to long and lat respectively.
+"""
+function centroids(df::DataFrame)::Vector{Tuple{Float64,Float64}}
+    site_centroids::Vector = AG.centroid.(get_geometry(df))
+    return collect(zip(AG.getx.(site_centroids, 0), AG.gety.(site_centroids, 0)))
+end
+
+
+"""
+    create_distance_matrix(site_data::DataFrame)::Matrix
+
+Calculate matrix of unique distances between locations.
+
+# Returns
+Distance between locations in meters
+"""
+function create_distance_matrix(site_data::DataFrame)::Matrix{Float64}
+    site_centroids = centroids(site_data)
+    longitudes = first.(site_centroids)
+    latitudes = last.(site_centroids)
+
+    n_sites = size(site_data, 1)
+    dist = zeros(n_sites, n_sites)
+    for ii in axes(dist, 1)
+        for jj in axes(dist, 2)
+            if ii == jj
+                continue
+            end
+
+            @views dist[ii, jj] = haversine(
+                (longitudes[ii], latitudes[ii]), (longitudes[jj], latitudes[jj])
+            )
+        end
+    end
+
+    return dist
+end
+
+"""Generate DxN point data based on location centroids."""
+function create_location_points(gdf::DataFrame)
+    all_centroids = centroids(gdf)
+    all_locs = Matrix([first.(all_centroids) last.(all_centroids)]')
+
+    return all_locs
+end
+
+function add_combined_col(df::DataFrame, colnames_to_combine::Vector{String}, colname_resultant::String)::DataFrame
+    # Initialize a combined column with zeros
+    combined_col = zeros(Float64, nrow(df))
+
+    # Iterate through each column name in the colnames vector and add the values to the combined column
+    for col in colnames_to_combine
+        combined_col .+= df[:, col]
+    end
+
+    # Add the combined column as a new column with the name specified by colname_resultant
+    df[:, Symbol(colname_resultant)] = combined_col
+
     return df
 end
 
-function add_suitable_area(df::DataFrame)::DataFrame
-    suitable_area = df[:,:flat_ha] .+ df[:,:slope_ha]
-    df.suitable_area = suitable_area
+
+function add_cols(df::DataFrame)::DataFrame
+    score_cols = ["flat_scr", "slope_scr"]
+    df = add_combined_col(df, score_cols, "score")
+
+    suitable_area_cols = ["flat_ha", "slope_ha"]
+    df = add_combined_col(df, suitable_area_cols, "suitable_area")
     return df
 end
 
-function sort_limit_areas(targets::DataFrame; serviceable_area::Int64=1000)::DataFrame
+# function sort_limit_areas(targets::DataFrame; serviceable_area::Int64=1000)::DataFrame
+#     # Initialize variables
+#     threshold_area = 0
+#     selected_rows = DataFrame()
+
+#     scores_nonzero = targets.score .> 0
+#     graded_targets = targets[scores_nonzero, :]
+#     sorted_idxs = sort(graded_targets.score, rev=true)
+#     # sorted_targets = graded_targets[sorted_idxs, :]
+#     sorted_targets = sort(targets, :score, rev=true)
+
+#     # Iterate through sorted targets to accumulate areas until reaching a threshold
+#     for row in eachrow(sorted_targets)
+#         threshold_area += row.suitable_area#(row.geometry)
+#         if threshold_area <= serviceable_area
+#             push!(selected_rows, row)
+#         else
+#             break
+#         end
+#     end
+#     return selected_rows
+# end
+"""
+    sort_limit_areas(suitable_targets::DataFrame; serviceable_area::Int64=1000)::DataFrame
+
+Sort and limit the number of areas to serviceable_area.
+"""
+function sort_limit_areas(suitable_targets::DataFrame; serviceable_area::Int64)::DataFrame
+    targets = add_cols(suitable_targets)
+
     # Initialize variables
     threshold_area = 0
     selected_rows = DataFrame()
 
-    scores_nonzero = targets.score .> 0
-    graded_targets = targets[scores_nonzero, :]
-    sorted_idxs = sort(graded_targets.score, rev=true)
-    # sorted_targets = graded_targets[sorted_idxs, :]
     sorted_targets = sort(targets, :score, rev=true)
 
     # Iterate through sorted targets to accumulate areas until reaching a threshold
@@ -49,43 +159,74 @@ function sort_limit_areas(targets::DataFrame; serviceable_area::Int64=1000)::Dat
     return selected_rows
 end
 
-function cluster_targets(df::DataFrame, num_clust::Int64)
-    # Calculate centroid of geometry for each row
-    centroid_shp = [AG.centroid(row.geometry) for row in eachrow(df)]
+# function cluster_targets(df::DataFrame, num_clust::Int64)
+#     # Calculate centroid of geometry for each row
+#     centroid_shp = [AG.centroid(row.geometry) for row in eachrow(df)]
 
-    centroid_coords = [(AG.getx(centroid,0), AG.gety(centroid,0)) for centroid in centroid_shp]
+#     centroid_coords = [(AG.getx(centroid,0), AG.gety(centroid,0)) for centroid in centroid_shp]
 
-    # Convert the coordinates to a format suitable for clustering (e.g., an array)
-    coordinates_array = hcat([collect(c) for c in centroid_coords]...)
+#     # Convert the coordinates to array format suitable for clustering
+#     coordinates_array = hcat([collect(c) for c in centroid_coords]...)
+
+#     # Cluster centroids
+#     clustering = kmeans(coordinates_array, num_clust)
+
+#     df.cluster = clustering.assignments
+#     return
+# end
+function cluster_targets(shp_path::String; num_clust::Int64=10, serviceable_area::Int64=1000)::DataFrame
+
+    gdf_targets = GDF.read(shp_path)
+
+    sorted_targets = sort_limit_areas(gdf_targets; serviceable_area)
+
+    # # Calculate centroid of geometry for each row
+    # centroid_shp = [AG.centroid(row.geometry) for row in eachrow(sorted_targets)]
+
+    # centroid_coords = [(AG.getx(centroid,0), AG.gety(centroid,0)) for centroid in centroid_shp]
+
+    # # Convert the coordinates to array format suitable for clustering
+    # coordinates_array = hcat([collect(c) for c in centroid_coords]...)
+
+    dist_mat = create_distance_matrix(sorted_targets)
+
+    all_locs = create_location_points(sorted_targets) # same as coordinates_array
+
+    n_locs = length(unique(sorted_targets.UNIQUE_ID))
+    # dist_bnds = [
+    #     # n clusters to find (n_locs + 1 to 3*n_reefs)
+    #     # Upper bound has +1 as we take the floor of the sampled value.
+    #     (n_locs+1, (n_locs*3)+1),
+    # ]
 
     # Cluster centroids
-    clustering = kmeans(coordinates_array, num_clust)
+    clustering = kmeans(all_locs, num_clust)
 
-    df.cluster = clustering.assignments
-    return
+    sorted_targets.cluster = clustering.assignments
+    return sorted_targets
 end
 
-# Load suitable targets dataframe
-suitable_targets = GDF.read(joinpath(MPA_QGIS_DIR, "reef_suitability.shp"))
+# # Load suitable targets dataframe
+# suitable_targets = GDF.read(joinpath(MPA_QGIS_DIR, "../", "reef_suitability.shp"))
+#
+# # Calculate score = flat_score + slope_score
+# suitable_targets = score_function(suitable_targets)
+#
+# # Calculate suitable area = flat_ha + slope_ha
+# suitable_targets = add_suitable_area(suitable_targets)
+#
+# sorted_targets = sort_limit_areas(suitable_targets; serviceable_area=1000)
+#
+# cluster_targets(sorted_targets, 10)
 
-# Calculate score = flat_score + slope_score
-suitable_targets = add_score(suitable_targets)
-
-# Calculate suitable area = flat_ha + slope_ha
-suitable_targets = add_suitable_area(suitable_targets)
-
-sorted_targets = sort_limit_areas(suitable_targets; serviceable_area=1000)
-
-cluster_targets(sorted_targets, 10)
+abc = cluster_targets(joinpath(MPA_QGIS_DIR, "../", "reef_suitability.shp"); num_clust=10, serviceable_area=1000)
 
 
 # Write to file
 GDF.write(
     joinpath(MPA_OUTPUT_DIR, "clustered_reefs.shp"),
-    sorted_targets[:, [:geometry, :region, :reef_name, :suitable_area, :flat_ha, :slope_ha, :Area_HA, :n_flat, :n_slope, :score, :flat_scr, :slope_scr, :UNIQUE_ID, :cluster]],
+    abc[:, [:geometry, :region, :reef_name, :suitable_area, :flat_ha, :slope_ha, :Area_HA, :n_flat, :n_slope, :score, :flat_scr, :slope_scr, :UNIQUE_ID, :cluster]],
     layer_name = "reef_targets",
     geom_columns = (:geometry,),
     crs = EPSG(4326)
 )
-
-
