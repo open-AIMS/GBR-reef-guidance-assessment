@@ -7,8 +7,9 @@ import GeoDataFrames as GDF
 import ArchGDAL as AG
 using CSV
 
-using Statistics, StatsBase
-using Glob
+using DataFrames, Statistics, StatsBase
+using Clustering, Distances
+using BlackBoxOptim, Random
 
 using Clustering
 
@@ -86,147 +87,194 @@ function create_location_points(gdf::DataFrame)
     return all_locs
 end
 
-function add_combined_col(df::DataFrame, colnames_to_combine::Vector{String}, colname_resultant::String)::DataFrame
-    # Initialize a combined column with zeros
-    combined_col = zeros(Float64, nrow(df))
+"""
+    add_score(df::DataFrame)::DataFrame
 
-    # Iterate through each column name in the colnames vector and add the values to the combined column
-    for col in colnames_to_combine
-        combined_col .+= df[:, col]
-    end
+Add a score column to the DataFrame based on flat and slope scores.
 
-    # Add the combined column as a new column with the name specified by colname_resultant
-    df[:, Symbol(colname_resultant)] = combined_col
+# Arguments
+- `df`: DataFrame
 
+# Returns
+DataFrame with added score column.
+"""
+function add_score(df::DataFrame)::DataFrame
+    score = df[:, :flat_scr] .+ df[:, :slope_scr]
+    df.score = score
     return df
 end
 
+"""
+    add_suitable_area(df::DataFrame)::DataFrame
 
-function add_cols(df::DataFrame)::DataFrame
-    score_cols = ["flat_scr", "slope_scr"]
-    df = add_combined_col(df, score_cols, "score")
+Add a suitable_area column to the DataFrame based on flat and slope areas.
 
-    suitable_area_cols = ["flat_ha", "slope_ha"]
-    df = add_combined_col(df, suitable_area_cols, "suitable_area")
+# Arguments
+- `df`: DataFrame
+
+# Returns
+DataFrame with added suitable_area column.
+"""
+function add_suitable_area(df::DataFrame)::DataFrame
+    suitable_area = df[:,:flat_ha] .+ df[:,:slope_ha]
+    df.suitable_area = suitable_area
     return df
 end
 
+# function add_combined_col(df::DataFrame, colnames_to_combine::Vector{String}, colname_resultant::String)::DataFrame
+#     # Initialize a combined column with zeros
+#     combined_col = zeros(Float64, nrow(df))
+
+#     # Iterate through each column name in the colnames vector and add the values to the combined column
+#     for col in colnames_to_combine
+#         combined_col .+= df[:, col]
+#     end
+
+#     # Add the combined column as a new column with the name specified by colname_resultant
+#     df[:, Symbol(colname_resultant)] = combined_col
+
+#     return df
+# end
+
+# function add_cols(df::DataFrame)::DataFrame
+#     score_cols = ["flat_scr", "slope_scr"]
+#     df = add_combined_col(df, score_cols, "score")
+
+#     suitable_area_cols = ["flat_ha", "slope_ha"]
+#     df = add_combined_col(df, suitable_area_cols, "suitable_area")
+#     return df
+# end
+
+"""
+    sort_limit_areas(targets::DataFrame; serviceable_area::Int64=1000)::DataFrame
+
+Sort targets by score, removing those with score <= 0
+limit the total/cumulative serviceable area to a specified value.
+
+# Arguments
+- `targets::DataFrame`: Targets with columns suitable_area and score
+- `serviceable_area::Int64=1000`: Maximum serviceable area
+
+# Returns
+- `selected_rows::DataFrame`: Selected rows with cumulative area <= serviceable_area
+"""
 # function sort_limit_areas(targets::DataFrame; serviceable_area::Int64=1000)::DataFrame
-#     # Initialize variables
 #     threshold_area = 0
 #     selected_rows = DataFrame()
 
-#     scores_nonzero = targets.score .> 0
-#     graded_targets = targets[scores_nonzero, :]
-#     sorted_idxs = sort(graded_targets.score, rev=true)
-#     # sorted_targets = graded_targets[sorted_idxs, :]
-#     sorted_targets = sort(targets, :score, rev=true)
+#     targets = add_score(targets)
+#     targets = add_suitable_area(targets)
+
+#     # Sort targets by score, removing those with score <= 0
+#     sorted_targets = sort(targets[targets.score .> 0, :], :score, rev=true)
 
 #     # Iterate through sorted targets to accumulate areas until reaching a threshold
 #     for row in eachrow(sorted_targets)
-#         threshold_area += row.suitable_area#(row.geometry)
+#         threshold_area += row.suitable_area
 #         if threshold_area <= serviceable_area
 #             push!(selected_rows, row)
 #         else
+#             # println("Serviceable area threshold reached at $(threshold_area) ha.")
 #             break
 #         end
+
 #     end
+#     println("Serviceable area threshold reached at $(threshold_area) ha.")
 #     return selected_rows
 # end
-"""
-    sort_limit_areas(suitable_targets::DataFrame; serviceable_area::Int64=1000)::DataFrame
 
-Sort and limit the number of areas to serviceable_area.
-"""
-function sort_limit_areas(suitable_targets::DataFrame; serviceable_area::Int64)::DataFrame
-    targets = add_cols(suitable_targets)
+function opt_kmeans(X, locations, dists)
+    n_clusters = X[1]
 
-    # Initialize variables
-    threshold_area = 0
-    selected_rows = DataFrame()
-
-    sorted_targets = sort(targets, :score, rev=true)
-
-    # Iterate through sorted targets to accumulate areas until reaching a threshold
-    for row in eachrow(sorted_targets)
-        threshold_area += row.suitable_area#(row.geometry)
-        if threshold_area <= serviceable_area
-            push!(selected_rows, row)
+        local clusters
+    try
+        clusters = kmeans(locations, floor(Int64, n_clusters), display=:none)
+        if !clusters.converged
+            # Return worst score if k-means has not converged
+            return 1.0
+        end
+    catch err
+        if err isa BoundsError
+            return 1.0
         else
-            break
+            rethrow(err)
         end
     end
-    return selected_rows
+
+    assignments = clusters.assignments
+
+    sil_score = -1.0
+    try
+        sil_score = silhouettes(assignments, dists)
+    catch err
+        if !(err isa ArgumentError)
+            rethrow(err)
+        else
+        # All locations assigned to a single cluster so assign worst score
+        sil_score = -1.0
+        end
+    end
+
+    # Optimization direction is toward the minimum, so invert score.
+    return -median(sil_score)
 end
 
-# function cluster_targets(df::DataFrame, num_clust::Int64)
-#     # Calculate centroid of geometry for each row
-#     centroid_shp = [AG.centroid(row.geometry) for row in eachrow(df)]
+"""
+    cluster(gpkg_path::String, output_path::String)
 
-#     centroid_coords = [(AG.getx(centroid,0), AG.gety(centroid,0)) for centroid in centroid_shp]
+Cluster locations indicated in the geopackage file.
+Limit areas serviced by score.
 
-#     # Convert the coordinates to array format suitable for clustering
-#     coordinates_array = hcat([collect(c) for c in centroid_coords]...)
+# Arguments
+- `gpkg_path` : path to geopackage
+- `output_path` : desired path to output geopackage
+- `n_steps` : maximum number of optimization steps
+- `epsilon` : convergence tolerance
+- `serviceable_area` : maximum serviceable area"""
+function cluster(gpkg_path::String, output_path::String; n_steps=100, epsilon=0.4, min_clusters=1, serviceable_area=typemax(Int64))
+    Random.seed!(101)
 
-#     # Cluster centroids
-#     clustering = kmeans(coordinates_array, num_clust)
+    gdf = GDF.read(gpkg_path)
 
-#     df.cluster = clustering.assignments
-#     return
-# end
-function cluster_targets(shp_path::String; num_clust::Int64=10, serviceable_area::Int64=1000)::DataFrame
+    # gdf = sort_limit_areas(gdf; serviceable_area=serviceable_area)
+    ## remove any area = units! ^^
 
-    gdf_targets = GDF.read(shp_path)
+    dist_mat = create_distance_matrix(gdf)
+    all_locs = create_location_points(gdf)
 
-    sorted_targets = sort_limit_areas(gdf_targets; serviceable_area)
+    n_locs = length(unique(gdf.UNIQUE_ID))
+    dist_bnds = [(min_clusters,n_locs)
+        # n clusters to find (n_locs + 1 to 3*n_reefs)
+        # Upper bound has +1 as we take the floor of the sampled value.
+        # (n_locs+1, (n_locs*3)+1),
+    ]
 
-    # # Calculate centroid of geometry for each row
-    # centroid_shp = [AG.centroid(row.geometry) for row in eachrow(sorted_targets)]
+    opt_func = x -> opt_kmeans(x, all_locs, dist_mat)
 
-    # centroid_coords = [(AG.getx(centroid,0), AG.gety(centroid,0)) for centroid in centroid_shp]
+    res = bboptimize(
+        opt_func;
+        SearchRange=dist_bnds,
+        MaxSteps=n_steps,
+        ϵ=epsilon,
+    )
+    best_params = best_candidate(res)
 
-    # # Convert the coordinates to array format suitable for clustering
-    # coordinates_array = hcat([collect(c) for c in centroid_coords]...)
+    clusters = kmeans(all_locs, floor(Int64, best_params[1]), display=:none)
+    assignments = clusters.assignments
+    sil_score = silhouettes(assignments, dist_mat)
+    @info "Produced $(maximum(assignments)) clusters with median Silhouette score of: $(median(sil_score))"
+    @info "Silhouette score ranges from -1 to 1, with higher values being more desirable."
+    @info "Values above 0.7 are regarded as strong, values over 0.5 are reasonable, and"
+    @info "values below 0.25 are weak."
+    #Qualitative indicators taken from https://en.wikipedia.org/wiki/Silhouette_(clustering)
 
-    dist_mat = create_distance_matrix(sorted_targets)
-
-    all_locs = create_location_points(sorted_targets) # same as coordinates_array
-
-    n_locs = length(unique(sorted_targets.UNIQUE_ID))
-    # dist_bnds = [
-    #     # n clusters to find (n_locs + 1 to 3*n_reefs)
-    #     # Upper bound has +1 as we take the floor of the sampled value.
-    #     (n_locs+1, (n_locs*3)+1),
-    # ]
-
-    # Cluster centroids
-    clustering = kmeans(all_locs, num_clust)
-
-    sorted_targets.cluster = clustering.assignments
-    return sorted_targets
+    gdf.cluster_id = assignments
+    GDF.write(output_path, gdf; geom_columns=(:geometry, ))
 end
 
-# # Load suitable targets dataframe
-# suitable_targets = GDF.read(joinpath(MPA_QGIS_DIR, "../", "reef_suitability.shp"))
-#
-# # Calculate score = flat_score + slope_score
-# suitable_targets = score_function(suitable_targets)
-#
-# # Calculate suitable area = flat_ha + slope_ha
-# suitable_targets = add_suitable_area(suitable_targets)
-#
-# sorted_targets = sort_limit_areas(suitable_targets; serviceable_area=1000)
-#
-# cluster_targets(sorted_targets, 10)
+n_steps=100
+epsilon=0.4
+min_clusters=1
+serviceable_area=typemax(Int64)
 
-abc = cluster_targets(joinpath(MPA_QGIS_DIR, "../", "reef_suitability.shp"); num_clust=10, serviceable_area=1000)
-
-
-# Write to file
-GDF.write(
-    joinpath(MPA_OUTPUT_DIR, "clustered_reefs.shp"),
-    abc[:, [:geometry, :region, :reef_name, :suitable_area, :flat_ha, :slope_ha, :Area_HA, :n_flat, :n_slope, :score, :flat_scr, :slope_scr, :UNIQUE_ID, :cluster]],
-    layer_name = "reef_targets",
-    geom_columns = (:geometry,),
-    crs = EPSG(4326)
-)
+cluster(joinpath(MPA_QGIS_DIR, "reef_suitability.gpkg"), joinpath(MPA_OUTPUT_DIR, "clustered_reef_suitability_$(serviceable_area)Ha_min$(min_clusters)clust_$(n_steps)_$(epsilon).gpkg"); n_steps=n_steps, epsilon=epsilon, min_clusters=min_clusters, serviceable_area = serviceable_area)
