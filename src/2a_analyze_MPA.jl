@@ -33,38 +33,27 @@ include("common.jl")
     end
 
     function assess_region(reg)
-        # Load bathymetry raster
-        src_bathy_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
-        src_bathy = Raster(src_bathy_path; crs=EPSG(7844), lazy=true)
+        # Load prepared bathymetry raster
+        src_bathy = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG(7844), lazy=true)
 
-        # Load slope raster
-        src_slope_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif")
-        src_slope = Raster(src_slope_path; crs=EPSG(7844), lazy=true)
+        # Load prepared slope raster
+        src_slope = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"); crs=EPSG(7844), lazy=true)
 
-        # Load pre-prepared benthic data
-        src_benthic_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif")
-        src_benthic = Raster(src_benthic_path; crs=EPSG(7844), lazy=true)
+        # Load prepared benthic data
+        src_benthic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"); crs=EPSG(7844), lazy=true)
 
-        # Load pre-prepared geomorphic data
-        src_geomorphic_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif")
-        src_geomorphic = Raster(src_geomorphic_path; crs=EPSG(7844), lazy=true)
+        # Load prepared geomorphic data
+        src_geomorphic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"); crs=EPSG(7844), lazy=true)
 
-        # Load pre-prepared wave height data
-        src_waves_Hs_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif")
-        src_waves_Hs = Raster(src_waves_Hs_path; crs=EPSG(7844), lazy=true)
+        # Load prepared wave height data
+        src_waves_Hs = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"); crs=EPSG(7844), lazy=true)
 
-        # Load pre-prepared wave period data
-        src_waves_Tp_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif")
-        src_waves_Tp = Raster(src_waves_Tp_path; crs=EPSG(7844), lazy=true)
+        # Load prepared wave period data
+        src_waves_Tp = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"); crs=EPSG(7844), lazy=true)
 
-        # Source image is of 10m^2 pixels
-        # A hectare is 100x100 meters, so we calculate the proportional area of each hectare
-        # that meet criteria of (Benthic habitat is Rock or Coral/Algae, -9 <= depth <= -2m,
-        # slope < 40 deg, 90th percentile of standing wave height <= 1m,
-        # and wave period <= 6 sec).
-
+        # Apply filtering criteria to raster grid
         suitable_areas = read(
-            (src_benthic .∈ [BENTHIC_IDS]) .&
+            (src_benthic .∈ [MPA_BENTHIC_IDS]) .&
             (-9.0 .<= src_bathy .<= -2.0) .&
             (0.0 .<= src_slope .<= 40.0) .&
             (0.0 .<= src_waves_Hs .<= 1.0) .&
@@ -82,7 +71,7 @@ include("common.jl")
         rebuild(result_raster; missingval=0)
 
         # Assess flats
-        suitable_flats = read(suitable_areas .& (src_geomorphic .∈ [FLAT_IDS]))
+        suitable_flats = read(suitable_areas .& (src_geomorphic .∈ [MPA_FLAT_IDS]))
 
         # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_flats, (-4:5, -4:5), border=Fill(0))
@@ -94,7 +83,7 @@ include("common.jl")
         GC.gc()
 
         # Assess slopes
-        suitable_slopes = read(suitable_areas .& (src_geomorphic .∈ [SLOPE_IDS]))
+        suitable_slopes = read(suitable_areas .& (src_geomorphic .∈ [MPA_SLOPE_IDS]))
 
         # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_slopes, (-4:5, -4:5), border=Fill(0))

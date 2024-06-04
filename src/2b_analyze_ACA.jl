@@ -36,11 +36,19 @@ include("common.jl")
     end
 
     function analyze_allen(reg)
+        # Load prepared bathymetry raster
         bathy_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG(7844), lazy=true)
+
+        # Load prepared turbidity raster
         turbid_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif"); crs=EPSG(7844), lazy=true)
+
+        # Load prepared wave height raster
         waves_Hs_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"); crs=EPSG(7844), lazy=true)
+
+        # Load prepared wave period raster
         waves_Tp_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"); crs=EPSG(7844), lazy=true)
 
+        # Apply criteria to raster grid.
         suitable_raster = read(
             (200 .<= bathy_rst .<= 900) .&
             (0 .<= turbid_rst .<= 52) .&
