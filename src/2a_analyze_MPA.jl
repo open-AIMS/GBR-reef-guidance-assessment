@@ -50,13 +50,18 @@ include("common.jl")
 
         src_waves_Tp = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"); crs=EPSG(7844), lazy=true)
 
+        # Load preprepared ACA turbidity data and ensure consistency with MPA raster files
+        src_turbid = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif"); crs=EPSG(7844), lazy=true)
+        src_turbid = Rasters.resample(src_turbid; to=src_bathy)
+
         # Apply filtering criteria to raster grid
         suitable_areas = read(
             (src_benthic .∈ [MPA_BENTHIC_IDS]) .&
             (-9.0 .<= src_bathy .<= -2.0) .&
             (0.0 .<= src_slope .<= 40.0) .&
             (0.0 .<= src_waves_Hs .<= 1.0) .&
-            (0.0 .<= src_waves_Tp .<= 6.0)
+            (0.0 .<= src_waves_Tp .<= 6.0) .&
+            (src_turbid .<= 55)
         )
 
         src_bathy = nothing
@@ -64,6 +69,7 @@ include("common.jl")
         src_benthic = nothing
         src_waves_Hs = nothing
         src_waves_Tp = nothing
+        src_turbid = nothing
 
         # Need a copy of raster data type to support writing to `tif`
         result_raster = convert.(Int16, copy(suitable_areas))
