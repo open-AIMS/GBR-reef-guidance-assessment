@@ -160,4 +160,5 @@ gbr_geomorphic = Raster(gbr_morphic_path, crs=EPSG(4326), lazy=true)
         bathy_gda2020 = nothing
         target_turbid = nothing
         GC.gc()
+    end
 end

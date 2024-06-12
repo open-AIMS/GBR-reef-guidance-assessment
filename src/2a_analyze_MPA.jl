@@ -50,9 +50,8 @@ include("common.jl")
 
         src_waves_Tp = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"); crs=EPSG(7844), lazy=true)
 
-        # Load preprepared ACA turbidity data and ensure consistency with MPA raster files
-        src_turbid = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif"); crs=EPSG(7844), lazy=true)
-        src_turbid = Rasters.resample(src_turbid; to=src_bathy)
+        # Load preprepared ACA turbidity data that has been processed for MPA consistency
+        src_turbid = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"); crs=EPSG(7844), lazy=true)
 
         # Apply filtering criteria to raster grid
         suitable_areas = read(
