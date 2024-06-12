@@ -146,4 +146,18 @@ gbr_geomorphic = Raster(gbr_morphic_path, crs=EPSG(4326), lazy=true)
         target_waves_Tp = nothing
         GC.gc()
     end
+
+    if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"))
+        bathy_gda2020_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
+        bathy_gda2020 = Raster(bathy_gda2020_path; crs=EPSG(7844), lazy=true)
+
+        target_turbid_path = joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif")
+        target_turbid = Raster(target_turbid_path; crs=EPSG(7844), lazy=true)
+        target_turbid = Rasters.resample(target_turbid; to=bathy_gda2020)
+
+        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"), target_turbid; force=true)
+
+        bathy_gda2020 = nothing
+        target_turbid = nothing
+        GC.gc()
 end
