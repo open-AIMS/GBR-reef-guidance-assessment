@@ -62,7 +62,7 @@ include("common.jl")
             (0.0 .<= src_slope .<= 40.0) .&
             (0.0 .<= src_waves_Hs .<= 1.0) .&
             (0.0 .<= src_waves_Tp .<= 6.0) .&
-            (src_turbid .<= 55) .&
+            (src_turbid .<= 58) .&
             (src_rugosity .< 6)
             )
         else
