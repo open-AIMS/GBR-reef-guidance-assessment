@@ -161,4 +161,17 @@ gbr_geomorphic = Raster(gbr_morphic_path, crs=EPSG(4326), lazy=true)
         target_turbid = nothing
         GC.gc()
     end
+
+    if reg == "Townsville-Whitsunday"
+        if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"))
+            tsv_rugosity_path = joinpath(MPA_DATA_DIR, "../std25compressed.tif")
+            tsv_rugosity = Raster(tsv_rugosity_path; lazy=true)
+            tsv_rugosity = Rasters.resample(tsv_rugosity; crs=GDA2020_crs)
+
+            write(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"), tsv_rugosity; force=true)
+
+            tsv_rugosity = nothing
+            GC.gc()
+        end
+    end
 end
