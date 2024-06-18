@@ -106,8 +106,7 @@ include("common.jl")
 
         # Assess flats
         suitable_flats = read(suitable_areas .& (src_geomorphic .∈ [MPA_FLAT_IDS]))
-
-        no_splits = size(suitable_flats,2) / 9
+        no_splits = Int(floor(size(suitable_flats,2) / 9))  #1000 # window size? ... 10x10m
 
         # Calculate suitability of 10x10m surroundings of each cell
         println("Mapping $(reg[1:6]) flats... split_mapwindow($(no_splits))")
@@ -121,6 +120,7 @@ include("common.jl")
 
         # Assess slopes
         suitable_slopes = read(suitable_areas .& (src_geomorphic .∈ [MPA_SLOPE_IDS]))
+        no_splits = Int(floor(size(suitable_slopes,2) / 9))  #1000 # window size? ... 10x10m
 
         suitable_areas = nothing
 
