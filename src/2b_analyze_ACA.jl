@@ -36,19 +36,16 @@ include("common.jl")
     end
 
     function analyze_allen(reg)
-        # Load prepared bathymetry raster
+        # Load required prepared raster files for analysis
         bathy_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG(7844), lazy=true)
 
-        # Load prepared turbidity raster
         turbid_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif"); crs=EPSG(7844), lazy=true)
 
-        # Load prepared wave height raster
         waves_Hs_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"); crs=EPSG(7844), lazy=true)
 
-        # Load prepared wave period raster
         waves_Tp_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"); crs=EPSG(7844), lazy=true)
 
-        # Apply criteria to raster grid.
+        # Apply criteria to raster grid
         suitable_raster = read(
             (200 .<= bathy_rst .<= 900) .&
             (0 .<= turbid_rst .<= 52) .&
@@ -69,7 +66,7 @@ include("common.jl")
         result_raster = convert.(Int16, copy(suitable_benthic))
         rebuild(result_raster; missingval=0)
 
-        # Flats
+        # Asses flats
         target_flats_poly = GDF.read(joinpath(ACA_OUTPUT_DIR, "aca_target_flats_$(reg).gpkg"))
         suitable_flats = Rasters.mask(suitable_benthic; with=target_flats_poly, boundary=:touches)
 
@@ -81,7 +78,7 @@ include("common.jl")
         res = nothing
         GC.gc()
 
-        # Slopes
+        # Assess slopes
         target_slopes_poly = GDF.read(joinpath(ACA_OUTPUT_DIR, "aca_target_slopes_$(reg).gpkg"))
         suitable_slopes = Rasters.mask(suitable_benthic; with=target_slopes_poly, boundary=:touches)
 
@@ -97,4 +94,4 @@ include("common.jl")
     end
 end
 
-@showprogress dt = 10 desc = "Analysing..." pmap(analyze_allen, REGIONS)
+@showprogress dt = 10 desc = "Analyzing..." pmap(analyze_allen, REGIONS)

@@ -71,7 +71,6 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
     reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"))
-        # Cropping the raster speeds up the trim(mask()) step and reduces memory use - checked output in qgis
         target_bathy = Rasters.crop(aca_bathy; to=regions_4326[reg_idx_4326, :])
         target_bathy = Rasters.trim(mask(target_bathy; with=regions_4326[reg_idx_4326, :]))
         target_bathy = Rasters.resample(target_bathy; crs=GDA2020_crs)
@@ -83,7 +82,6 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
     end
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif"))
-        # Using aca_bathy as the basis for reprojecting turbidity data to GDA2020
         bathy_gda2020_path = joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif")
         bathy_gda2020 = Raster(bathy_gda2020_path; crs=EPSG(7844), lazy=true)
 

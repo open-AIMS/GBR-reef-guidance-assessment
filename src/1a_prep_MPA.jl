@@ -19,11 +19,10 @@ gbr_geomorphic = Raster(gbr_morphic_path, crs=EPSG(4326), lazy=true)
 regions_4326 = GDF.read(REGION_PATH_4326)
 
 # Reproject all raster files to GDA 2020
-# Avoids the need to repeatedly reproject within each step
+# If target file exists, it is skipped
 @showprogress dt = 10 "Prepping benthic/geomorphic/wave data..." for reg in REGIONS
     reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
 
-    # Only create files that are needed
     if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"))
         target_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
         target_bathy = Raster(target_bathy_path, mappedcrs=EPSG(4326), lazy=true)
@@ -47,7 +46,6 @@ regions_4326 = GDF.read(REGION_PATH_4326)
     end
 
     if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"))
-        # Load template raster data
         bathy_gda2020_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
         bathy_gda2020 = Raster(bathy_gda2020_path; crs=EPSG(7844), lazy=true)
 
@@ -64,7 +62,6 @@ regions_4326 = GDF.read(REGION_PATH_4326)
     end
 
     if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"))
-        # Load template raster data
         bathy_gda2020_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
         bathy_gda2020 = Raster(bathy_gda2020_path; crs=EPSG(7844), lazy=true)
 
@@ -81,7 +78,6 @@ regions_4326 = GDF.read(REGION_PATH_4326)
     end
 
     if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"))
-        # Load original bathy data to be template for wave data
         src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
         src_bathy = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
 
@@ -117,7 +113,6 @@ regions_4326 = GDF.read(REGION_PATH_4326)
     end
 
     if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"))
-        # Load original bathy data to be template for wave data
         src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
         src_bathy = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
 

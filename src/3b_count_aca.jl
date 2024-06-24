@@ -1,6 +1,6 @@
 """
 Collate number of potentially suitable locations per reef, as defined by
-GBRMPA Features.
+GBRMPA Features and analyses from ACA data.
 """
 
 using CSV
@@ -50,41 +50,36 @@ end
 
 # Loop over each reef and count number of slopes and flats that meet criteria
 @showprogress dt = 10 desc = "Collating zonal stats..." for reg in REGIONS
-    # Load rasters and identify cells that are greater than or equal to 0.95
+    # Load rasters and identify cells that are greater than or equal to 95% suitability
     target_flats = Raster(
         joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_flats.tif"),
         crs=EPSG(7844),
         lazy=true
     )
-    target_flats = read(target_flats .>= 0.95)
+    target_flats = read(target_flats .>= 95)
 
     target_slopes = Raster(
         joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_slopes.tif"),
         crs=EPSG(7844),
         lazy=true
     )
-    target_slopes = read(target_slopes .>= 0.95)
+    target_slopes = read(target_slopes .>= 95)
 
     reefs = reef_features
 
     for (target_row, reef) in enumerate(eachrow(reefs))
-        # Count number of locations that meet flats and slopes criteria.
-        # Have to loop over each reef individually as some geometries causes a crash.
-        # These should be safe to skip, and will resolve to `missing`.
         if reef_features[target_row, :region] != ""
             # Reef already associated with a region and therefore have been parsed in a
             # previous loop, so we skip.
             continue
         end
 
-        # Flats
         flat_val = count_suitable(target_flats, reef.geometry)
         if !ismissing(flat_val)
             reef_features[target_row, :n_flat] = flat_val
             reef_features[target_row, :flat_ha] = flat_val / 100.0
         end
 
-        # Slopes
         slope_val = count_suitable(target_slopes, reef.geometry)
         if !ismissing(slope_val)
             reef_features[target_row, :n_slope] = slope_val
@@ -116,7 +111,7 @@ for reg in REGIONS
     reef_features[target_reg, :slope_scr] .= round.(reef_features[target_reg, :slope_scr] / maximum(reef_features[target_reg, :slope_scr]), digits=4)
 end
 
-# Have to write out results as shapefile because of ArcGIS not handling GeoPackages
+# Write data to geopackage
 GDF.write(
     joinpath(ACA_QGIS_DIR, "reef_suitability.gpkg"),
     reef_features[:, [
@@ -132,9 +127,10 @@ GDF.write(
         :slope_scr,
         :UNIQUE_ID
     ]];
-    crs=EPSG(4326)
+    crs=EPSG(7844)
 )
 
+# Write data to csv file
 subdf = reef_features[:, [
     :region,
     :reef_name,

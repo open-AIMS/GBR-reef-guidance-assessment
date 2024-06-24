@@ -33,22 +33,18 @@ include("common.jl")
     end
 
     function assess_region(reg)
-        # Load prepared bathymetry raster
+        # Load required prepared raster files for analysis
+
         src_bathy = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG(7844), lazy=true)
 
-        # Load prepared slope raster
         src_slope = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"); crs=EPSG(7844), lazy=true)
 
-        # Load prepared benthic data
         src_benthic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"); crs=EPSG(7844), lazy=true)
 
-        # Load prepared geomorphic data
         src_geomorphic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"); crs=EPSG(7844), lazy=true)
 
-        # Load prepared wave height data
         src_waves_Hs = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"); crs=EPSG(7844), lazy=true)
 
-        # Load prepared wave period data
         src_waves_Tp = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"); crs=EPSG(7844), lazy=true)
 
         # Apply filtering criteria to raster grid

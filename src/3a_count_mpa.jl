@@ -1,6 +1,6 @@
 """
 Collate number of potentially suitable locations per reef, as defined by
-GBRMPA Features.
+GBRMPA Features and analyses from GBRMPA data.
 """
 
 using CSV
@@ -50,13 +50,12 @@ end
 
 # Loop over each reef and count number of slopes and flats that meet criteria
 @showprogress dt = 10 desc = "Collating zonal stats..." for reg in REGIONS
-    # Load rasters
+    # Load rasters and identify cells that are greater than or equal to 95% suitability
     target_flats = Raster(
         joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_flats.tif"),
         crs=EPSG(7844),
         lazy=true
     )
-    # Identify whether cells have 95% (or greater) of their surrounding hectare suitable
     target_flats = read(target_flats .>= 95)
 
     target_slopes = Raster(
@@ -69,9 +68,6 @@ end
     reefs = reef_features
 
     for (target_row, reef) in enumerate(eachrow(reefs))
-        # Count number of locations that meet flats and slopes criteria.
-        # Have to loop over each reef individually as some geometries causes a crash.
-        # These should be safe to skip, and will resolve to `missing`.
         if reef_features[target_row, :region] != ""
             # Reef already associated with a region and therefore have been parsed in a
             # previous loop, so we skip.
@@ -135,7 +131,18 @@ GDF.write(
 )
 
 # Write data to csv file
-subdf = reef_features[:, [:region, :reef_name, :flat_ha, :slope_ha, :Area_HA, :n_flat, :n_slope, :flat_scr, :slope_scr, :UNIQUE_ID]]
+subdf = reef_features[:, [
+    :region,
+    :reef_name,
+    :flat_ha,
+    :slope_ha,
+    :Area_HA,
+    :n_flat,
+    :n_slope,
+    :flat_scr,
+    :slope_scr,
+    :UNIQUE_ID
+]]
 CSV.write(joinpath(MPA_QGIS_DIR, "potential_reef_areas.csv"), subdf)
 
 # Rank reefs by their regional suitability score
