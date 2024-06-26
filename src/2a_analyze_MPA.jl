@@ -1,4 +1,8 @@
-"""Identify suitable locations for each region."""
+"""
+Identify suitable locations based on bathymetric, slope, geomorphic, benthic and wave criteria.
+Use MPA raster data to analyze suitabile areas.
+Output raster files with suitability proportions.
+"""
 
 include("common.jl")
 
@@ -34,7 +38,6 @@ include("common.jl")
 
     function assess_region(reg)
         # Load required prepared raster files for analysis
-
         src_bathy = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG(7844), lazy=true)
 
         src_slope = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"); crs=EPSG(7844), lazy=true)

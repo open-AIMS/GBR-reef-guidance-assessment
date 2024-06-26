@@ -1,7 +1,8 @@
 """
 Prepare data for analysis.
 
-Reproject data from WGS84 to UTM Zone 54 - 56.
+Crop GBR-wide Allen-Coral-Atlas rasters into management regions.
+Reproject all data from WGS84 / UTM Zone 54 - 56 into consistent crs GDA-2020.
 Ensure all rasters are the same size/shape for each region of interest.
 """
 
@@ -12,7 +13,7 @@ regions_4326 = GDF.read(REGION_PATH_4326)
 
 # 1. Processing of geojson files into smaller-GBRMPA regions
 
-# Loading GBR-wide data
+# Loading GBR-wide polygon data
 geomorphic_poly = GDF.read(joinpath(ACA_DATA_DIR, "Geomorphic-Map", "geomorphic.geojson"))
 benthic_poly = GDF.read(joinpath(ACA_DATA_DIR, "Benthic-Map", "benthic.geojson"))
 
@@ -67,6 +68,7 @@ aca_bathy = Raster(aca_bathy_path, mappedcrs=EPSG(4326), lazy=true)
 aca_turbid_path = "$(ACA_DATA_DIR)/Turbidity-Q3-2023/turbidity-quarterly_0.tif"
 aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
 
+# If a file already exists it is skipped
 @showprogress dt = 10 "Prepping bathymetry/turbidity/wave data..." for reg in REGIONS
     reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
 
@@ -97,7 +99,6 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
     end
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"))
-        # Need MPA bathy data as a template for wave data due to unknown crs/format
         mpa_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
         mpa_bathy = Raster(mpa_bathy_path, mappedcrs=EPSG(4326), lazy=true)
 
@@ -138,7 +139,6 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
     end
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"))
-        # Need MPA bathy data as a template for wave data due to unknown crs/format
         mpa_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
         mpa_bathy = Raster(mpa_bathy_path, mappedcrs=EPSG(4326), lazy=true)
 

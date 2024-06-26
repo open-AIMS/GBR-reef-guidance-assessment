@@ -7,7 +7,7 @@ using CSV
 
 include("common.jl")
 
-# We need `Area_HA` and `UNIQUE_ID` from the GBR features dataset provided with MPA data,
+# We need `Area_HA` and `UNIQUE_ID` from the GBR features dataset provided,
 # however this is in crs GDA-94 so we have to reproject this dataset to GDA-2020.
 reef_features = GDF.read(REEF_PATH_GDA94)
 reef_features.geometry = AG.reproject(reef_features.geometry, crs(reef_features[1, :geometry]), GDA2020_crs; order=:trad)
@@ -98,7 +98,7 @@ end
     GC.gc()
 end
 
-# Calculate the proportion of each reef area that meets suitability criteria
+# Calculate the proportion of each reef area that meets 95% suitability criteria
 valid_locs = reef_features.Area_HA .!= 0
 reef_features[valid_locs, :flat_scr] .= round.(reef_features[valid_locs, :flat_ha] ./ reef_features[valid_locs, :Area_HA], digits=4)
 reef_features[valid_locs, :slope_scr] .= round.(reef_features[valid_locs, :slope_ha] ./ reef_features[valid_locs, :Area_HA], digits=4)

@@ -209,7 +209,7 @@ used for pilot deployment scenarios for 2025.
 #### Projections
 
 After `1*_.jl` (pre-processing and reprojecting data) is complete all raster and vector data
-in `*_OUTPUT_DIR` and outputs from `2*_.jl` and `3*_.jl` from will be in EPSG:7844 GDA2020.
+in `*_OUTPUT_DIR`, and outputs from `2*_.jl` and `3*_.jl` will be in EPSG:7844 GDA2020.
 
 ##### MPA Data
 
@@ -256,10 +256,16 @@ with values denoting `missing` data).
 The bathymetry data structure is then copied (so metadata on its extent, projection, etc.
 are retained), and finally, the wave data is copied across.
 
+All data in `1a_prep_MPA.jl` are projected to EPSG:7844 GDA2020 before use in analysis.
+
 ##### ACA Data
 
-ACA raster data is in crs WGS 84 4326. This is used throughout the ACA preparation and
-analysis steps.
+ACA raster data is in crs WGS 84 4326.
+Wave data preparation in `1b_prep_aca.jl` requires
+MPA bathymetric data is available due to inconsistent reference systems/units
+(see 'Projections - MPA Data' section for more details).
+
+All data in `1b_prep_aca.jl` are projected to EPSG:7844 GDA2020 before use in analysis.
 
 ## Presentation
 

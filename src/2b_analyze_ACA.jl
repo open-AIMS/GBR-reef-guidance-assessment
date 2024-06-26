@@ -1,6 +1,6 @@
 """
 Identify suitable locations based on bathymetric, turbidity, geomorphic and benthic criteria.
-Use raster and polygon data to analyze suitabile areas.
+Use ACA raster and polygon data to analyze suitabile areas.
 Output raster files with suitability proportions.
 """
 
@@ -70,6 +70,7 @@ include("common.jl")
         target_flats_poly = GDF.read(joinpath(ACA_OUTPUT_DIR, "aca_target_flats_$(reg).gpkg"))
         suitable_flats = Rasters.mask(suitable_benthic; with=target_flats_poly, boundary=:touches)
 
+        # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_flats, (-4:5, -4:5), border=Fill(0))
         fpath = joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_flats.tif")
         _write_data(fpath, res, result_raster)
@@ -82,6 +83,7 @@ include("common.jl")
         target_slopes_poly = GDF.read(joinpath(ACA_OUTPUT_DIR, "aca_target_slopes_$(reg).gpkg"))
         suitable_slopes = Rasters.mask(suitable_benthic; with=target_slopes_poly, boundary=:touches)
 
+        # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_slopes, (-4:5, -4:5), border=Fill(0))
         fpath = joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_slopes.tif")
         _write_data(fpath, res, result_raster)

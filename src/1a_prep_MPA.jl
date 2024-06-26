@@ -1,25 +1,25 @@
 """
 Prepare data for analysis.
 
-Crop GBR-wide rasters into management regions.
+Crop GBR-wide GBRMPA rasters into management regions.
 Reproject all data from WGS84 / UTM Zone 54 - 56 into consistent crs GDA-2020.
 Ensure all rasters are the same size/shape for each region of interest.
 """
 
 include("common.jl")
 
-# Load whole-GBR benthic and geomorphic data
+# Loading regions_4326 for cropping of vector and raster data.
+regions_4326 = GDF.read(REGION_PATH_4326)
+
+# 1. Processing of MPA files into smaller GDA-2020 rasters
+# Loading GBR-wide data
 gbr_benthic_path = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
 gbr_benthic = Raster(gbr_benthic_path, crs=EPSG(4326), lazy=true)
 
 gbr_morphic_path = "$(MPA_DATA_DIR)/geomorphic/GBR10 GBRMP Geomorphic.tif"
 gbr_geomorphic = Raster(gbr_morphic_path, crs=EPSG(4326), lazy=true)
 
-# Load EPSG:4326 region features for subsetting of geomorphic and benthic rasters.
-regions_4326 = GDF.read(REGION_PATH_4326)
-
-# Reproject all raster files to GDA 2020
-# If target file exists, it is skipped
+# If a file already exists it is skipped
 @showprogress dt = 10 "Prepping benthic/geomorphic/wave data..." for reg in REGIONS
     reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
 
