@@ -28,7 +28,7 @@ N_PROCS = 2  # Number of cores to use for multi-processing steps
 MPA_DATA_DIR = "path to GBR data"  # location of GBR datasets
 
 [aca_data]
-ALLEN_ATLAS_DIR = "path to Allen Atlas data"  # location of Allen Atlas datasets
+ACA_DATA_DIR = "path to Allen Atlas data"  # location of Allen Atlas datasets
 
 [wave_data]
 WAVE_DATA_DIR = "path to wave data" # location of wave NetCDF datasets
