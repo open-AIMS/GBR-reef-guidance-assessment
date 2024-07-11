@@ -50,7 +50,6 @@ include("common.jl")
 
         src_waves_Tp = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"); crs=EPSG(7844), lazy=true)
 
-        # Load preprepared ACA turbidity data that has been processed for MPA consistency
         src_turbid = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"); crs=EPSG(7844), lazy=true)
 
         if reg == "Townsville-Whitsunday"
