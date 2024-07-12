@@ -146,4 +146,32 @@ gbr_geomorphic = Raster(gbr_morphic_path, crs=EPSG(4326), lazy=true)
         target_waves_Tp = nothing
         GC.gc()
     end
+
+    if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"))
+        bathy_gda2020_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
+        bathy_gda2020 = Raster(bathy_gda2020_path; crs=EPSG(7844), lazy=true)
+
+        target_turbid_path = joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif")
+        target_turbid = Raster(target_turbid_path; crs=EPSG(7844), lazy=true)
+        target_turbid = Rasters.resample(target_turbid; to=bathy_gda2020)
+
+        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"), target_turbid; force=true)
+
+        bathy_gda2020 = nothing
+        target_turbid = nothing
+        GC.gc()
+    end
+
+    if reg == "Townsville-Whitsunday"
+        if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"))
+            tsv_rugosity_path = joinpath(RUG_DATA_DIR, "std25_Rugosity_Townsville-Whitsunday.tif")
+            tsv_rugosity = Raster(tsv_rugosity_path; lazy=true)
+            tsv_rugosity = Rasters.resample(tsv_rugosity; crs=GDA2020_crs)
+
+            write(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"), tsv_rugosity; force=true)
+
+            tsv_rugosity = nothing
+            GC.gc()
+        end
+    end
 end

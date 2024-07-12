@@ -50,20 +50,39 @@ include("common.jl")
 
         src_waves_Tp = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"); crs=EPSG(7844), lazy=true)
 
-        # Apply filtering criteria to raster grid
-        suitable_areas = read(
+        src_turbid = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"); crs=EPSG(7844), lazy=true)
+
+        if reg == "Townsville-Whitsunday"
+            src_rugosity = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"); crs=EPSG(7844), lazy=true)
+
+            suitable_areas = read(
             (src_benthic .∈ [MPA_BENTHIC_IDS]) .&
             (-9.0 .<= src_bathy .<= -2.0) .&
             (0.0 .<= src_slope .<= 40.0) .&
             (0.0 .<= src_waves_Hs .<= 1.0) .&
-            (0.0 .<= src_waves_Tp .<= 6.0)
-        )
+            (0.0 .<= src_waves_Tp .<= 6.0) .&
+            (src_turbid .<= 58) .&
+            (src_rugosity .< 6)
+            )
+        else
+            # Apply filtering criteria to raster grid
+            suitable_areas = read(
+                (src_benthic .∈ [MPA_BENTHIC_IDS]) .&
+                (-9.0 .<= src_bathy .<= -2.0) .&
+                (0.0 .<= src_slope .<= 40.0) .&
+                (0.0 .<= src_waves_Hs .<= 1.0) .&
+                (0.0 .<= src_waves_Tp .<= 6.0) .&
+                (src_turbid .<= 58)
+            )
+        end
 
         src_bathy = nothing
         src_slope = nothing
         src_benthic = nothing
         src_waves_Hs = nothing
         src_waves_Tp = nothing
+        src_turbid = nothing
+        src_rugosity = nothing
 
         # Need a copy of raster data type to support writing to `tif`
         result_raster = convert.(Int16, copy(suitable_areas))
@@ -74,7 +93,11 @@ include("common.jl")
 
         # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_flats, (-4:5, -4:5), border=Fill(0))
-        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_flats.tif")
+        if reg == "Townsville-Whitsunday"
+            fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_flats_rugosity.tif")
+        else
+            fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_flats.tif")
+        end
         _write_data(fpath, res, result_raster)
 
         suitable_flats = nothing
@@ -86,7 +109,11 @@ include("common.jl")
 
         # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_slopes, (-4:5, -4:5), border=Fill(0))
-        fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes.tif")
+        if reg == "Townsville-Whitsunday"
+            fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes_rugosity.tif")
+        else
+            fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes.tif")
+        end
         _write_data(fpath, res, result_raster)
 
         suitable_areas = nothing
