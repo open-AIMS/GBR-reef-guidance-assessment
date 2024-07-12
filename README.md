@@ -44,20 +44,26 @@ RUG_DATA_DIR = "path to Rugosity raster data" # location of Rugosity data
 
 Expected data directory layout:
 
-Separate directories are used for GBRMPA (MPA), Allen Coral Atlas (ACA) and wave datasets.
+Separate directories are used for GBRMPA (MPA), Allen Coral Atlas (ACA), wave, GDA2020 and Rugosity datasets.
 Sub-directory names should be consistent and match.
+Data directories can currently be accessed via `AIMS-Decision Support Sharepoint/Documents/General/GBR Spatial Datasets`.
 
 MPA_DATA_DIR : contains raster data at whole-GBR and GBRMPA-management-region scales.
 - `zones` holds GBRMPA zone layers in geojson format.
 - `features` holds the GBRMPA GBR-wide feature set.
+- Sharepoint folder name : GBR-Bathy10m.
 
 ACA_DATA_DIR : contains raster and vector data at whole-GBR scale.
+- Sharepoint folder name : AllenAtlas_GBR-20231118074407.
 
 WAVE_DATA_DIR : contains wave data in NetCDF format at the scale of GBRMPA-management-regions.
+- Sharepoint folder name : Wave-Data-for-PDP.
 
 GDA2020_DATA_DIR : contains GBRMPA management areas geopackage in EPSG(7844) GDA2020.
+- Sharepoint folder name: GDA2020-Data-for-PDP.
 
 RUG_DATA_DIR : contains Rugosity raster data provided by Ben Radford for Townsville-Whitsunday region.
+- Sharepoint folder name : GBR-Rugosity_Radford.
 
 ```bash
 MPA_DATA_DIR
