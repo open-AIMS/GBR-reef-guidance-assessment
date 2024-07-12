@@ -34,7 +34,10 @@ ACA_DATA_DIR = "path to Allen Atlas data"  # location of Allen Atlas datasets
 WAVE_DATA_DIR = "path to wave data" # location of wave NetCDF datasets
 
 [gda2020_data]
-GDA2020_DATA_DIR = "path to GBR management region feature datasets in EPSG:7844 (GDA2020)"
+GDA2020_DATA_DIR = "path to GDA2020 vector data" # location of management region feature datasets in EPSG:7844 (GDA2020)
+
+[rugosity_data]
+RUG_DATA_DIR = "path to Rugosity raster data" # location of Rugosity data
 ```
 
 ### Data layout
@@ -51,6 +54,10 @@ MPA_DATA_DIR : contains raster data at whole-GBR and GBRMPA-management-region sc
 ACA_DATA_DIR : contains raster and vector data at whole-GBR scale.
 
 WAVE_DATA_DIR : contains wave data in NetCDF format at the scale of GBRMPA-management-regions.
+
+GDA2020_DATA_DIR : contains GBRMPA management areas geopackage in EPSG(7844) GDA2020.
+
+RUG_DATA_DIR : contains Rugosity raster data provided by Ben Radford for Townsville-Whitsunday region.
 
 ```bash
 MPA_DATA_DIR
@@ -98,6 +105,9 @@ WAVE_DATA_DIR
     ├───FarNorthern
     ├───Mackay-Capricorn
     └───Townsville-Whitsunday
+
+RUG_DATA_DIR
+└───Townsville-Whitsunday Rugosity Raster
 ```
 
 ## Scripts
@@ -176,6 +186,10 @@ https://espace.library.uq.edu.au/view/UQ:8246441
 ### ACA data
 
 https://www.allencoralatlas.org/
+
+### Rugosity data
+
+Provided by Ben Radford for Townsville-Whitsunday region.
 
 #### Notes
 
