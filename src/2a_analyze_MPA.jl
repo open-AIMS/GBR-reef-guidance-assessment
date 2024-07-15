@@ -141,6 +141,12 @@ include("common.jl")
         # Filter out cells over 200NM from the nearest port
         suitable_areas = filter_distances(suitable_areas, Ports, 200)
 
+        # Filter out cells touching GBRMPA Pink Zones
+        GBRMPA_zoning_poly = GDF.read(joinpath(GDA2020_DATA_DIR, "Great_Barrier_Reef_Marine_Park_Zoning_20_4418126048110066699.gpkg"))
+        GBRMPA_zoning_poly = GBRMPA_zoning_poly[GBRMPA_zoning_poly.ALT_ZONE .!= "Pink Zone", :]
+        rename!(GBRMPA_zoning_poly, :SHAPE => :geometry)
+        suitable_areas = Rasters.mask(suitable_areas; with=GBRMPA_zoning_poly, boundary=:touches)
+
         # Need a copy of raster data type to support writing to `tif`
         result_raster = convert.(Int16, copy(suitable_areas))
         rebuild(result_raster; missingval=0)
