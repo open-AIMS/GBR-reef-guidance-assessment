@@ -19,6 +19,9 @@ gbr_benthic = Raster(gbr_benthic_path, crs=EPSG(4326), lazy=true)
 gbr_morphic_path = "$(MPA_DATA_DIR)/geomorphic/GBR10 GBRMP Geomorphic.tif"
 gbr_geomorphic = Raster(gbr_morphic_path, crs=EPSG(4326), lazy=true)
 
+aca_turbid_path = "$(ACA_DATA_DIR)/Turbidity-Q3-2023/turbidity-quarterly_0.tif"
+aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
+
 # If a file already exists it is skipped
 @showprogress dt = 10 "Prepping benthic/geomorphic/wave data..." for reg in REGIONS
     reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
@@ -151,9 +154,9 @@ gbr_geomorphic = Raster(gbr_morphic_path, crs=EPSG(4326), lazy=true)
         bathy_gda2020_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
         bathy_gda2020 = Raster(bathy_gda2020_path; crs=EPSG(7844), lazy=true)
 
-        target_turbid_path = joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif")
-        target_turbid = Raster(target_turbid_path; crs=EPSG(7844), lazy=true)
-        target_turbid = Rasters.resample(target_turbid; to=bathy_gda2020)
+        target_turbid = Rasters.crop(aca_turbid; to=regions_4326[reg_idx_4326, :])
+        target_turbid = Rasters.trim(mask(target_turbid; with=regions_4326[reg_idx_4326, :]))
+        target_turbid = resample(target_turbid; to=bathy_gda2020)
 
         write(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"), target_turbid; force=true)
 

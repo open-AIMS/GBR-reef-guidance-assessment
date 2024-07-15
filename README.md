@@ -1,13 +1,13 @@
-# Bathy10m
+# GBR-reef-guidance-assessment
 
-Analyses to support workshop discussions.
+Analyses to support workshop discussions for pilot deployment program.
 
 ## Project Layout
 
 Assumes `src` is the project root. Each file in `src` is expected to be run in order.
 
 ```code
-GBR-FeatureAnalysis/
+GBR-reef-guidance-assessment/
 ├─ src/           # Analysis
 ├─ outputs/       # Intermediate data files
 ├─ figs/          # Figures
@@ -51,19 +51,19 @@ Data directories can currently be accessed via `AIMS-Decision Support Sharepoint
 MPA_DATA_DIR : contains raster data at whole-GBR and GBRMPA-management-region scales.
 - `zones` holds GBRMPA zone layers in geojson format.
 - `features` holds the GBRMPA GBR-wide feature set.
-- Sharepoint folder name : GBR-Bathy10m.
+- Sharepoint folder name : `GBR-Bathy10m`.
 
 ACA_DATA_DIR : contains raster and vector data at whole-GBR scale.
-- Sharepoint folder name : AllenAtlas_GBR-20231118074407.
+- Sharepoint folder name : `AllenAtlas_GBR-20231118074407`.
 
 WAVE_DATA_DIR : contains wave data in NetCDF format at the scale of GBRMPA-management-regions.
-- Sharepoint folder name : Wave-Data-for-PDP.
+- Sharepoint folder name : `Wave-Data-for-PDP`.
 
 GDA2020_DATA_DIR : contains GBRMPA management areas geopackage in EPSG(7844) GDA2020.
-- Sharepoint folder name: GDA2020-Data-for-PDP.
+- Sharepoint folder name: `GDA2020-Data-for-PDP`.
 
 RUG_DATA_DIR : contains Rugosity raster data provided by Ben Radford for Townsville-Whitsunday region.
-- Sharepoint folder name : GBR-Rugosity_Radford.
+- Sharepoint folder name : `GBR-Rugosity_Radford`.
 
 ```bash
 MPA_DATA_DIR
@@ -132,8 +132,10 @@ It should be possible to run one script, so long as other scripts earlier in the
 indicated order have been run previously.
 e.g., Script 3 could be run after script 1 and 2, so long as 1 and 2 were run at some point
 previously.
-(Note: Running `1b_.jl` requires the user to have original bathymetry input data from MPA analysis,
+(Note: Running `1b_.jl` requires the user to have raw MPA bathymetry input data,
 as it is required for processing of wave data.)
+(Note: Running `1a_.jl` requires the user to have raw ACA turbidity input data,
+as it is also required for MPA analyses.)
 
 - `1*_.jl` : Separate data into regions to reduce computational requirements. Ensure all data
 used in later steps are in EPSG:7844 (GDA 2020).
