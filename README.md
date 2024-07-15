@@ -38,6 +38,9 @@ GDA2020_DATA_DIR = "path to GDA2020 vector data" # location of management region
 
 [rugosity_data]
 RUG_DATA_DIR = "path to Rugosity raster data" # location of Rugosity data
+
+[ports_data]
+PORT_DATA_DIR = "path to QLD Ports vector data" # Location of QLD Ports data.
 ```
 
 ### Data layout
@@ -64,6 +67,9 @@ GDA2020_DATA_DIR : contains GBRMPA management areas geopackage in EPSG(7844) GDA
 
 RUG_DATA_DIR : contains Rugosity raster data provided by Ben Radford for Townsville-Whitsunday region.
 - Sharepoint folder name : `GBR-Rugosity_Radford`.
+
+PORT_DATA_DIR : contains QLD Port location vector data provided by Marji Poutinen.
+- Sharepoint folder name : `QLD_ports_mercator_via_MP`.
 
 ```bash
 MPA_DATA_DIR
@@ -114,6 +120,9 @@ WAVE_DATA_DIR
 
 RUG_DATA_DIR
 └───Townsville-Whitsunday Rugosity Raster
+
+PORT_DATA_DIR
+└───QLD Ports Shapefile
 ```
 
 ## Scripts
@@ -198,6 +207,10 @@ https://www.allencoralatlas.org/
 ### Rugosity data
 
 Provided by Ben Radford for Townsville-Whitsunday region.
+
+### Port data
+
+Provided by Marji Poutinen.
 
 #### Notes
 
