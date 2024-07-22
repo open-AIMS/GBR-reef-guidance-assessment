@@ -106,6 +106,13 @@ end
         "Mackay-Capricorn" => "+proj=utm +zone=56 +south +datum=WGS84",
         "FarNorthern"=>"+proj=utm +zone=54 +south +datum=WGS84"
     )
+
+    global species_depth_req = Dict(
+        "Acropora hyacinthus" => (-26.0, 0.0),
+        "Acropora millepora" => (-30.0, -2.0),
+        "Platygyra daedalea" => (-40.0, 0.0),
+        "Montipora aequituberculata" => (-5.0, 0.0)
+    )
 end
 
 

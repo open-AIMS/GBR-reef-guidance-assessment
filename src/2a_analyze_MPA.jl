@@ -108,16 +108,18 @@ include("common.jl")
 
         if reg == "Townsville-Whitsunday"
             src_rugosity = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"); crs=EPSG(7844), lazy=true)
-
             suitable_areas = read(
-            (src_benthic .∈ [MPA_BENTHIC_IDS]) .&
-            (-9.0 .<= src_bathy .<= -2.0) .&
-            (0.0 .<= src_slope .<= 40.0) .&
-            (0.0 .<= src_waves_Hs .<= 1.0) .&
-            (0.0 .<= src_waves_Tp .<= 6.0) .&
-            (src_turbid .<= 58) .&
-            (src_rugosity .< 6)
+                (src_benthic .∈ [MPA_BENTHIC_IDS]) .&
+                (-9.0 .<= src_bathy .<= -2.0) .&
+                (0.0 .<= src_slope .<= 40.0) .&
+                (0.0 .<= src_waves_Hs .<= 1.0) .&
+                (0.0 .<= src_waves_Tp .<= 6.0) .&
+                (src_turbid .<= 58) .&
+                (src_rugosity .< 6)
             )
+
+            flat_fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_flats_rugosity.tif")
+            slope_fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes_rugosity.tif")
         else
             # Apply filtering criteria to raster grid
             suitable_areas = read(
@@ -128,6 +130,9 @@ include("common.jl")
                 (0.0 .<= src_waves_Tp .<= 6.0) .&
                 (src_turbid .<= 58)
             )
+
+            flat_fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_flats.tif")
+            slope_fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes.tif")
         end
 
         src_bathy = nothing
@@ -156,11 +161,6 @@ include("common.jl")
 
         # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_flats, (-4:5, -4:5), border=Fill(0))
-        if reg == "Townsville-Whitsunday"
-            fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_flats_rugosity.tif")
-        else
-            fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_flats.tif")
-        end
         _write_data(fpath, res, result_raster)
 
         suitable_flats = nothing
@@ -172,18 +172,112 @@ include("common.jl")
 
         # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_slopes, (-4:5, -4:5), border=Fill(0))
-        if reg == "Townsville-Whitsunday"
-            fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes_rugosity.tif")
-        else
-            fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes.tif")
-        end
-        _write_data(fpath, res, result_raster)
+        _write_data(slope_fpath, res, result_raster)
 
         suitable_areas = nothing
         suitable_slopes = nothing
         res = nothing
         GC.gc()
     end
+
+    function assess_region_species(reg)
+        # Load required prepared raster files for analysis
+        src_bathy = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG(7844), lazy=true)
+
+        src_slope = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"); crs=EPSG(7844), lazy=true)
+
+        src_benthic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"); crs=EPSG(7844), lazy=true)
+
+        src_geomorphic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"); crs=EPSG(7844), lazy=true)
+
+        src_waves_Hs = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"); crs=EPSG(7844), lazy=true)
+
+        src_waves_Tp = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"); crs=EPSG(7844), lazy=true)
+
+        src_turbid = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"); crs=EPSG(7844), lazy=true)
+
+        @floop for species in collect(keys(species_depth_req))
+            max_depth = species_depth_req[species][1]
+            min_depth = species_depth_req[species][2]
+            if reg == "Townsville-Whitsunday"
+                src_rugosity = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"); crs=EPSG(7844), lazy=true)
+
+                suitable_areas = read(
+                    (src_benthic .∈ [MPA_BENTHIC_IDS]) .&
+                    (max_depth .<= src_bathy .<= min_depth) .&
+                    (0.0 .<= src_slope .<= 40.0) .&
+                    (0.0 .<= src_waves_Hs .<= 1.0) .&
+                    (0.0 .<= src_waves_Tp .<= 6.0) .&
+                    (src_turbid .<= 58) .&
+                    (src_rugosity .< 6)
+                )
+
+                flat_fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_$(species)_suitable_flats_rugosity.tif")
+                slope_fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_$(species)_suitable_slopes_rugosity.tif")
+
+            else
+                # Apply filtering criteria to raster grid
+                suitable_areas = read(
+                    (src_benthic .∈ [MPA_BENTHIC_IDS]) .&
+                    (max_depth .<= src_bathy .<= min_depth) .&
+                    (0.0 .<= src_slope .<= 40.0) .&
+                    (0.0 .<= src_waves_Hs .<= 1.0) .&
+                    (0.0 .<= src_waves_Tp .<= 6.0) .&
+                    (src_turbid .<= 58)
+                )
+
+                flat_fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_$(species)_suitable_flats.tif")
+                slope_fpath = joinpath(MPA_OUTPUT_DIR, "$(reg)_$(species)_suitable_slopes.tif")
+            end
+
+            src_bathy = nothing
+            src_slope = nothing
+            src_benthic = nothing
+            src_waves_Hs = nothing
+            src_waves_Tp = nothing
+            src_turbid = nothing
+            src_rugosity = nothing
+
+            # Filter out cells over 200NM from the nearest port
+            suitable_areas = filter_distances(suitable_areas, Ports, 200)
+
+            # Filter out cells touching GBRMPA Pink Zones
+            GBRMPA_zoning_poly = GDF.read(joinpath(GDA2020_DATA_DIR, "Great_Barrier_Reef_Marine_Park_Zoning_20_4418126048110066699.gpkg"))
+            GBRMPA_zoning_poly = GBRMPA_zoning_poly[GBRMPA_zoning_poly.ALT_ZONE .!= "Pink Zone", :]
+            rename!(GBRMPA_zoning_poly, :SHAPE => :geometry)
+            suitable_areas = Rasters.mask(suitable_areas; with=GBRMPA_zoning_poly, boundary=:touches)
+
+            # Need a copy of raster data type to support writing to `tif`
+            result_raster = convert.(Int16, copy(suitable_areas))
+            rebuild(result_raster; missingval=0)
+
+            # Assess flats
+            suitable_flats = read(suitable_areas .& (src_geomorphic .∈ [MPA_FLAT_IDS]))
+
+            # Calculate suitability of 10x10m surroundings of each cell
+            res = mapwindow(prop_suitable, suitable_flats, (-4:5, -4:5), border=Fill(0))
+            _write_data(flat_fpath, res, result_raster)
+
+            suitable_flats = nothing
+            res = nothing
+            GC.gc()
+
+            # Assess slopes
+            suitable_slopes = read(suitable_areas .& (src_geomorphic .∈ [MPA_SLOPE_IDS]))
+
+            # Calculate suitability of 10x10m surroundings of each cell
+            res = mapwindow(prop_suitable, suitable_slopes, (-4:5, -4:5), border=Fill(0))
+            _write_data(slope_fpath, res, result_raster)
+
+            suitable_areas = nothing
+            suitable_slopes = nothing
+            res = nothing
+            GC.gc()
+        end
+    end
 end
 
 @showprogress dt = 10 desc = "Analyzing..." pmap(assess_region, REGIONS)
+
+species = collect(keys(species_depth_req))
+@showprogress dt = 10 desc = "Analyzing..." pmap(assess_region_species, REGIONS)
