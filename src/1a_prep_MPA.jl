@@ -8,10 +8,19 @@ Ensure all rasters are the same size/shape for each region of interest.
 
 include("common.jl")
 
+# 1. Processing of GBRMPA zoning geopackage to select only zones for site exclusion
+if !isfile(joinpath(MPA_OUTPUT_DIR, "GBRMPA_zone_exclusion.gpkg"))
+    GBRMPA_zoning_poly = GDF.read(joinpath(GDA2020_DATA_DIR, "Great_Barrier_Reef_Marine_Park_Zoning_20_4418126048110066699.gpkg"))
+    GBRMPA_zoning_poly = GBRMPA_zoning_poly[GBRMPA_zoning_poly.TYPE .∈ [MPA_EXCLUSION_ZONES], :]
+    rename!(GBRMPA_zoning_poly, :SHAPE => :geometry)
+
+    GDF.write(joinpath(MPA_OUTPUT_DIR, "GBRMPA_zone_exclusion.gpkg"), GBRMPA_zoning_poly; crs=EPSG(7844))
+end
+
+# 2. Processing of MPA files into smaller GDA-2020 rasters
 # Loading regions_4326 for cropping of vector and raster data.
 regions_4326 = GDF.read(REGION_PATH_4326)
 
-# 1. Processing of MPA files into smaller GDA-2020 rasters
 # Loading GBR-wide data
 gbr_benthic_path = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
 gbr_benthic = Raster(gbr_benthic_path, crs=EPSG(4326), lazy=true)

@@ -106,6 +106,9 @@ end
         "Mackay-Capricorn" => "+proj=utm +zone=56 +south +datum=WGS84",
         "FarNorthern"=>"+proj=utm +zone=54 +south +datum=WGS84"
     )
+
+    # GBRMPA zones to exclude from site selection
+    global MPA_EXCLUSION_ZONES = ["Preservation Zone"]
 end
 
 
