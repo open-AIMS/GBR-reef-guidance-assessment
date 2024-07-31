@@ -220,7 +220,7 @@ https://www.allencoralatlas.org/
 
 Provided by Ben Radford for Townsville-Whitsunday region.
 
-#### Resolution
+## Resolution
 
 `MPA raster data` (Bathymetry, Benthic, Geomorphic, Slope) : 10 x 10m pixel size
 
@@ -228,12 +228,12 @@ Provided by Ben Radford for Townsville-Whitsunday region.
 
 `Waves NetCDF data` (Hs and Tp) : 10 x 10m pixel size
 
-#### Projections
+### Projections
 
 After `1*_.jl` (pre-processing and reprojecting data) is complete all raster and vector data
 in `*_OUTPUT_DIR`, and outputs from `2*_.jl` and `3*_.jl` will be in EPSG:7844 GDA2020.
 
-##### MPA Data
+#### MPA Data
 
 Wave data provided can span across two UTM zones.
 Saving processed data as geotiffs will fail due to bounds checking; the GDAL implementation
@@ -280,7 +280,7 @@ are retained), and finally, the wave data is copied across.
 
 All data in `1a_prep_MPA.jl` are projected to EPSG:7844 GDA2020 prior to further analysis.
 
-##### ACA Data
+#### ACA Data
 
 ACA raster data is in crs WGS 84 4326.
 Wave data preparation in `1b_prep_aca.jl` requires
