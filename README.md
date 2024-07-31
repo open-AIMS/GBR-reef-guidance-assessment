@@ -31,16 +31,16 @@ MPA_DATA_DIR = "path to GBR data"  # location of GBR datasets
 ACA_DATA_DIR = "path to Allen Atlas data"  # location of Allen Atlas datasets
 
 [wave_data]
-WAVE_DATA_DIR = "path to wave data" # location of wave NetCDF datasets
+WAVE_DATA_DIR = "path to wave data"  # location of wave NetCDF datasets
 
 [gda2020_data]
-GDA2020_DATA_DIR = "path to GDA2020 vector data" # location of GBRMPA region feature datasets in EPSG:7844 (GDA2020)
+GDA2020_DATA_DIR = "path to GDA2020 vector data"  # location of GBRMPA region feature datasets in EPSG:7844 (GDA2020)
 
 [rugosity_data]
-RUG_DATA_DIR = "path to Rugosity raster data" # location of Rugosity data
+RUG_DATA_DIR = "path to Rugosity raster data"  # location of Rugosity data
 
 [ports_data]
-PORT_DATA_DIR = "path to QLD Ports vector data" # Location of QLD Ports data.
+PORT_DATA_DIR = "path to QLD Ports vector data"  # Location of QLD Ports data.
 ```
 
 ### Data layout
@@ -62,7 +62,7 @@ ACA_DATA_DIR : contains raster and vector data at whole-GBR scale.
 WAVE_DATA_DIR : contains wave data in NetCDF format at the scale of GBRMPA-management-regions.
 - Sharepoint folder name : `Wave-Data-for-PDP`.
 
-GDA2020_DATA_DIR : contains GBRMPA geopackage data geopackage in EPSG(7844) GDA2020.
+GDA2020_DATA_DIR : contains GBRMPA management and zoning geopackage data in EPSG(7844) GDA2020.
 - Sharepoint folder name: `GDA2020-Data-for-PDP`.
 
 RUG_DATA_DIR : contains Rugosity raster data provided by Ben Radford for Townsville-Whitsunday region.

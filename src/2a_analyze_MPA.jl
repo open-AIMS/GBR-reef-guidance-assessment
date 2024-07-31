@@ -43,8 +43,8 @@ include("common.jl")
             dist_nm
         )::Raster
 
-    Filter pixels from target_raster that are within `dist_nm` (nautical miles) from a geometry
-    in gdf. Target_raster and gdf should be in the same CRS (EPSG7844:GDA2020 for GBR-reef-guidance-assessment).
+    Exclude pixels in target_rast that are beyond `dist_nm` (nautical miles) from a geometry
+    in `gdf`. Target_rast and gdf should be in the same CRS (EPSG:7844 / GDA2020 for GBR-reef-guidance-assessment).
 
     # Arguments
     - `target_rast` : Raster of suitable pixels (Bool) to filter pixels from.
@@ -52,10 +52,10 @@ include("common.jl")
     - `dist_nm` : Filtering distance from geometry object in nautical miles.
 
     # Returns
-    - `tmp_areas` : Raster of filtered pixels containing only pixels within target distance from
-    gdf geometries.
+    - `tmp_areas` : Raster of filtered pixels containing only pixels within target distance
+    from a geometry centroid.
     """
-    function filter_distances(target_rast::Raster, gdf::DataFrame, dist_nm)::Raster
+    function filter_distances(target_rast::Raster, gdf::DataFrame, dist; units::String="NM")::Raster
         tmp_areas = copy(target_rast)
         raster_lon = Vector{Float64}(tmp_areas.dims[1].val)
         raster_lat = Vector{Float64}(tmp_areas.dims[2].val)
@@ -72,9 +72,18 @@ include("common.jl")
                     geom_point = (AG.getx(geom_point, 0), AG.gety(geom_point, 0))
 
                     dist_nearest = Distances.haversine(geom_point, (lon, lat))
-                    dist_nearest = dist_nearest / 1852
 
-                    if dist_nearest < dist_nm
+                    # convert from meters to nautical miles
+                    if units == "NM"
+                        dist_nearest = dist_nearest / 1852
+                    end
+
+                    # convert from meters to kilometers
+                    if units == "km"
+                        dist_nearest = dist_nearest / 1000
+                    end
+
+                    if dist_nearest < dist
                         tmp_areas.data[lon_ind, lat_ind] = 1
                     else
                         tmp_areas.data[lon_ind, lat_ind] = 0
@@ -139,7 +148,7 @@ include("common.jl")
         src_rugosity = nothing
 
         # Filter out cells over 200NM from the nearest port
-        suitable_areas = filter_distances(suitable_areas, Ports, 200)
+        suitable_areas = filter_distances(suitable_areas, Ports, 200; units="NM")
 
         # Filter out cells touching GBRMPA Pink Zones
         GBRMPA_zoning_poly = GDF.read(joinpath(GDA2020_DATA_DIR, "Great_Barrier_Reef_Marine_Park_Zoning_20_4418126048110066699.gpkg"))
