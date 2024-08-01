@@ -59,6 +59,8 @@ end
     global WAVE_DATA_DIR = CONFIG["wave_data"]["WAVE_DATA_DIR"]
     global GDA2020_DATA_DIR = CONFIG["gda2020_data"]["GDA2020_DATA_DIR"]
     global RUG_DATA_DIR = CONFIG["rugosity_data"]["RUG_DATA_DIR"]
+    global PORT_DATA_DIR = CONFIG["ports_data"]["PORT_DATA_DIR"]
+    global DHW_DATA_DIR = CONFIG["dhw_data"]["DHW_DATA_DIR"]
 
     regions_GDA2020_path = joinpath(GDA2020_DATA_DIR, "Great_Barrier_Reef_Marine_Park_Management_Areas_20_1685154518472315942.gpkg")
     regions_GDA2020 = GDF.read(regions_GDA2020_path)

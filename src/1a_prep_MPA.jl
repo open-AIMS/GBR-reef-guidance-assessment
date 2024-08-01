@@ -8,6 +8,23 @@ Ensure all rasters are the same size/shape for each region of interest.
 
 include("common.jl")
 
+@floop for scenario in ["historical", "ssp245"]
+    dhw_data_path = first(glob("*$(scenario)*.nc", DHW_DATA_DIR))
+    dhw_data = Rasters.Raster(dhw_data_path; name=:dhw_max)
+
+    if !isfile(joinpath(MPA_OUTPUT_DIR, "GBR_mean_dhw_$(scenario).tif"))
+        mean_dhw = dropdims(mean(dhw_data; dims=Ti); dims=Ti)
+        mean_dhw = set(mean_dhw, :x => X, :y => Y)
+        write(joinpath(MPA_OUTPUT_DIR, "GBR_mean_dhw_$(scenario).tif"), mean_dhw)
+    end
+
+    if !isfile(joinpath(MPA_OUTPUT_DIR, "GBR_std_dhw_$(scenario).tif"))
+        std_dhw = dropdims(std(dhw_data; dims=Ti); dims=Ti)
+        std_dhw = set(std_dhw, :x => X, :y => Y)
+        write(joinpath(MPA_OUTPUT_DIR, "GBR_std_dhw_$(scenario).tif"), std_dhw)
+    end
+end
+
 # Loading regions_4326 for cropping of vector and raster data.
 regions_4326 = GDF.read(REGION_PATH_4326)
 
@@ -21,6 +38,18 @@ gbr_geomorphic = Raster(gbr_morphic_path, crs=EPSG(4326), lazy=true)
 
 aca_turbid_path = "$(ACA_DATA_DIR)/Turbidity-Q3-2023/turbidity-quarterly_0.tif"
 aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
+
+mean_historical_dhw_path = "$(MPA_OUTPUT_DIR)/GBR_mean_dhw_historical.tif"
+mean_historical_dhw = Raster(mean_historical_dhw_path, mappedcrs=EPSG(4326), lazy=true)
+
+std_historical_dhw_path = "$(MPA_OUTPUT_DIR)/GBR_std_dhw_historical.tif"
+std_historical_dhw = Raster(std_historical_dhw_path, mappedcrs=EPSG(4326), lazy=true)
+
+mean_ssp245_dhw_path = "$(MPA_OUTPUT_DIR)/GBR_mean_dhw_ssp245.tif"
+mean_ssp245_dhw = Raster(mean_ssp245_dhw_path, mappedcrs=EPSG(4326), lazy=true)
+
+std_ssp245_dhw_path = "$(MPA_OUTPUT_DIR)/GBR_std_dhw_ssp245.tif"
+std_ssp245_dhw = Raster(std_ssp245_dhw_path, mappedcrs=EPSG(4326), lazy=true)
 
 # If a file already exists it is skipped
 @showprogress dt = 10 "Prepping benthic/geomorphic/wave data..." for reg in REGIONS
@@ -176,5 +205,85 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
             tsv_rugosity = nothing
             GC.gc()
         end
+    end
+
+    if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_historical_mean_dhw.tif"))
+        bathy_gda2020_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
+        bathy_gda2020 = Raster(bathy_gda2020_path; crs=EPSG(7844), lazy=true)
+
+        target_dhw = Rasters.crop(mean_historical_dhw; to=regions_4326[reg_idx_4326, :])
+        target_dhw = Rasters.trim(mask(target_dhw; with=regions_4326[reg_idx_4326, :]))
+        target_dhw = reproject(target_dhw; crs=crs(bathy_gda2020))
+        #target_dhw = resample(target_dhw; to=bathy_gda2020)
+
+        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_historical_mean_dhw.tif"), target_dhw; force=true)
+
+        bathy_gda2020 = nothing
+        target_dhw = nothing
+        GC.gc()
+    end
+
+    if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_historical_std_dhw.tif"))
+        bathy_gda2020_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
+        bathy_gda2020 = Raster(bathy_gda2020_path; crs=EPSG(7844), lazy=true)
+
+        target_dhw = Rasters.crop(std_historical_dhw; to=regions_4326[reg_idx_4326, :])
+        target_dhw = Rasters.trim(mask(target_dhw; with=regions_4326[reg_idx_4326, :]))
+        target_dhw = reproject(target_dhw; crs=crs(bathy_gda2020))
+        #target_dhw = resample(target_dhw; to=bathy_gda2020)
+
+        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_historical_std_dhw.tif"), target_dhw; force=true)
+
+        bathy_gda2020 = nothing
+        target_dhw = nothing
+        GC.gc()
+    end
+
+    if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_ssp245_mean_dhw.tif"))
+        bathy_gda2020_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
+        bathy_gda2020 = Raster(bathy_gda2020_path; crs=EPSG(7844), lazy=true)
+
+        target_dhw = Rasters.crop(mean_ssp245_dhw; to=regions_4326[reg_idx_4326, :])
+        target_dhw = Rasters.trim(mask(target_dhw; with=regions_4326[reg_idx_4326, :]))
+        target_dhw = reproject(target_dhw; crs=crs(bathy_gda2020))
+        #target_dhw = resample(target_dhw; to=bathy_gda2020)
+
+        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_ssp245_mean_dhw.tif"), target_dhw; force=true)
+
+        bathy_gda2020 = nothing
+        target_dhw = nothing
+        GC.gc()
+    end
+
+    if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_ssp245_std_dhw.tif"))
+        bathy_gda2020_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
+        bathy_gda2020 = Raster(bathy_gda2020_path; crs=EPSG(7844), lazy=true)
+
+        target_dhw = Rasters.crop(std_ssp245_dhw; to=regions_4326[reg_idx_4326, :])
+        target_dhw = Rasters.trim(mask(target_dhw; with=regions_4326[reg_idx_4326, :]))
+        target_dhw = reproject(target_dhw; crs=crs(bathy_gda2020))
+        #target_dhw = resample(target_dhw; to=bathy_gda2020)
+
+        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_ssp245_std_dhw.tif"), target_dhw; force=true)
+
+        bathy_gda2020 = nothing
+        target_dhw = nothing
+        GC.gc()
+    end
+
+    if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_historical_mean_dhw.tif"))
+        bathy_gda2020_path = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
+        bathy_gda2020 = Raster(bathy_gda2020_path; crs=EPSG(7844), lazy=true)
+
+        target_dhw = Rasters.crop(mean_historical_dhw; to=regions_4326[reg_idx_4326, :])
+        target_dhw = Rasters.trim(mask(target_dhw; with=regions_4326[reg_idx_4326, :]))
+        target_dhw = reproject(target_dhw; crs=crs(bathy_gda2020))
+        #target_dhw = resample(target_dhw; to=bathy_gda2020)
+
+        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_historical_mean_dhw.tif"), target_dhw; force=true)
+
+        bathy_gda2020 = nothing
+        target_dhw = nothing
+        GC.gc()
     end
 end
