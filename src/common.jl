@@ -180,3 +180,17 @@ function plot_map!(gdf::DataFrame; geom_col=:geometry, color=nothing)::Nothing
 
     return nothing
 end
+
+"""
+    force_gc_cleanup()
+
+Trigger garbage collection to free memory after clearing large datasets.
+Not exactly best practice, but it works for very high memory workloads where data is
+repeatedly loaded/unloaded.
+"""
+function force_gc_cleanup()::Nothing
+    sleep(1)  # Wait a little bit to ensure garbage sweep has occurred
+    GC.gc()
+
+    return nothing
+end
