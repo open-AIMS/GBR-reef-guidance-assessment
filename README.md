@@ -62,7 +62,7 @@ ACA_DATA_DIR : contains raster and vector data at whole-GBR scale.
 WAVE_DATA_DIR : contains wave data in NetCDF format at the scale of GBRMPA-management-regions.
 - Sharepoint folder name : `Wave-Data-for-PDP`.
 
-GDA2020_DATA_DIR : contains GBRMPA management and zoning geopackage data in EPSG(7844) GDA2020.
+GDA2020_DATA_DIR : contains GBRMPA management and zoning geopackage data in EPSG:7844 (GDA2020).
 - Sharepoint folder name: `GDA2020-Data-for-PDP`.
 
 RUG_DATA_DIR : contains Rugosity raster data provided by Ben Radford for Townsville-Whitsunday region.
@@ -141,16 +141,16 @@ It should be possible to run one script, so long as other scripts earlier in the
 indicated order have been run previously.
 e.g., Script 3 could be run after script 1 and 2, so long as 1 and 2 were run at some point
 previously.
-(Note: Running `1b_.jl` requires the user to have raw MPA bathymetry input data,
+(Note: Running `1b_*.jl` requires the user to have raw MPA bathymetry input data,
 as it is required for processing of wave data.)
-(Note: Running `1a_.jl` requires the user to have raw ACA turbidity input data,
+(Note: Running `1a_*.jl` requires the user to have raw ACA turbidity input data,
 as it is also required for MPA analyses.)
 
-- `1*_.jl` : Separate data into regions to reduce computational requirements. Ensure all data
+- `1_*.jl` : Separate data into regions to reduce computational requirements. Ensure all data
 used in later steps are in EPSG:7844 (GDA 2020).
-- `2*_.jl` : Filter raster data into cells that meet selected criteria and calculate the
+- `2_*.jl` : Filter raster data into cells that meet selected criteria and calculate the
 proportion of suitability in the hectare surrounding each cell.
-- `3*_.jl` : Count the number of cells that have a surrounding suitability >= 0.95.
+- `3_*.jl` : Count the number of cells that have a surrounding suitability >= 0.95.
 
 ## Manual steps
 
