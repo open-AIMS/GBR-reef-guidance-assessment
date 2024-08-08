@@ -151,7 +151,7 @@ function plot_map!(ga::GeoAxis, gdf::DataFrame; geom_col=:geometry, color=nothin
     plottable = GeoMakie.geo2basic(AG.forceto.(gdf[!, geom_col], AG.wkbPolygon))
 
     if !isnothing(color)
-        poly!(ga, plottable, color=color)
+        poly!(ga, plottable; color=color)
     else
         poly!(ga, plottable)
     end
@@ -168,7 +168,7 @@ function plot_map!(gdf::DataFrame; geom_col=:geometry, color=nothing)::Nothing
     plottable = GeoMakie.geo2basic(AG.forceto.(gdf[!, geom_col], AG.wkbPolygon))
 
     if !isnothing(color)
-        poly!(ga, plottable, color=color)
+        poly!(ga, plottable; color=color)
     else
         poly!(ga, plottable)
     end
