@@ -94,8 +94,13 @@ include("common.jl")
     end
 
     # Load QLD_ports data
-    Ports = GDF.read("$(PORT_DATA_DIR)/ports_QLD_merc.shp")
-    Ports.geometry = AG.reproject(Ports.geometry, crs(Ports[1, :geometry]), GDA2020_crs; order=:trad)
+    port_locs = GDF.read("$(PORT_DATA_DIR)/ports_QLD_merc.shp")
+    port_locs.geometry = AG.reproject(
+        port_locs.geometry,
+        crs(port_locs[1, :geometry]),
+        GDA2020_crs;
+        order=:trad
+    )
 
     function assess_region(reg)
         # Load required prepared raster files for analysis
@@ -146,7 +151,7 @@ include("common.jl")
         src_rugosity = nothing
 
         # Filter out cells over 200NM from the nearest port
-        suitable_areas = filter_distances(suitable_areas, Ports, 200; units="NM")
+        suitable_areas = filter_distances(suitable_areas, port_locs, 200; units="NM")
 
         # Filter out cells occurring
         GBRMPA_zone_exclusion = GDF.read(joinpath(MPA_OUTPUT_DIR, "GBRMPA_zone_exclusion.gpkg"))
