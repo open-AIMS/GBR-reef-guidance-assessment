@@ -104,51 +104,50 @@ include("common.jl")
 
     function assess_region(reg)
         # Load required prepared raster files for analysis
-        src_bathy = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG(7844), lazy=true)
+        src_bathy = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG_7844)
+        bathy_crit = (-9.0 .<= src_bathy .<= -2.0)
+        src_bathy = nothing
 
-        src_slope = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"); crs=EPSG(7844), lazy=true)
+        src_slope = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"); crs=EPSG_7844)
+        slope_crit = (0.0 .<= src_slope .<= 40.0)
+        src_slope = nothing
 
-        src_benthic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"); crs=EPSG(7844), lazy=true)
+        src_benthic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"); crs=EPSG_7844)
+        benthic_crit = (src_benthic .∈ [MPA_BENTHIC_IDS])
+        src_benthic = nothing
 
-        src_geomorphic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"); crs=EPSG(7844), lazy=true)
+        src_geomorphic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"); crs=EPSG_7844)
+        geomorphic_flat_crit = src_geomorphic .∈ [MPA_FLAT_IDS]
+        geomorphic_slope_crit = src_geomorphic .∈ [MPA_SLOPE_IDS]
+        src_geomorphic = nothing
 
-        src_waves_Hs = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"); crs=EPSG(7844), lazy=true)
+        src_waves_Hs = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"); crs=EPSG_7844)
+        Hs_waves_crit = (0.0 .<= src_waves_Hs .<= 1.0)
+        src_waves_Hs = nothing
 
-        src_waves_Tp = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"); crs=EPSG(7844), lazy=true)
+        src_waves_Tp = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"); crs=EPSG_7844)
+        Tp_waves_crit = (0.0 .<= src_waves_Tp .<= 6.0)
+        src_waves_Tp = nothing
 
-        src_turbid = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"); crs=EPSG(7844), lazy=true)
+        src_turbid = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"); crs=EPSG_7844)
+        turbid_crit = (src_turbid .<= 58)
+        src_turbid = nothing
+
+        # Apply filtering criteria to raster grid
+        suitable_areas = (
+            benthic_crit .&
+            bathy_crit .&
+            slope_crit .&
+            Hs_waves_crit .&
+            Tp_waves_crit .&
+            turbid_crit
+        )
 
         if reg == "Townsville-Whitsunday"
-            src_rugosity = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"); crs=EPSG(7844), lazy=true)
-
-            suitable_areas = read(
-                (src_benthic .∈ [MPA_BENTHIC_IDS]) .&
-                (-9.0 .<= src_bathy .<= -2.0) .&
-                (0.0 .<= src_slope .<= 40.0) .&
-                (0.0 .<= src_waves_Hs .<= 1.0) .&
-                (0.0 .<= src_waves_Tp .<= 6.0) .&
-                (src_turbid .<= 58) .&
-                (src_rugosity .< 6)
-            )
-        else
-            # Apply filtering criteria to raster grid
-            suitable_areas = read(
-                (src_benthic .∈ [MPA_BENTHIC_IDS]) .&
-                (-9.0 .<= src_bathy .<= -2.0) .&
-                (0.0 .<= src_slope .<= 40.0) .&
-                (0.0 .<= src_waves_Hs .<= 1.0) .&
-                (0.0 .<= src_waves_Tp .<= 6.0) .&
-                (src_turbid .<= 58)
-            )
+            src_rugosity = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"); crs=EPSG_7844)
+            suitable_areas .= suitable_areas .& (src_rugosity .< 6)
+            src_rugosity = nothing
         end
-
-        src_bathy = nothing
-        src_slope = nothing
-        src_benthic = nothing
-        src_waves_Hs = nothing
-        src_waves_Tp = nothing
-        src_turbid = nothing
-        src_rugosity = nothing
 
         # Filter out cells over 200NM from the nearest port
         suitable_areas = filter_distances(suitable_areas, port_locs, 200; units="NM")
@@ -162,7 +161,7 @@ include("common.jl")
         rebuild(result_raster; missingval=0)
 
         # Assess flats
-        suitable_flats = read(suitable_areas .& (src_geomorphic .∈ [MPA_FLAT_IDS]))
+        suitable_flats = suitable_areas .& geomorphic_flat_crit
 
         # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_flats, (-4:5, -4:5), border=Fill(0))
@@ -175,10 +174,10 @@ include("common.jl")
 
         suitable_flats = nothing
         res = nothing
-        GC.gc()
+        force_gc_cleanup()
 
         # Assess slopes
-        suitable_slopes = read(suitable_areas .& (src_geomorphic .∈ [MPA_SLOPE_IDS]))
+        suitable_slopes = suitable_areas .& geomorphic_slope_crit
 
         # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_slopes, (-4:5, -4:5), border=Fill(0))
@@ -192,7 +191,7 @@ include("common.jl")
         suitable_areas = nothing
         suitable_slopes = nothing
         res = nothing
-        GC.gc()
+        force_gc_cleanup()
     end
 end
 
