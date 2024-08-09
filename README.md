@@ -293,7 +293,7 @@ All data in `1a_prep_MPA.jl` are projected to EPSG:7844/GDA2020 prior to further
 
 ACA raster data is in EPSG:4326/WGS84.
 Wave data preparation in `1b_prep_aca.jl` requires
-MPA bathymetric data is available due to inconsistent reference systems/units
+MPA bathymetric data to be available due to inconsistent reference systems/units
 (see 'Projections - MPA Data' section for more details).
 
 All data in `1b_prep_aca.jl` are projected to EPSG:7844/GDA2020 prior to further analysis.
