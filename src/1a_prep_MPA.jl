@@ -153,13 +153,17 @@ end
 
     target_waves_Hs_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif")
     if !isfile(target_waves_Hs_fn)
+        # Use bathy dataset as a template for writing netCDF data to geotiff
+        src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
+        src_bathy = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
+
         waves_Hs_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Hs", reg)))
 
         # Have to load netCDF data into memory to allow missing value replacement
         waves_Hs = Raster(
             waves_Hs_path,
             key=:Hs90,
-            crs=GDA2020_crs,
+            crs=EPSG_7856,
             mappedcrs=EPSG_4326
         )
 
@@ -175,32 +179,43 @@ end
             missingval=-9999.0
         )
 
-        # This NetCDF is in reverse orientation, so we have to flip it back.
+        # Extend bounds of wave data to match bathymetry if needed
+        # This is needed to ensure a smaller raster matches the size of the larger raster.
+        if !all(size(src_bathy) .== size(waves_Hs))
+            waves_Hs = extend(crop(waves_Hs; to=src_bathy); to=AG.extent(src_bathy))
+            @assert size(src_bathy) == size(waves_Hs)
+        end
+
+        target_Hs = copy(src_bathy)
+
+        # Replace data (important: flip the y-axis!)
+        # The NetCDF is in reverse orientation (south-up), so we have to flip it back.
         # (remember that the Y dimension is the columns, which corresponds to the longitude)
-        write(
-            target_waves_Hs_fn,
-            reverse(
-                resample(
-                    waves_Hs;
-                    to=bathy_gda2020
-                );
-                dims=Y
-            )
-        )
+        target_Hs.data .= waves_Hs.data[:, end:-1:1]
+
+        # Reproject raster to GDA2020 (degree projection)
+        target_Hs = resample(target_Hs; crs=GDA2020_crs)
+        write(target_waves_Hs_fn, target_Hs)
 
         waves_Hs = nothing
+        target_waves_Hs = nothing
+        src_bathy = nothing
         force_gc_cleanup()
     end
 
     waves_Tp_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif")
     if !isfile(waves_Tp_fn)
+        # Use bathy dataset as a template for writing netCDF data to geotiff
+        src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
+        src_bathy = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
+
         target_waves_Tp_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Tp", reg)))
 
         # Have to load netCDF data into memory to allow missing value replacement
         waves_Tp = Raster(
             target_waves_Tp_path,
             key=:Tp90,
-            crs=GDA2020_crs,
+            crs=EPSG_7856,
             mappedcrs=EPSG_4326
         )
         waves_Tp.data[waves_Tp.data .< -9999.0] .= -9999.0
@@ -213,20 +228,27 @@ end
             missingval=-9999.0
         )
 
-        # This NetCDF is in reverse orientation, so we have to flip it back.
+        # Extend bounds of wave data to match bathymetry if needed
+        # This is needed to ensure a smaller raster matches the size of the larger raster.
+        if !all(size(src_bathy) .== size(waves_Tp))
+            waves_Tp = extend(crop(waves_Tp; to=src_bathy); to=AG.extent(src_bathy))
+            @assert size(src_bathy) == size(waves_Tp)
+        end
+
+        target_Tp = copy(src_bathy)
+
+        # Replace data (important: flip the y-axis!)
+        # The NetCDF is in reverse orientation (south-up), so we have to flip it back.
         # (remember that the Y dimension is the columns, which corresponds to the longitude)
-        write(
-            waves_Tp_fn,
-            reverse(
-                resample(
-                    waves_Tp;
-                    to=bathy_gda2020
-                );
-                dims=Y
-            )
-        )
+        target_Tp.data .= waves_Tp.data[:, end:-1:1]
+
+        # Reproject raster to GDA2020 (degree projection)
+        target_Tp = resample(target_Tp; crs=GDA2020_crs)
+        write(waves_Tp_fn, target_Tp)
 
         waves_Tp = nothing
+        target_waves_Tp = nothing
+        src_bathy = nothing
         force_gc_cleanup()
     end
 
