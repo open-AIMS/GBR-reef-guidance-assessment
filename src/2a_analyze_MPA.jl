@@ -57,39 +57,37 @@ include("common.jl")
     """
     function filter_distances(target_rast::Raster, gdf::DataFrame, dist; units::String="NM")::Raster
         tmp_areas = copy(target_rast)
-        raster_lon = Vector{Float64}(tmp_areas.dims[1].val)
-        raster_lat = Vector{Float64}(tmp_areas.dims[2].val)
 
-        @floop for (lon_ind, lon) in enumerate(raster_lon)
-            for (lat_ind, lat) in enumerate(raster_lat)
-                if tmp_areas.data[lon_ind, lat_ind]
+        # First dimension is the rows (latitude)
+        # Second dimension is the cols (longitude)
+        raster_lat = Vector{Float64}(tmp_areas.dims[1].val)
+        raster_lon = Vector{Float64}(tmp_areas.dims[2].val)
 
-                    point = AG.createpoint()
-                    AG.addpoint!(point, lon, lat)
+        @floop for row_col in findall(tmp_areas)
+            (lat_ind, lon_ind) = Tuple(row_col)
+            point = AG.createpoint()
 
-                    pixel_dists = AG.distance.([point], Ports.geometry)
-                    geom_point = gdf[argmin(pixel_dists), :geometry]
-                    geom_point = (AG.getx(geom_point, 0), AG.gety(geom_point, 0))
+            lon = raster_lon[lon_ind]
+            lat = raster_lat[lat_ind]
+            AG.addpoint!(point, lon, lat)
 
-                    dist_nearest = Distances.haversine(geom_point, (lon, lat))
+            pixel_dists = AG.distance.([point], port_locs.geometry)
+            geom_point = gdf[argmin(pixel_dists), :geometry]
+            geom_point = (AG.getx(geom_point, 0), AG.gety(geom_point, 0))
 
-                    # convert from meters to nautical miles
-                    if units == "NM"
-                        dist_nearest = dist_nearest / 1852
-                    end
+            dist_nearest = Distances.haversine(geom_point, (lon, lat))
 
-                    # convert from meters to kilometers
-                    if units == "km"
-                        dist_nearest = dist_nearest / 1000
-                    end
-
-                    if dist_nearest < dist
-                        tmp_areas.data[lon_ind, lat_ind] = 1
-                    else
-                        tmp_areas.data[lon_ind, lat_ind] = 0
-                    end
-                end
+            # Convert from meters to nautical miles
+            if units == "NM"
+                dist_nearest = dist_nearest / 1852
             end
+
+            # Convert from meters to kilometers
+            if units == "km"
+                dist_nearest = dist_nearest / 1000
+            end
+
+            tmp_areas.data[lon_ind, lat_ind] = dist_nearest < dist ? 1 : 0
         end
 
         return tmp_areas
