@@ -20,26 +20,32 @@ if nworkers() < CONFIG["processing"]["N_PROCS"]
 
     @everywhere begin
         @eval begin
-            using TOML
             using Statistics, StatsBase
-            using Glob
             using ProgressMeter
-            using FLoops
+            using TOML
+            using Glob
 
-            using Rasters
-            using NCDatasets
-            using GeoInterface
+            using
+                FLoops,
+                ThreadsX
+
+            using
+                Rasters,
+                NCDatasets,
+                LibGEOS,
+                GeoInterface
+
+            import GeometryOps as GO
+            import GeoFormatTypes as GFT
+            import ArchGDAL as AG
+
             using Distances
 
             using DataFrames
             import GeoDataFrames as GDF
-            import GeoFormatTypes as GFT
-            import ArchGDAL as AG
 
-            using ImageCore: Gray
             using ImageFiltering
-            using ImageContrastAdjustment: adjust_histogram, LinearStretching
-            using ImageMorphology: label_components, component_centroids
+            using ImageMorphology: label_components
         end
 
         FIG_DIR = "../figs/"
