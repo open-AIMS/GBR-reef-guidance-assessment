@@ -1,9 +1,17 @@
 """
-Prepare data for analysis.
+Prepare data for analysis by processing MPA files for each GBRMPA management region.
 
 Crop GBR-wide GBRMPA rasters into management regions.
-Reproject all data from WGS84 / UTM Zone 54 - 56 into consistent crs GDA-2020.
-Ensure all rasters are the same size/shape for each region of interest.
+Reproject all data from WGS84 / UTM Zone 54 - 56 into consistent CRS (GDA2020).
+Ensure all rasters are the same size/shape for each region of interest with the same
+values used to indicate no data.
+
+The general approach is to crop down to an extent of the region, then trim/mask to just the
+areas of interest. Processing data in this way minimized the amount of data being handled.
+
+Still, the largest chunk of time is spent resampling to the same projections and writing
+data to file (as it takes time to compress the data). The datasets can be in the GBs without
+compression.
 """
 
 include("common.jl")
