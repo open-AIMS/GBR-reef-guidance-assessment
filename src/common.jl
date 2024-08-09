@@ -70,8 +70,9 @@ if nworkers() < CONFIG["processing"]["N_PROCS"]
         rename!(regions_GDA2020, Dict(:SHAPE => :geometry))
         global GDA2020_crs = crs(regions_GDA2020[1, :geometry])
 
-        global EPSG_4326 = EPSG(4326)
-        global EPSG_7844 = EPSG(7844)
+        global EPSG_4326 = EPSG(4326)  # Web mercator
+        global EPSG_7844 = EPSG(7844)  # GDA2020 in degree projection
+        global EPSG_7856 = EPSG(7856)  # GDA2020 in meter projection
 
         # Get polygon of management areas
         global REGION_PATH_4326 = joinpath(
