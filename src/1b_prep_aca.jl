@@ -1,9 +1,18 @@
 """
-Prepare data for analysis.
+Prepare data for analysis by processing ACA files for each GBRMPA management region.
 
-Crop GBR-wide Allen-Coral-Atlas rasters into management regions.
-Reproject all data from WGS84 / UTM Zone 54 - 56 into consistent crs GDA-2020.
-Ensure all rasters are the same size/shape for each region of interest.
+Filter desired FLAT, SLOPE and BENTHIC IDs to save time in 2b analysis.
+Crop GBR-wide ACA rasters into management regions.
+Reproject all data from WGS84 / UTM Zone 54 - 56 into consistent CRS (GDA2020).
+Ensure all rasters are the same size/shape for each region of interest with the same
+values used to indicate no data.
+
+The general approach is to crop down to an extent of the region, then trim/mask to just the
+areas of interest. Processing data in this way minimized the amount of data being handled.
+
+Still, the largest chunk of time is spent resampling to the same projections and writing
+data to file (as it takes time to compress the data). The datasets can be in the GBs without
+compression.
 """
 
 include("common.jl")
@@ -30,31 +39,49 @@ target_benthic_poly = benthic_poly[target_benthic_features, :]
     reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
     region_4326_geom = regions_4326[reg_idx_4326, :geometry][1]
 
-    if !isfile(joinpath(ACA_OUTPUT_DIR, "aca_target_flats_$(reg).gpkg"))
+    flats_fn = joinpath(ACA_OUTPUT_DIR, "aca_target_flats_$(reg).gpkg")
+    if !isfile(flats_fn)
         flat_is_in_region = AG.contains.([region_4326_geom], target_flat_poly.geometry)
         target_flats_reg = target_flat_poly[flat_is_in_region, :]
 
-        target_flats_reg.geometry = AG.reproject(target_flats_reg.geometry, crs(region_4326_geom), GDA2020_crs; order=:trad)
+        target_flats_reg.geometry = AG.reproject(
+            target_flats_reg.geometry,
+            crs(region_4326_geom),
+            GDA2020_crs;
+            order=:trad
+        )
 
-        GDF.write(joinpath(ACA_OUTPUT_DIR, "aca_target_flats_$(reg).gpkg"), target_flats_reg; crs=EPSG(7844))
+        GDF.write(flats_fn, target_flats_reg; crs=EPSG(7844))
     end
 
-    if !isfile(joinpath(ACA_OUTPUT_DIR, "aca_target_slopes_$(reg).gpkg"))
+    slopes_fn = joinpath(ACA_OUTPUT_DIR, "aca_target_slopes_$(reg).gpkg")
+    if !isfile(slopes_fn)
         slope_is_in_region = AG.contains.([region_4326_geom], target_slope_poly.geometry)
         target_slopes_reg = target_slope_poly[slope_is_in_region, :]
 
-        target_slopes_reg.geometry = AG.reproject(target_slopes_reg.geometry, crs(region_4326_geom), GDA2020_crs; order=:trad)
+        target_slopes_reg.geometry = AG.reproject(
+            target_slopes_reg.geometry,
+            crs(region_4326_geom),
+            GDA2020_crs;
+            order=:trad
+        )
 
-        GDF.write(joinpath(ACA_OUTPUT_DIR, "aca_target_slopes_$(reg).gpkg"), target_slopes_reg; crs=EPSG(7844))
+        GDF.write(slopes_fn, target_slopes_reg; crs=EPSG(7844))
     end
 
-    if !isfile(joinpath(ACA_OUTPUT_DIR, "aca_benthic_$(reg).gpkg"))
+    benthic_fn = joinpath(ACA_OUTPUT_DIR, "aca_benthic_$(reg).gpkg")
+    if !isfile(benthic_fn)
         ben_is_in_region = AG.contains.([region_4326_geom], benthic_poly.geometry)
         benthic_reg = benthic_poly[ben_is_in_region, :]
 
-        benthic_reg.geometry = AG.reproject(benthic_reg.geometry, crs(region_4326_geom), GDA2020_crs; order=:trad)
+        benthic_reg.geometry = AG.reproject(
+            benthic_reg.geometry,
+            crs(region_4326_geom),
+            GDA2020_crs;
+            order=:trad
+        )
 
-        GDF.write(joinpath(ACA_OUTPUT_DIR, "aca_benthic_$(reg).gpkg"), benthic_reg; crs=EPSG(7844))
+        GDF.write(benthic_fn, benthic_reg; crs=EPSG(7844))
     end
 end
 
@@ -65,116 +92,25 @@ end
 aca_bathy_path = "$(ACA_DATA_DIR)/Bathymetry---composite-depth/bathymetry_0.tif"
 aca_bathy = Raster(aca_bathy_path, mappedcrs=EPSG(4326), lazy=true)
 
-aca_turbid_path = "$(ACA_DATA_DIR)/Turbidity-Q3-2023/turbidity-quarterly_0.tif"
-aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
-
 # If a file already exists it is skipped
 @showprogress dt = 10 "Prepping bathymetry/turbidity/wave data..." for reg in REGIONS
     reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
 
-    if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"))
+    base_bathy_fn = joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif")
+    if !isfile(base_bathy_fn)
         target_bathy = Rasters.crop(aca_bathy; to=regions_4326[reg_idx_4326, :])
         target_bathy = Rasters.trim(mask(target_bathy; with=regions_4326[reg_idx_4326, :]))
-        target_bathy = Rasters.resample(target_bathy; crs=GDA2020_crs)
+        target_bathy = set_consistent_missing(target_bathy, -9999.0)
 
-        write(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"), target_bathy; force=true)
+        write(
+            base_bathy_fn,
+            resample(
+                target_bathy;
+                crs=GDA2020_crs
+            )
+        )
 
         target_bathy = nothing
-        GC.gc()
-    end
-
-    if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif"))
-        bathy_gda2020_path = joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif")
-        bathy_gda2020 = Raster(bathy_gda2020_path; crs=EPSG(7844), lazy=true)
-
-        target_turbid = Rasters.crop(aca_turbid; to=regions_4326[reg_idx_4326, :])
-        target_turbid = Rasters.trim(mask(target_turbid; with=regions_4326[reg_idx_4326, :]))
-        target_turbid = resample(target_turbid; to=bathy_gda2020)
-
-        write(joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif"), target_turbid; force=true)
-
-        target_turbid = nothing
-        bathy_gda2020 = nothing
-        GC.gc()
-    end
-
-    if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"))
-        mpa_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-        mpa_bathy = Raster(mpa_bathy_path, mappedcrs=EPSG(4326), lazy=true)
-
-        target_waves_Hs_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Hs", reg)))
-        target_waves_Hs = Raster(target_waves_Hs_path, key=:Hs90, crs=crs(mpa_bathy), mappedcrs=EPSG(4326), lazy=true)
-
-        # Extend bounds of wave data to match bathymetry if needed
-        if size(mpa_bathy) !== size(target_waves_Hs)
-            target_waves_Hs = extend(crop(target_waves_Hs; to=mpa_bathy); to=AG.extent(mpa_bathy))
-            @assert size(mpa_bathy) == size(target_waves_Hs)
-
-            replace_missing!(target_waves_Hs, -9999.0)
-        end
-
-        tmp_Hs = copy(mpa_bathy)
-
-        # Replace data (important: flip the y-axis!)
-        tmp_Hs.data .= target_waves_Hs.data[:, end:-1:1]
-        target_waves_Hs = tmp_Hs
-
-        # Set to known missing value
-        target_waves_Hs.data[target_waves_Hs.data .< -9999.0] .= -9999.0
-        replace_missing!(target_waves_Hs, -9999.0)
-
-        # Reproject raster to GDA 2020
-        target_waves_Hs = Rasters.resample(target_waves_Hs; crs=GDA2020_crs)
-
-        # Have to resample to aca_bathy to ensure extent and resolution is consistent
-        aca_bathy = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG(7844), lazy=true)
-        target_waves_Hs = Rasters.resample(target_waves_Hs; to=aca_bathy)
-
-        write(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"), target_waves_Hs; force=true)
-
-        mpa_bathy = nothing
-        aca_bathy = nothing
-        target_waves_Hs = nothing
-        GC.gc()
-    end
-
-    if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"))
-        mpa_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-        mpa_bathy = Raster(mpa_bathy_path, mappedcrs=EPSG(4326), lazy=true)
-
-        target_waves_Tp_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Tp", reg)))
-        target_waves_Tp = Raster(target_waves_Tp_path, key=:Tp90, crs=crs(mpa_bathy), mappedcrs=EPSG(4326), lazy=true)
-
-        # Extend bounds of wave data to match bathymetry if needed
-        if size(mpa_bathy) !== size(target_waves_Tp)
-            target_waves_Tp = extend(crop(target_waves_Tp; to=mpa_bathy); to=AG.extent(mpa_bathy))
-            @assert size(mpa_bathy) == size(target_waves_Tp)
-
-            replace_missing!(target_waves_Tp, -9999.0)
-        end
-
-        tmp_Tp = copy(mpa_bathy)
-
-        # Replace data (important: flip the y-axis!)
-        tmp_Tp.data .= target_waves_Tp.data[:, end:-1:1]
-        target_waves_Tp = tmp_Tp
-
-        # Set to known missing value
-        target_waves_Tp.data[target_waves_Tp.data .< -9999.0] .= -9999.0
-        replace_missing!(target_waves_Tp, -9999.0)
-
-        # Reproject raster to GDA 2020
-        target_waves_Tp = Rasters.resample(target_waves_Tp; crs=GDA2020_crs)
-
-        # Have to resample to aca_bathy to ensure extent and resolution is consistent
-        aca_bathy = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG(7844), lazy=true)
-        target_waves_Tp = Rasters.resample(target_waves_Tp; to=aca_bathy)
-
-        write(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"), target_waves_Tp; force=true)
-
-        mpa_bathy = nothing
-        aca_bathy = nothing
-        target_waves_Tp = nothing
-        GC.gc()
+        force_gc_cleanup()
     end
 end
