@@ -74,7 +74,7 @@ Apply a mask to exclude pixels that are outside the indicated distance buffer(s)
 - `dist_buffer` : Buffer geometry to use as the mask.
 
 # Returns
-- `within_dist` : Masked raster of indicating pixels that are within the target distance.
+- Masked boolean raster indicating pixels that are within the target distance.
 """
 function filter_distances(target_rast::Raster, dist_buffer)::Raster
     # Mask out areas outside considered distance from port
