@@ -60,6 +60,9 @@ if nworkers() < CONFIG["processing"]["N_PROCS"]
         global MPA_OUTPUT_DIR = joinpath(OUTPUT_DIR, "MPA")
         global ACA_OUTPUT_DIR = joinpath(OUTPUT_DIR, "ACA")
 
+        global MPA_ANALYSIS_RESULTS = joinpath(MPA_OUTPUT_DIR, "results")
+        global ACA_ANALYSIS_RESULTS = joinpath(ACA_OUTPUT_DIR, "results")
+
         CONFIG = TOML.parsefile(".config.toml")
         global MPA_DATA_DIR = CONFIG["mpa_data"]["MPA_DATA_DIR"]
         global ACA_DATA_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
