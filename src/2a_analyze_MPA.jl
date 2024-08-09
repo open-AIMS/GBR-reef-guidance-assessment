@@ -36,7 +36,7 @@ include("common.jl")
         return nothing
     end
 
-        """
+    """
         filter_distances(
             target_rast::Raster,
             gdf::DataFrame,
@@ -119,13 +119,13 @@ include("common.jl")
             src_rugosity = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"); crs=EPSG(7844), lazy=true)
 
             suitable_areas = read(
-            (src_benthic .∈ [MPA_BENTHIC_IDS]) .&
-            (-9.0 .<= src_bathy .<= -2.0) .&
-            (0.0 .<= src_slope .<= 40.0) .&
-            (0.0 .<= src_waves_Hs .<= 1.0) .&
-            (0.0 .<= src_waves_Tp .<= 6.0) .&
-            (src_turbid .<= 58) .&
-            (src_rugosity .< 6)
+                (src_benthic .∈ [MPA_BENTHIC_IDS]) .&
+                (-9.0 .<= src_bathy .<= -2.0) .&
+                (0.0 .<= src_slope .<= 40.0) .&
+                (0.0 .<= src_waves_Hs .<= 1.0) .&
+                (0.0 .<= src_waves_Tp .<= 6.0) .&
+                (src_turbid .<= 58) .&
+                (src_rugosity .< 6)
             )
         else
             # Apply filtering criteria to raster grid
