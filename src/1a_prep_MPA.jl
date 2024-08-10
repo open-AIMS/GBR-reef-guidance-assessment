@@ -352,8 +352,8 @@ end
         valid_slopes = valid_areas .& geomorphic_flat_crit
         valid_flats = valid_areas .& geomorphic_slope_crit
 
-        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"), convert.(UInt16, valid_slopes))
-        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif"), convert.(UInt16, valid_flats))
+        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"), convert.(UInt8, valid_slopes))
+        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif"), convert.(UInt8, valid_flats))
 
         valid_areas = nothing
         valid_slopes = nothing
