@@ -63,7 +63,7 @@ end
 @showprogress dt = 10 "Prepping benthic/geomorphic/wave data..." for reg in REGIONS
     reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
 
-    base_bathy_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
+    base_bathy_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)/$(reg)_bathy.tif")
     if !isfile(base_bathy_fn)
         target_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
         target_bathy = Raster(target_bathy_path; mappedcrs=EPSG_4326)
@@ -84,7 +84,7 @@ end
     # Load bathymetry data to provide corresponding spatial extent
     bathy_gda2020 = Raster(base_bathy_fn; crs=EPSG_7844, lazy=true)
 
-    slope_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif")
+    slope_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)/$(reg)_slope.tif")
     if !isfile(slope_fn)
         target_slope_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "slope", reg)))
         target_slope = Raster(target_slope_path, mappedcrs=EPSG_4326)
@@ -102,7 +102,7 @@ end
         force_gc_cleanup()
     end
 
-    benthic_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif")
+    benthic_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)/$(reg)_benthic.tif")
     if !isfile(benthic_fn)
         gbr_benthic_path = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
         gbr_benthic = Raster(gbr_benthic_path, mappedcrs=EPSG_4326)
@@ -127,7 +127,7 @@ end
         force_gc_cleanup()
     end
 
-    geomorphic_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif")
+    geomorphic_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)/$(reg)_geomorphic.tif")
     if !isfile(geomorphic_fn)
         gbr_morphic_path = "$(MPA_DATA_DIR)/geomorphic/GBR10 GBRMP Geomorphic.tif"
         target_geomorphic = Raster(gbr_morphic_path, mappedcrs=EPSG_4326)
@@ -151,7 +151,7 @@ end
         force_gc_cleanup()
     end
 
-    target_waves_Hs_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif")
+    target_waves_Hs_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)/$(reg)_waves_Hs.tif")
     if !isfile(target_waves_Hs_fn)
         # Use bathy dataset as a template for writing netCDF data to geotiff
         src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
@@ -203,7 +203,7 @@ end
         force_gc_cleanup()
     end
 
-    waves_Tp_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif")
+    waves_Tp_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)/$(reg)_waves_Tp.tif")
     if !isfile(waves_Tp_fn)
         # Use bathy dataset as a template for writing netCDF data to geotiff
         src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
@@ -252,7 +252,7 @@ end
         force_gc_cleanup()
     end
 
-    turbid_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif")
+    turbid_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)/$(reg)_turbid.tif")
     if !isfile(turbid_fn)
         aca_turbid_path = "$(ACA_DATA_DIR)/Turbidity-Q3-2023/turbidity-quarterly_0.tif"
         target_turbid = Raster(aca_turbid_path, mappedcrs=EPSG_4326, lazy=true)
@@ -277,7 +277,7 @@ end
     end
 
     if reg == "Townsville-Whitsunday"
-        rugosity_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif")
+        rugosity_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)/$(reg)_rugosity.tif")
         if !isfile(rugosity_fn)
             tsv_rugosity_path = joinpath(RUG_DATA_DIR, "std25_Rugosity_Townsville-Whitsunday.tif")
             tsv_rugosity = Raster(tsv_rugosity_path, mappedcrs=EPSG_4326)

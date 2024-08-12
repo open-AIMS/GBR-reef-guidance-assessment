@@ -37,13 +37,13 @@ include("common.jl")
 
     function analyze_allen(reg)
         # Load required prepared raster files for analysis
-        bathy_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG(7844), lazy=true)
+        bathy_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)/$(reg)_bathy.tif"); crs=EPSG(7844), lazy=true)
 
-        turbid_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif"); crs=EPSG(7844), lazy=true)
+        turbid_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)/$(reg)_turbid.tif"); crs=EPSG(7844), lazy=true)
 
-        waves_Hs_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"); crs=EPSG(7844), lazy=true)
+        waves_Hs_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)/$(reg)_waves_Hs.tif"); crs=EPSG(7844), lazy=true)
 
-        waves_Tp_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"); crs=EPSG(7844), lazy=true)
+        waves_Tp_rst = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)/$(reg)_waves_Tp.tif"); crs=EPSG(7844), lazy=true)
 
         # Apply criteria to raster grid
         suitable_raster = read(
@@ -59,7 +59,7 @@ include("common.jl")
         waves_Tp_rst = nothing
 
         # Create reef-scale raster with suitable bathy, turbidity and benthic criteria
-        benthic_poly = GDF.read(joinpath(ACA_OUTPUT_DIR, "aca_benthic_$(reg).gpkg"))
+        benthic_poly = GDF.read(joinpath(ACA_OUTPUT_DIR, "$(reg)/aca_benthic_$(reg).gpkg"))
         suitable_benthic = Rasters.trim(mask(suitable_raster; with=benthic_poly, boundary=:touches))
 
         # Need a copy of raster data type to support writing to `tif`
@@ -67,12 +67,12 @@ include("common.jl")
         rebuild(result_raster; missingval=0)
 
         # Asses flats
-        target_flats_poly = GDF.read(joinpath(ACA_OUTPUT_DIR, "aca_target_flats_$(reg).gpkg"))
+        target_flats_poly = GDF.read(joinpath(ACA_OUTPUT_DIR, "$(reg)/aca_target_flats_$(reg).gpkg"))
         suitable_flats = Rasters.mask(suitable_benthic; with=target_flats_poly, boundary=:touches)
 
         # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_flats, (-4:5, -4:5), border=Fill(0))
-        fpath = joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_flats.tif")
+        fpath = joinpath(ACA_OUTPUT_DIR, "$(reg)/$(reg)_suitable_flats.tif")
         _write_data(fpath, res, result_raster)
 
         suitable_flats = nothing
@@ -80,12 +80,12 @@ include("common.jl")
         GC.gc()
 
         # Assess slopes
-        target_slopes_poly = GDF.read(joinpath(ACA_OUTPUT_DIR, "aca_target_slopes_$(reg).gpkg"))
+        target_slopes_poly = GDF.read(joinpath(ACA_OUTPUT_DIR, "$(reg)/aca_target_slopes_$(reg).gpkg"))
         suitable_slopes = Rasters.mask(suitable_benthic; with=target_slopes_poly, boundary=:touches)
 
         # Calculate suitability of 10x10m surroundings of each cell
         res = mapwindow(prop_suitable, suitable_slopes, (-4:5, -4:5), border=Fill(0))
-        fpath = joinpath(ACA_OUTPUT_DIR, "$(reg)_suitable_slopes.tif")
+        fpath = joinpath(ACA_OUTPUT_DIR, "$(reg)/$(reg)_suitable_slopes.tif")
         _write_data(fpath, res, result_raster)
 
         suitable_slopes = nothing

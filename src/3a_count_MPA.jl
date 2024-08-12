@@ -52,14 +52,14 @@ end
 @showprogress dt = 10 desc = "Collating zonal stats..." for reg in REGIONS
     # Load rasters and identify cells that are greater than or equal to 95% suitability
     target_flats = Raster(
-        joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_flats.tif"),
+        joinpath(MPA_OUTPUT_DIR, "$(reg)/$(reg)_suitable_flats.tif"),
         crs=EPSG(7844),
         lazy=true
     )
     target_flats = read(target_flats .>= 95)
 
     target_slopes = Raster(
-        joinpath(MPA_OUTPUT_DIR, "$(reg)_suitable_slopes.tif"),
+        joinpath(MPA_OUTPUT_DIR, "$(reg)/$(reg)_suitable_slopes.tif"),
         crs=EPSG(7844),
         lazy=true
     )
