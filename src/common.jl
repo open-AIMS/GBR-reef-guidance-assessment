@@ -80,9 +80,9 @@ if nworkers() < CONFIG["processing"]["N_PROCS"]
         rename!(regions_GDA2020, Dict(:SHAPE => :geometry))
         global GDA2020_crs = crs(regions_GDA2020[1, :geometry])
 
-        global EPSG_4326 = EPSG(4326)  # Web mercator
-        global EPSG_7844 = EPSG(7844)  # GDA2020 in degree projection
-        global EPSG_7856 = EPSG(7856)  # GDA2020 in meter projection
+        global EPSG_4326 = GFT.EPSG(4326)  # Web mercator
+        global EPSG_7844 = GFT.EPSG(7844)  # GDA2020 in degree projection
+        global EPSG_7856 = GFT.EPSG(7856)  # GDA2020 in meter projection
 
         # Get polygon of management areas
         global REGION_PATH_4326 = joinpath(
@@ -211,4 +211,119 @@ function force_gc_cleanup(; wait_time=1)::Nothing
     GC.gc()
 
     return nothing
+end
+
+"""
+    port_buffer_mask(gdf::DataFrame, dist::Float64; unit::String="NM")
+
+Create a masking buffer around indicated port locations.
+
+# Arguments
+- `gdf` : GeoDataFrame of port locations (given as long/lat points)
+- `dist` : distance from port in degrees (deg), kilometers (km), or nautical miles (NM; default)
+- `unit` : unit `dist` is in
+"""
+function port_buffer_mask(gdf::DataFrame, dist::Float64; unit::String="NM")
+    # Determine conversion factor (nautical miles or kilometers)
+    conv_factor = 1.0
+    if unit == "NM"
+        conv_factor = 60.0  # 60 NM = 1 degree
+    elseif unit == "km"
+        conv_factor = 111.0  # 111 km = 1 degree
+    elseif unit != "deg"
+        error("Unknown distance unit requested. Can only be one of `NM` or `km` or `deg`")
+    end
+
+    ports = gdf.geometry  # TODO: Replace with `GI.geometrycolumns()`
+
+    # Make buffer around ports
+    buffered_ports = GO.buffer.(ports, dist / conv_factor)
+
+    # Combine all geoms into one
+    port_mask = reduce((x1, x2) -> LibGEOS.union(x1, x2), buffered_ports)
+
+    return port_mask
+end
+
+"""
+    filter_distances(
+        target_rast::Raster,
+        dist_buffer
+    )::Raster
+
+Apply a mask to exclude pixels that are outside the indicated distance buffer(s).
+
+`target_rast` and the `dist_buffer` should be in the same CRS (e.g., EPSG:7844 / GDA2020).
+
+# Arguments
+- `target_rast` : Raster of suitable pixels (Bool) to filter pixels from.
+- `dist_buffer` : Buffer geometry to use as the mask.
+
+# Returns
+- Masked boolean raster indicating pixels that are within the target distance.
+"""
+function filter_distances(target_rast::Raster, dist_buffer)::Raster
+    # Mask out areas outside considered distance from port
+    return mask(Raster(target_rast; missingval=0); with=dist_buffer)
+end
+
+"""
+    calc_distances(
+        target_rast::Raster,
+        gdf::DataFrame;
+        units::String="NM"
+    )::Raster
+
+Calculate the minimum distance from each point in gdf.geometry to each valid pixel in target_rast.
+
+`target_rast` and the `gdf` should be in the same CRS (e.g., EPSG:7844 / GDA2020).
+
+# Arguments
+- `target_rast` : Raster of suitable pixels (Bool) to calculate distances from.
+- `gdf` : GeoDataFrame of 'points' for distance calculation.
+
+# Returns
+- Raster of distances from each cell to the closest point in gdf.
+"""
+function calc_distances(
+    target_rast::Raster,
+    gdf::DataFrame;
+    units::String="NM"
+)::Raster
+    tmp_areas = Float64.(copy(target_rast))
+
+    # First dimension is the rows (longitude)
+    # Second dimension is the cols (latitude)
+    raster_lon = Vector{Float64}(tmp_areas.dims[1].val)
+    raster_lat = Vector{Float64}(tmp_areas.dims[2].val)
+
+    @floop for (lon_ind, lon) in enumerate(raster_lon)
+        for (lat_ind, lat) in enumerate(raster_lat)
+            if tmp_areas[lon_ind, lat_ind] != 0.0
+                point = AG.createpoint()
+                AG.addpoint!(point, lon, lat)
+
+                pixel_dists = AG.distance.([point], gdf.geometry)
+                geom_point = gdf[argmin(pixel_dists), :geometry]
+                geom_point = (AG.getx(geom_point, 0), AG.gety(geom_point, 0))
+
+                dist_nearest = Distances.haversine(geom_point, (lon, lat))
+
+                # Convert from meters to nautical miles
+                if units == "NM"
+                    dist_nearest = dist_nearest / 1852
+                end
+
+                # Convert from meters to kilometers
+                if units == "km"
+                    dist_nearest = dist_nearest / 1000
+                end
+
+                tmp_areas.data[lon_ind, lat_ind] = dist_nearest
+            end
+        end
+    end
+
+    tmp_areas = rebuild(tmp_areas, missingval=0.0)
+    return tmp_areas
 end
