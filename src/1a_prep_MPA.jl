@@ -299,39 +299,44 @@ end
     valid_areas_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif")
     if !isfile(valid_areas_fn)
         # Build validity map/mask
-        # Simply indicates where there is valid data across all criteria
+        # Indicates where there is valid data across all criteria
 
         # Load required prepared raster files for analysis
-        src_bathy = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG_7844)
+        src_bathy = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"))
         bathy_crit = src_bathy .!= missingval(src_bathy)
         src_bathy = nothing
+        force_gc_cleanup(; wait_time=2)
 
-        src_slope = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"); crs=EPSG_7844)
+        src_slope = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"))
         slope_crit = src_slope .!= missingval(src_slope)
         src_slope = nothing
+        force_gc_cleanup(; wait_time=2)
 
-        src_benthic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"); crs=EPSG_7844)
+        src_benthic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"))
         benthic_crit = (src_benthic .∈ [MPA_BENTHIC_IDS])
         src_benthic = nothing
+        force_gc_cleanup(; wait_time=2)
 
-        src_geomorphic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"); crs=EPSG_7844)
+        src_geomorphic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"))
         geomorphic_flat_crit = src_geomorphic .∈ [MPA_FLAT_IDS]
         geomorphic_slope_crit = src_geomorphic .∈ [MPA_SLOPE_IDS]
         src_geomorphic = nothing
+        force_gc_cleanup(; wait_time=2)
 
-        src_waves_Hs = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"); crs=EPSG_7844)
+        src_waves_Hs = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"))
         Hs_waves_crit = src_waves_Hs .!= missingval(src_waves_Hs)
         src_waves_Hs = nothing
+        force_gc_cleanup(; wait_time=2)
 
-        src_waves_Tp = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"); crs=EPSG_7844)
+        src_waves_Tp = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"))
         Tp_waves_crit = src_waves_Tp .!= missingval(src_waves_Tp)
         src_waves_Tp = nothing
+        force_gc_cleanup(; wait_time=2)
 
-        src_turbid = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"); crs=EPSG_7844)
+        src_turbid = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"))
         turbid_crit = src_turbid .!= missingval(src_turbid)
         src_turbid = nothing
-
-        force_gc_cleanup()
+        force_gc_cleanup(; wait_time=2)
 
         # Build mask indicating locations with valid data across all criteria
         valid_areas = (
@@ -344,9 +349,10 @@ end
         )
 
         if reg == "Townsville-Whitsunday"
-            src_rugosity = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"); crs=EPSG_7844)
+            src_rugosity = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"))
             valid_areas .= valid_areas .& (src_rugosity .!= missingval(src_rugosity))
             src_rugosity = nothing
+            force_gc_cleanup(; wait_time=2)
         end
 
         valid_slopes = valid_areas .& geomorphic_flat_crit
