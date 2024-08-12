@@ -426,14 +426,19 @@ end
         port_points = GDF.read("$(PORT_DATA_DIR)/ports_QLD_merc.shp")
 
         valid_slopes = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"); crs=EPSG_7844)
-        slopes_reduced = filter_distances(valid_slopes, port_buffer)
-        slope_distances = calc_distances(slopes_reduced, port_points; units="NM")
+        valid_slopes = filter_distances(valid_slopes, port_buffer)
+        slope_distances = calc_distances(valid_slopes, port_points; units="NM")
 
         valid_flats = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"); crs=EPSG_7844)
-        flats_reduced = filter_distances(valid_flats, port_buffer)
-        flat_distances = calc_distances(flats_reduced, port_points; units="NM")
+        valid_flats = filter_distances(valid_flats, port_buffer)
+        flat_distances = calc_distances(valid_flats, port_points; units="NM")
 
         write(joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif"), slope_distances)
         write(joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif"), flat_distances)
+
+        valid_slopes = nothing
+        valid_flats = nothing
+        slope_distances = nothing
+        flat_distances = nothing
     end
 end
