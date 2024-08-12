@@ -401,4 +401,34 @@ end
         cleaned_slopes = nothing
         force_gc_cleanup()
     end
+
+    # parq_file = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.parq")
+    # if !isfile("valid_slopes.parq")
+    #     # Need distance to nearest port for each
+    #     # Create lookup of valid slopes
+    #     valid_slope = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"))
+
+    #     _valid = boolmask(valid_slopes)
+    #     sorted_valid_idx = sort(Tuple.(findall(_valid)))
+
+    #     v_store_slopes = Vector(undef, length(sorted_valid_idx))
+    #     @floop for (i, (lon, lat)) in enumerate(sorted_valid_idx)
+    #         v_store_slopes[i] = rst_stack[lon, lat]
+    #     end
+    #     slope_store = DataFrame(v_store_slopes)
+    #     insertcols!(slope_store, 1, :lon_idx=>first.(sorted_valid_idx), :lat_idx=>last.(sorted_valid_idx))
+    #     writefile("valid_slope.parq", slope_store)
+
+    #     # Create lookup of valid flats
+    #     _valid = boolmask(valid_flats)
+    #     sorted_valid_idx = sort(Tuple.(findall(_valid)))
+
+    #     v_store_flats = Vector(undef, length(sorted_valid_idx))
+    #     @floop for (i, (lon, lat)) in enumerate(sorted_valid_idx)
+    #         v_store_flats[i] = rst_stack[lon, lat]
+    #     end
+    #     flat_store = DataFrame(v_store_flats)
+    #     insertcols!(flat_store, 1, :lon_idx=>first.(sorted_valid_idx), :lat_idx=>last.(sorted_valid_idx))
+    #     writefile("valid_flat.parq", flat_store)
+    # end
 end
