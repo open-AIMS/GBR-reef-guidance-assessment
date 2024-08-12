@@ -327,17 +327,17 @@ end
 
         # Load required prepared raster files for analysis
         src_bathy = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"))
-        bathy_crit = src_bathy .!= missingval(src_bathy)
+        bathy_crit = boolmask(src_bathy)
         src_bathy = nothing
-        force_gc_cleanup(; wait_time=2)
+        force_gc_cleanup(; wait_time=10)  # Needs extra time to clear it seems
 
         src_slope = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"))
-        slope_crit = src_slope .!= missingval(src_slope)
+        slope_crit = boolmask(src_slope)
         src_slope = nothing
         force_gc_cleanup(; wait_time=2)
 
         src_benthic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"))
-        benthic_crit = (src_benthic .∈ [MPA_BENTHIC_IDS])
+        benthic_crit = src_benthic .∈ [MPA_BENTHIC_IDS]
         src_benthic = nothing
         force_gc_cleanup(; wait_time=2)
 
@@ -348,17 +348,17 @@ end
         force_gc_cleanup(; wait_time=2)
 
         src_waves_Hs = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"))
-        Hs_waves_crit = src_waves_Hs .!= missingval(src_waves_Hs)
+        Hs_waves_crit = boolmask(src_waves_Hs)
         src_waves_Hs = nothing
         force_gc_cleanup(; wait_time=2)
 
         src_waves_Tp = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"))
-        Tp_waves_crit = src_waves_Tp .!= missingval(src_waves_Tp)
+        Tp_waves_crit = boolmask(src_waves_Tp)
         src_waves_Tp = nothing
         force_gc_cleanup(; wait_time=2)
 
         src_turbid = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"))
-        turbid_crit = src_turbid .!= missingval(src_turbid)
+        turbid_crit = boolmask(src_turbid)
         src_turbid = nothing
         force_gc_cleanup(; wait_time=2)
 
