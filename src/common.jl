@@ -326,5 +326,5 @@ function calc_distances(
     end
 
     tmp_areas = rebuild(tmp_areas, missingval=0.0)
-    return Float32.(tmp_areas)
+    return tmp_areas
 end

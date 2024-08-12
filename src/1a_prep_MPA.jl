@@ -37,7 +37,7 @@ if !isfile(joinpath(MPA_OUTPUT_DIR, "GBRMPA_zone_exclusion.gpkg"))
     )
 end
 
-if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
+if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_buffer.gpkg"))
     port_locs = GDF.read("$(PORT_DATA_DIR)/ports_QLD_merc.shp")
     port_locs.geometry = AG.reproject(
         port_locs.geometry,
@@ -46,25 +46,14 @@ if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
         order=:trad
     )
 
-    GDF.write(
-        joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"),
-        port_locs;
-        crs=EPSG_7844
-    )
-end
-
-if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_buffer.gpkg"))
-    port_locs = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
-
     port_buffer = port_buffer_mask(port_locs, 200.0, unit="NM")
     port_buffer = DataFrame(Name = "ports_buffer", geometry = port_buffer)
     GDF.write(
         joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"),
-        port_buffer;
+        port_locs;
         crs=EPSG_7844
     )
 end
-
 
 # 2. Process MPA files to represent GBRMPA regions in GDA2020 projection
 
