@@ -59,6 +59,30 @@ function set_consistent_missingval(raster, val)
     return Raster(raster; missingval=val)
 end
 
+"""
+    remove_orphaned_elements(rst_mask::BitMatrix, min_cluster_size::Int, box_size::Tuple{Int64,Int64})
+
+Cleans up valid pixels that are by themselves and not worth including in later assessments.
+
+# Arguments
+- `rst_mask` : Mask of valid raster locations
+- `min_cluster_size` : Number of elements that need to be clustered together to be kept
+- `box_size` : area to search around center pixel (width, height). Must be odd numbers.
+"""
+function remove_orphaned_elements(rst_mask::BitMatrix, min_cluster_size::Int, box_size::Tuple{Int64,Int64})
+    labels = label_components(rst_mask, strel_box(box_size))
+
+    # Count the size of each component
+    component_sizes = component_lengths(labels)
+
+    # Mask components to keep
+    keep_mask = component_sizes .>= min_cluster_size
+
+    cleaned_raster = map(x -> keep_mask[x], labels) .* rst_mask
+
+    return cleaned_raster
+end
+
 # If a file already exists it is skipped
 @showprogress dt = 10 "Prepping benthic/geomorphic/wave data..." for reg in REGIONS
     reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
@@ -358,12 +382,23 @@ end
         valid_slopes = valid_areas .& geomorphic_flat_crit
         valid_flats = valid_areas .& geomorphic_slope_crit
 
+        # Clean up orphaned pixels (first and second pass)
+        cleaned_slopes = remove_orphaned_elements(BitMatrix(valid_slopes.data), 7, (3,3))
+        cleaned_slopes = remove_orphaned_elements(cleaned_slopes, 70, (9, 9))
+        valid_slopes.data .= cleaned_slopes
+
+        cleaned_flats = remove_orphaned_elements(BitMatrix(valid_flats.data), 7, (3,3))
+        cleaned_flats = remove_orphaned_elements(cleaned_flats, 70, (9, 9))
+        valid_flats.data .= cleaned_flats
+
         write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"), convert.(UInt8, valid_slopes))
         write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif"), convert.(UInt8, valid_flats))
 
         valid_areas = nothing
         valid_slopes = nothing
         valid_flats = nothing
+        cleaned_flats = nothing
+        cleaned_slopes = nothing
         force_gc_cleanup()
     end
 end
