@@ -33,7 +33,25 @@ if !isfile(joinpath(MPA_OUTPUT_DIR, "GBRMPA_zone_exclusion.gpkg"))
     GDF.write(
         joinpath(MPA_OUTPUT_DIR, "GBRMPA_zone_exclusion.gpkg"),
         GBRMPA_zoning_poly;
-        crs=EPSG(7844)
+        crs=EPSG_7844
+    )
+end
+
+if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_buffer.gpkg"))
+    port_locs = GDF.read("$(PORT_DATA_DIR)/ports_QLD_merc.shp")
+    port_locs.geometry = AG.reproject(
+        port_locs.geometry,
+        crs(port_locs[1, :geometry]),
+        GDA2020_crs;
+        order=:trad
+    )
+
+    port_buffer = port_buffer_mask(port_locs, 200.0, unit="NM")
+    port_buffer = DataFrame(Name = "ports_buffer", geometry = port_buffer)
+    GDF.write(
+        joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"),
+        port_locs;
+        crs=EPSG_7844
     )
 end
 
@@ -402,64 +420,20 @@ end
         force_gc_cleanup()
     end
 
-    # TODO: Calculate distance to nearest port for each valid pixel!
+    port_dist_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif")
+    if !isfile(port_dist_fn)
+        port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))
+        port_points = GDF.read("$(PORT_DATA_DIR)/ports_QLD_merc.shp")
 
-    # if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq"))
-    #     # Create stack of prepared data
-    #     # TODO: These paths should be generated elsewhere...
-    #     raster_files = [
-    #         joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
-    #         joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
-    #         joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
-    #         joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
-    #         joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
-    #         joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
-    #         joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif")
-    #         # TODO: Need distance to nearest port here as well!
-    #     ]
+        valid_slopes = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"); crs=EPSG_7844)
+        slopes_reduced = filter_distances(valid_slopes, port_buffer)
+        slope_distances = calc_distances(slopes_reduced, port_points; units="NM")
 
-    #     rst_stack = RasterStack(raster_files; lazy=true)
+        valid_flats = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"); crs=EPSG_7844)
+        flats_reduced = filter_distances(valid_flats, port_buffer)
+        flat_distances = calc_distances(flats_reduced, port_points; units="NM")
 
-    #     # Collect locations in lat/longs
-    #     lons = collect(lookup(rst_stack, X))
-    #     lats = collect(lookup(rst_stack, Y))
-
-    #     # Create lookup of valid slope data
-    #     valid_slopes = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"))
-
-    #     _valid = boolmask(valid_slopes)
-    #     sorted_valid_idx = sort(Tuple.(findall(_valid)))
-
-    #     lon_lats = collect(zip(lons[first.(sorted_valid_idx)], lats[last.(sorted_valid_idx)]))
-
-    #     v_store_slopes = extract(rst_stack, lon_lats[1:1000]; index=true);
-
-    #     slope_store = DataFrame(v_store_slopes)
-    #     insertcols!(
-    #         slope_store,
-    #         2,  # insert after the first column, which should be the geometries
-    #         :lon_idx=>first.(slope_store.index),
-    #         :lat_idx=>last.(slope_store.index)
-    #     )
-    #     select!(slope_store, Not(:index))  # remove the index column
-    #     GP.write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq"), slope_store, (:geometry, ))
-
-    #     # Create lookup of valid flat data
-    #     valid_flats = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif"))
-
-    #     _valid = boolmask(valid_flats)
-    #     sorted_valid_idx = sort(Tuple.(findall(_valid)))
-    #     lon_lats = collect(zip(lons[first.(sorted_valid_idx)], lats[last.(sorted_valid_idx)]))
-    #     v_store_flats = extract(rst_stack, lon_lats; index=true);
-
-    #     flat_store = DataFrame(v_store_flats)
-    #     insertcols!(
-    #         flat_store,
-    #         2,  # insert after the first column, which should be the geometries
-    #         :lon_idx=>first.(slope_store.index),
-    #         :lat_idx=>last.(slope_store.index)
-    #     )
-    #     select!(flat_store, Not(:index))  # remove the index column
-    #     GP.write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats_lookup.parq"), flat_store, (:geometry, ))
-    # end
+        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif"), slope_distances)
+        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif"), flat_distances)
+    end
 end
