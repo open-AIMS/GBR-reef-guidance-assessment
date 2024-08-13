@@ -22,6 +22,7 @@ include("common.jl")
 rmprocs(workers()[2:end]...)
 GC.gc()
 
+using SparseArrays
 
 # Loading regions_4326 for cropping of vector and raster data.
 regions_4326 = GDF.read(REGION_PATH_4326)
