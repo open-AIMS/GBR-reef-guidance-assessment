@@ -37,7 +37,7 @@ if !isfile(joinpath(MPA_OUTPUT_DIR, "GBRMPA_zone_exclusion.gpkg"))
     )
 end
 
-if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_buffer.gpkg"))
+if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
     port_locs = GDF.read("$(PORT_DATA_DIR)/ports_QLD_merc.shp")
     port_locs.geometry = AG.reproject(
         port_locs.geometry,
@@ -46,14 +46,25 @@ if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_buffer.gpkg"))
         order=:trad
     )
 
-    port_buffer = port_buffer_mask(port_locs, 200.0, unit="NM")
-    port_buffer = DataFrame(Name = "ports_buffer", geometry = port_buffer)
     GDF.write(
-        joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"),
+        joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"),
         port_locs;
         crs=EPSG_7844
     )
 end
+
+if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_buffer.gpkg"))
+    port_locs = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
+
+    port_buffer = port_buffer_mask(port_locs, 200.0, unit="NM")
+    port_buffer = DataFrame(Name = "ports_buffer", geometry = port_buffer)
+    GDF.write(
+        joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"),
+        port_buffer;
+        crs=EPSG_7844
+    )
+end
+
 
 # 2. Process MPA files to represent GBRMPA regions in GDA2020 projection
 
@@ -420,25 +431,35 @@ end
         force_gc_cleanup()
     end
 
-    port_dist_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif")
-    if !isfile(port_dist_fn)
+    port_dist_slopes_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif")
+    if !isfile(port_dist_slopes_fn)
         port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))
-        port_points = GDF.read("$(PORT_DATA_DIR)/ports_QLD_merc.shp")
+        port_points = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
 
         valid_slopes = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"); crs=EPSG_7844)
         valid_slopes = filter_distances(valid_slopes, port_buffer)
         slope_distances = calc_distances(valid_slopes, port_points; units="NM")
 
-        valid_flats = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"); crs=EPSG_7844)
+        slope_distances = set_consistent_missingval(slope_distances, -9999.0)
+        write(port_dist_slopes_fn, slope_distances)
+        valid_slopes = nothing
+        slope_distances = nothing
+        force_gc_cleanup()
+    end
+
+    port_dist_flats_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
+    if !isfile(port_dist_flats_fn)
+        port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))
+        port_points = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
+
+        valid_flats = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif"); crs=EPSG_7844)
         valid_flats = filter_distances(valid_flats, port_buffer)
         flat_distances = calc_distances(valid_flats, port_points; units="NM")
 
-        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif"), slope_distances)
-        write(joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif"), flat_distances)
-
-        valid_slopes = nothing
+        flat_distances = set_consistent_missingval(flat_distances, -9999.0)
+        write(port_dist_flats_fn, flat_distances)
         valid_flats = nothing
-        slope_distances = nothing
         flat_distances = nothing
+        force_gc_cleanup()
     end
 end
