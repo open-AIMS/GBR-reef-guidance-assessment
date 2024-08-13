@@ -59,28 +59,6 @@ function port_buffer_mask(gdf::DataFrame, dist::Float64; unit::String="NM")
     return port_mask
 end
 
-"""
-    filter_distances(
-        target_rast::Raster,
-        dist_buffer
-    )::Raster
-
-Apply a mask to exclude pixels that are outside the indicated distance buffer(s).
-
-`target_rast` and the `dist_buffer` should be in the same CRS (e.g., EPSG:7844 / GDA2020).
-
-# Arguments
-- `target_rast` : Raster of suitable pixels (Bool) to filter pixels from.
-- `dist_buffer` : Buffer geometry to use as the mask.
-
-# Returns
-- Masked boolean raster indicating pixels that are within the target distance.
-"""
-function filter_distances(target_rast::Raster, dist_buffer)::Raster
-    # Mask out areas outside considered distance from port
-    return mask(Raster(target_rast; missingval=0); with=dist_buffer)
-end
-
 function load_and_assess(data_path, lb, ub)
     src_data = Raster(data_path)
     in_criteria = (lb .<= src_data .<= ub)
@@ -193,15 +171,7 @@ function assess_region(reg, port_buffer)
     GC.gc()
 end
 
-# Load QLD_ports data
-port_locs = GDF.read("$(PORT_DATA_DIR)/ports_QLD_merc.shp")
-port_locs.geometry = AG.reproject(
-    port_locs.geometry,
-    crs(port_locs[1, :geometry]),
-    GDA2020_crs;
-    order=:trad
-)
-
-port_buffer = port_buffer_mask(port_locs, 200.0)
+# Load QLD_ports buffer data
+port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))[:,:geometry]
 
 @showprogress dt = 10 desc = "Analyzing..." map(x -> assess_region(x, port_buffer), REGIONS)

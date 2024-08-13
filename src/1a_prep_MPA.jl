@@ -33,9 +33,38 @@ if !isfile(joinpath(MPA_OUTPUT_DIR, "GBRMPA_zone_exclusion.gpkg"))
     GDF.write(
         joinpath(MPA_OUTPUT_DIR, "GBRMPA_zone_exclusion.gpkg"),
         GBRMPA_zoning_poly;
-        crs=EPSG(7844)
+        crs=EPSG_7844
     )
 end
+
+if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
+    port_locs = GDF.read("$(PORT_DATA_DIR)/ports_QLD_merc.shp")
+    port_locs.geometry = AG.reproject(
+        port_locs.geometry,
+        crs(port_locs[1, :geometry]),
+        GDA2020_crs;
+        order=:trad
+    )
+
+    GDF.write(
+        joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"),
+        port_locs;
+        crs=EPSG_7844
+    )
+end
+
+if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_buffer.gpkg"))
+    port_locs = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
+
+    port_buffer = port_buffer_mask(port_locs, 200.0, unit="NM")
+    port_buffer = DataFrame(Name = "ports_buffer", geometry = port_buffer)
+    GDF.write(
+        joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"),
+        port_buffer;
+        crs=EPSG_7844
+    )
+end
+
 
 # 2. Process MPA files to represent GBRMPA regions in GDA2020 projection
 
@@ -402,64 +431,35 @@ end
         force_gc_cleanup()
     end
 
-    # TODO: Calculate distance to nearest port for each valid pixel!
+    port_dist_slopes_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif")
+    if !isfile(port_dist_slopes_fn)
+        port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))
+        port_points = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
 
-    # if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq"))
-    #     # Create stack of prepared data
-    #     # TODO: These paths should be generated elsewhere...
-    #     raster_files = [
-    #         joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
-    #         joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
-    #         joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
-    #         joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
-    #         joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
-    #         joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
-    #         joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif")
-    #         # TODO: Need distance to nearest port here as well!
-    #     ]
+        valid_slopes = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"); crs=EPSG_7844)
+        valid_slopes = filter_distances(valid_slopes, port_buffer)
+        slope_distances = calc_distances(valid_slopes, port_points; units="NM")
 
-    #     rst_stack = RasterStack(raster_files; lazy=true)
+        slope_distances = set_consistent_missingval(slope_distances, -9999.0)
+        write(port_dist_slopes_fn, slope_distances)
+        valid_slopes = nothing
+        slope_distances = nothing
+        force_gc_cleanup()
+    end
 
-    #     # Collect locations in lat/longs
-    #     lons = collect(lookup(rst_stack, X))
-    #     lats = collect(lookup(rst_stack, Y))
+    port_dist_flats_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
+    if !isfile(port_dist_flats_fn)
+        port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))
+        port_points = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
 
-    #     # Create lookup of valid slope data
-    #     valid_slopes = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"))
+        valid_flats = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif"); crs=EPSG_7844)
+        valid_flats = filter_distances(valid_flats, port_buffer)
+        flat_distances = calc_distances(valid_flats, port_points; units="NM")
 
-    #     _valid = boolmask(valid_slopes)
-    #     sorted_valid_idx = sort(Tuple.(findall(_valid)))
-
-    #     lon_lats = collect(zip(lons[first.(sorted_valid_idx)], lats[last.(sorted_valid_idx)]))
-
-    #     v_store_slopes = extract(rst_stack, lon_lats[1:1000]; index=true);
-
-    #     slope_store = DataFrame(v_store_slopes)
-    #     insertcols!(
-    #         slope_store,
-    #         2,  # insert after the first column, which should be the geometries
-    #         :lon_idx=>first.(slope_store.index),
-    #         :lat_idx=>last.(slope_store.index)
-    #     )
-    #     select!(slope_store, Not(:index))  # remove the index column
-    #     GP.write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq"), slope_store, (:geometry, ))
-
-    #     # Create lookup of valid flat data
-    #     valid_flats = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif"))
-
-    #     _valid = boolmask(valid_flats)
-    #     sorted_valid_idx = sort(Tuple.(findall(_valid)))
-    #     lon_lats = collect(zip(lons[first.(sorted_valid_idx)], lats[last.(sorted_valid_idx)]))
-    #     v_store_flats = extract(rst_stack, lon_lats; index=true);
-
-    #     flat_store = DataFrame(v_store_flats)
-    #     insertcols!(
-    #         flat_store,
-    #         2,  # insert after the first column, which should be the geometries
-    #         :lon_idx=>first.(slope_store.index),
-    #         :lat_idx=>last.(slope_store.index)
-    #     )
-    #     select!(flat_store, Not(:index))  # remove the index column
-    #     GP.write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats_lookup.parq"), flat_store, (:geometry, ))
-    # end
+        flat_distances = set_consistent_missingval(flat_distances, -9999.0)
+        write(port_dist_flats_fn, flat_distances)
+        valid_flats = nothing
+        flat_distances = nothing
+        force_gc_cleanup()
+    end
 end
