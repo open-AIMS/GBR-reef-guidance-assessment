@@ -65,12 +65,13 @@ if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_buffer.gpkg"))
     port_locs = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
 
     port_buffer = port_buffer_mask(port_locs, 200.0, unit="NM")
-    port_buffer = DataFrame(Name = "ports_buffer", geometry = port_buffer)
+    port_buffer = DataFrame(; Name="ports_buffer", geometry=port_buffer)
     GDF.write(
         joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"),
         port_buffer;
         crs=EPSG_7844
     )
+    port_buffer = nothing
 end
 
 
