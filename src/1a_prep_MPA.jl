@@ -404,9 +404,9 @@ end
 
     # TODO: Calculate distance to nearest port for each valid pixel!
 
-    # parq_file = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.parq")
-    # if !isfile("valid_slopes.parq")
+    # if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq"))
     #     # Create stack of prepared data
+    #     # TODO: These paths should be generated elsewhere...
     #     raster_files = [
     #         joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
     #         joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
@@ -420,34 +420,46 @@ end
 
     #     rst_stack = RasterStack(raster_files; lazy=true)
 
+    #     # Collect locations in lat/longs
+    #     lons = collect(lookup(rst_stack, X))
+    #     lats = collect(lookup(rst_stack, Y))
+
     #     # Create lookup of valid slope data
     #     valid_slopes = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"))
 
     #     _valid = boolmask(valid_slopes)
     #     sorted_valid_idx = sort(Tuple.(findall(_valid)))
 
-    #     v_store_slopes = Vector(undef, length(sorted_valid_idx))
-    #     @floop for (i, (lon, lat)) in enumerate(sorted_valid_idx)
-    #         v_store_slopes[i] = rst_stack[lon, lat]
-    #     end
+    #     lon_lats = collect(zip(lons[first.(sorted_valid_idx)], lats[last.(sorted_valid_idx)]))
+
+    #     v_store_slopes = extract(rst_stack, lon_lats[1:1000]; index=true);
 
     #     slope_store = DataFrame(v_store_slopes)
-    #     insertcols!(slope_store, 1, :lon_idx=>first.(sorted_valid_idx), :lat_idx=>last.(sorted_valid_idx))
-    #     writefile("valid_slopes_lookup.parq", slope_store)
+    #     insertcols!(
+    #         slope_store,
+    #         2,  # insert after the first column, which should be the geometries
+    #         :lon_idx=>first.(slope_store.index),
+    #         :lat_idx=>last.(slope_store.index)
+    #     )
+    #     select!(slope_store, Not(:index))  # remove the index column
+    #     GP.write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq"), slope_store, (:geometry, ))
 
     #     # Create lookup of valid flat data
     #     valid_flats = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif"))
 
     #     _valid = boolmask(valid_flats)
     #     sorted_valid_idx = sort(Tuple.(findall(_valid)))
-
-    #     v_store_flats = Vector(undef, length(sorted_valid_idx))
-    #     @floop for (i, (lon, lat)) in enumerate(sorted_valid_idx)
-    #         v_store_flats[i] = rst_stack[lon, lat]
-    #     end
+    #     lon_lats = collect(zip(lons[first.(sorted_valid_idx)], lats[last.(sorted_valid_idx)]))
+    #     v_store_flats = extract(rst_stack, lon_lats; index=true);
 
     #     flat_store = DataFrame(v_store_flats)
-    #     insertcols!(flat_store, 1, :lon_idx=>first.(sorted_valid_idx), :lat_idx=>last.(sorted_valid_idx))
-    #     writefile("valid_flats_lookup.parq", flat_store)
+    #     insertcols!(
+    #         flat_store,
+    #         2,  # insert after the first column, which should be the geometries
+    #         :lon_idx=>first.(slope_store.index),
+    #         :lat_idx=>last.(slope_store.index)
+    #     )
+    #     select!(flat_store, Not(:index))  # remove the index column
+    #     GP.write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats_lookup.parq"), flat_store, (:geometry, ))
     # end
 end
