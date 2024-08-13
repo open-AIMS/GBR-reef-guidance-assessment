@@ -553,4 +553,66 @@ end
         flat_distances = nothing
         force_gc_cleanup()
     end
+
+    # Create lookup tables to support fast querying
+    if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq"))
+        # Create stack of prepared data
+        # TODO: These paths should be generated elsewhere...
+        raster_files = [
+            joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
+            joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
+            joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
+            joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
+            joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
+            joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
+            joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
+            port_dist_slopes_fn,
+            port_dist_flats_fn
+        ]
+
+        raster_files = (
+            bathy=joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
+            slope=joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
+            benthic=joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
+            geomorphic=joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
+            wavesHs=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
+            wavesTp=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
+            turbid=joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
+            port_dist_slopes=port_dist_slopes_fn,
+            port_dist_flats=port_dist_flats_fn
+        )
+
+        rst_stack = RasterStack(raster_files; lazy=true)
+
+        # Create lookup of valid slope data
+        valid_slopes = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"))
+        _valid = sparse(boolmask(valid_slopes).data)
+        valid_slopes = nothing
+        force_gc_cleanup()
+
+        col_names = vcat(:geometry, :lon, :lat, keys(raster_files)...)
+        slope_values = stack_values(_valid, rst_stack)
+        slope_store = geoparquet_df!(slope_values, col_names)
+        GP.write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq"), slope_store, (:geometry, ))
+
+        slope_store = nothing
+        slope_values = nothing
+        force_gc_cleanup()
+
+        # Create lookup of valid flat data
+        valid_flats = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif"))
+        _valid = sparse(boolmask(valid_flats).data)
+        valid_flats = nothing
+        force_gc_cleanup()
+
+        flat_values = stack_values(_valid, rst_stack)
+        flat_store = geoparquet_df!(flat_values, col_names)
+        GP.write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats_lookup.parq"), flat_store, (:geometry, ))
+
+        valid_flats = nothing
+        flat_store = nothing
+        flat_values = nothing
+        _valid = nothing
+        force_gc_cleanup()
+    end
 end
