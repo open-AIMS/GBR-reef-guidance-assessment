@@ -493,7 +493,7 @@ end
 
         if reg == "Townsville-Whitsunday"
             src_rugosity = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"))
-            valid_areas .= valid_areas .& (src_rugosity .!= missingval(src_rugosity))
+            valid_areas .= valid_areas .& boolmask(src_rugosity)
             src_rugosity = nothing
             force_gc_cleanup(; wait_time=2)
         end
