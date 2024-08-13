@@ -94,13 +94,7 @@ include("common.jl")
     end
 
     # Load QLD_ports data
-    port_locs = GDF.read("$(PORT_DATA_DIR)/ports_QLD_merc.shp")
-    port_locs.geometry = AG.reproject(
-        port_locs.geometry,
-        crs(port_locs[1, :geometry]),
-        GDA2020_crs;
-        order=:trad
-    )
+    port_locs = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
 
     function assess_region(reg)
         # Load required prepared raster files for analysis
