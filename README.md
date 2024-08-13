@@ -229,6 +229,11 @@ https://www.allencoralatlas.org/
 
 Provided by Ben Radford for Townsville-Whitsunday region.
 
+### Port-Distance data
+
+Port distances calculated in step 1 are in Nautical Miles using QLD-Ports location data to
+calculate the distances to locations with available data and benthic/geomorphic IDs.
+
 ## Resolution
 
 `MPA raster data` (Bathymetry, Benthic, Geomorphic, Slope) : 10 x 10m pixel size
