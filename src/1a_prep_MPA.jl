@@ -521,12 +521,13 @@ end
         force_gc_cleanup()
     end
 
+    # Calculate distance to nearest port
     port_dist_slopes_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif")
     if !isfile(port_dist_slopes_fn)
-        port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))
+        local port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))
         port_points = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
 
-        valid_slopes = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"); crs=EPSG_7844)
+        valid_slopes = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"))
         valid_slopes = filter_distances(valid_slopes, port_buffer)
         slope_distances = calc_distances(valid_slopes, port_points; units="NM")
 
@@ -539,10 +540,10 @@ end
 
     port_dist_flats_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
     if !isfile(port_dist_flats_fn)
-        port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))
+        local port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))
         port_points = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
 
-        valid_flats = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif"); crs=EPSG_7844)
+        valid_flats = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif"))
         valid_flats = filter_distances(valid_flats, port_buffer)
         flat_distances = calc_distances(valid_flats, port_points; units="NM")
 
