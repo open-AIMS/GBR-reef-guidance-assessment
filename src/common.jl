@@ -3,6 +3,7 @@ using Distributed
 using TOML
 using GLMakie, GeoMakie
 using ProgressMeter
+import GeometryOps as GO
 
 
 try
@@ -325,5 +326,5 @@ function calc_distances(
     end
 
     tmp_areas = rebuild(tmp_areas, missingval=0.0)
-    return tmp_areas
+    return Float32.(tmp_areas)
 end
