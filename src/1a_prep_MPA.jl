@@ -16,6 +16,13 @@ compression.
 
 include("common.jl")
 
+# This processing step requires all the memory available so we actually remove the workers
+# that were just set up.
+# This can be commented out if working on a system with large enough amounts of memory
+rmprocs(workers()[2:end]...)
+GC.gc()
+
+
 # Loading regions_4326 for cropping of vector and raster data.
 regions_4326 = GDF.read(REGION_PATH_4326)
 
