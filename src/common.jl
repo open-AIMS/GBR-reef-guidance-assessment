@@ -43,7 +43,7 @@ if nworkers() < CONFIG["processing"]["N_PROCS"]
 
             using DataFrames
             import GeoDataFrames as GDF
-            using Parquet2: writefile
+            import GeoParquet as GP
 
             using Images, ImageFiltering
             using ImageMorphology: label_components
