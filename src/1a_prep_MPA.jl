@@ -306,7 +306,7 @@ end
         waves_Hs = Raster(
             waves_Hs_path,
             key=:Hs90,
-            crs=EPSG_7856,
+            crs=EPSG_9473,
             mappedcrs=EPSG_4326
         )
 
@@ -358,7 +358,7 @@ end
         waves_Tp = Raster(
             target_waves_Tp_path,
             key=:Tp90,
-            crs=EPSG_7856,
+            crs=EPSG_9473,
             mappedcrs=EPSG_4326
         )
         waves_Tp.data[waves_Tp.data .< -9999.0] .= -9999.0

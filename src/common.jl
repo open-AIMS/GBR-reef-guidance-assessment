@@ -82,8 +82,8 @@ if nworkers() < CONFIG["processing"]["N_PROCS"]
         global GDA2020_crs = crs(regions_GDA2020[1, :geometry])
 
         global EPSG_4326 = GFT.EPSG(4326)  # Web mercator
-        global EPSG_7844 = GFT.EPSG(7844)  # GDA2020 in degree projection
-        global EPSG_7856 = GFT.EPSG(7856)  # GDA2020 in meter projection
+        global EPSG_7844 = GFT.EPSG(7844)  # GDA2020 in degrees
+        global EPSG_9473 = GFT.EPSG(9473)  # GDA2020 in meter projection
 
         # Get polygon of management areas
         global REGION_PATH_4326 = joinpath(
