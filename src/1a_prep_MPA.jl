@@ -563,28 +563,16 @@ end
     if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq"))
         # Create stack of prepared data
         # TODO: These paths should be generated elsewhere...
-        raster_files = [
-            joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
-            joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
-            joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
-            joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
-            joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
-            joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
-            joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
-            port_dist_slopes_fn,
-            port_dist_flats_fn
-        ]
-
         raster_files = (
-            bathy=joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
-            slope=joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
-            benthic=joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
-            geomorphic=joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
-            wavesHs=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
-            wavesTp=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
-            turbid=joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
-            port_dist_slopes=port_dist_slopes_fn,
-            port_dist_flats=port_dist_flats_fn
+            Depth=joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
+            Slope=joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
+            Benthic=joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
+            Geomorphic=joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
+            WavesHs=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
+            WavesTp=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
+            Turbidity=joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
+            PortDistSlopes=port_dist_slopes_fn,
+            PortDistFlats=port_dist_flats_fn
         )
 
         rst_stack = RasterStack(raster_files; lazy=true)
