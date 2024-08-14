@@ -195,6 +195,11 @@ function geoparquet_df!(store_values::Matrix, col_names::Vector{Symbol})::DataFr
         DataFrame(store_values)
     end
 
+    # Convert latlong coord to separate entries
+    # Issues with converting to Point data and don't have time to figure it out
+    insertcols!(store, 1, :lon=>first.(store[:, 1]), :lat=>last.(store[:, 1]))
+    select!(store, Not(:geometry))
+
     for (i, col) in enumerate(eachcol(store))
         store[!, i] = convert.(typeof(store[1, i]), col)
     end
@@ -590,7 +595,7 @@ end
         valid_slopes = nothing
         force_gc_cleanup()
 
-        col_names = vcat(:geometry, :lon, :lat, keys(raster_files)...)
+        col_names = vcat(:geometry, :lon_idx, :lat_idx, keys(raster_files)...)
         slope_values = stack_values(_valid, rst_stack)
         slope_store = geoparquet_df!(slope_values, col_names)
         GP.write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq"), slope_store, (:geometry, ))
