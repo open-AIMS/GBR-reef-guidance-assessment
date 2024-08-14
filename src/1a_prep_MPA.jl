@@ -195,11 +195,6 @@ function geoparquet_df!(store_values::Matrix, col_names::Vector{Symbol})::DataFr
         DataFrame(store_values)
     end
 
-    # Convert latlong coord to separate entries
-    # Issues with converting to Point data and don't have time to figure it out
-    insertcols!(store, 1, :lon=>first.(store[:, 1]), :lat=>last.(store[:, 1]))
-    select!(store, Not(:geometry))
-
     for (i, col) in enumerate(eachcol(store))
         store[!, i] = convert.(typeof(store[1, i]), col)
     end
