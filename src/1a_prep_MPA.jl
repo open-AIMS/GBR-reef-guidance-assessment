@@ -50,7 +50,7 @@ if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
     port_locs.geometry = AG.reproject(
         port_locs.geometry,
         crs(port_locs[1, :geometry]),
-        GDA2020_crs;
+        EPSG_7844;
         order=:trad
     )
 

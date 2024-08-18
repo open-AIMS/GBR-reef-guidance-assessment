@@ -79,7 +79,6 @@ if nworkers() < CONFIG["processing"]["N_PROCS"]
         )
         regions_GDA2020 = GDF.read(regions_GDA2020_path)
         rename!(regions_GDA2020, Dict(:SHAPE => :geometry))
-        global GDA2020_crs = crs(regions_GDA2020[1, :geometry])
 
         global EPSG_4326 = GFT.EPSG(4326)  # Web mercator
         global EPSG_7844 = GFT.EPSG(7844)  # GDA2020 in degrees
