@@ -312,39 +312,27 @@ end
     if !isfile(base_bathy_fn)
         target_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
         target_bathy = Raster(target_bathy_path; mappedcrs=EPSG_4326)
-        target_bathy = set_consistent_missingval(target_bathy, -9999.0)
+        target_bathy = set_consistent_missingval!(target_bathy, -9999.0)
 
-        write(
-            base_bathy_fn,
-            resample(
-                target_bathy;
-                crs=GDA2020_crs
-            )
-        )
+        resample(target_bathy; crs=EPSG_7844, format="COG", filename=base_bathy_fn)
 
         target_bathy = nothing
         force_gc_cleanup()
     end
 
     # Load bathymetry data to provide corresponding spatial extent
-    bathy_gda2020 = Raster(base_bathy_fn; crs=EPSG_7844, lazy=true)
+    bathy_gda2020 = Raster(base_bathy_fn; lazy=true)
 
     slope_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif")
     if !isfile(slope_fn)
         target_slope_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "slope", reg)))
         target_slope = Raster(target_slope_path, mappedcrs=EPSG_4326)
-        target_slope = set_consistent_missingval(target_slope, -9999.0)
+        target_slope = set_consistent_missingval!(target_slope, -9999.0)
 
-        write(
-            slope_fn,
-            resample(
-                target_slope;
-                crs=GDA2020_crs
-            )
-        )
+        resample(target_slope; crs=EPSG_7844, format="COG", filename=slope_fn)
 
         target_slope = nothing
-        force_gc_cleanup()
+        force_gc_cleanup(; wait_time=2)
     end
 
     benthic_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif")
@@ -359,17 +347,11 @@ end
             )
         )
 
-        write(
-            benthic_fn,
-            resample(
-                target_benthic;
-                to=bathy_gda2020
-            )
-        )
+        resample(target_benthic; to=bathy_gda2020, format="COG", filename=benthic_fn)
 
         gbr_benthic = nothing
         target_benthic = nothing
-        force_gc_cleanup()
+        force_gc_cleanup(; wait_time=2)
     end
 
     geomorphic_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif")
@@ -384,118 +366,23 @@ end
             )
         )
 
-        write(
-            geomorphic_fn,
-            resample(
-                target_geomorphic;
-                to=bathy_gda2020
-            )
-        )
+        resample(target_geomorphic; to=bathy_gda2020, format="COG", filename=geomorphic_fn)
 
         target_geomorphic = nothing
-        force_gc_cleanup()
+        force_gc_cleanup(; wait_time=2)
     end
 
+    # Use bathy dataset as a template for writing netCDF data to geotiff
+    src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
+    rst_template = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
+
+    waves_Hs_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Hs", reg)))
     target_waves_Hs_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif")
-    if !isfile(target_waves_Hs_fn)
-        # Use bathy dataset as a template for writing netCDF data to geotiff
-        src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-        src_bathy = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
+    process_wave_data(waves_Hs_path, target_waves_Hs_fn, :Hs90, rst_template, bathy_gda2020)
 
-        waves_Hs_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Hs", reg)))
-
-        # Have to load netCDF data into memory to allow missing value replacement
-        waves_Hs = Raster(
-            waves_Hs_path,
-            key=:Hs90,
-            crs=EPSG_9473,
-            mappedcrs=EPSG_4326
-        )
-
-        # Manually set -infinite missing data value to exact value
-        # This is necessary as the netCDF was provided without a set `no data` value
-        waves_Hs.data[waves_Hs.data .< -9999.0] .= -9999.0
-
-        # Reset data type from Union{Missing,Float32} -> Float32
-        # and also set missing value
-        waves_Hs = Raster(
-            waves_Hs;
-            data=Matrix{Float32}(waves_Hs.data),
-            missingval=-9999.0
-        )
-
-        # Extend bounds of wave data to match bathymetry if needed
-        # This is needed to ensure a smaller raster matches the size of the larger raster.
-        if !all(size(src_bathy) .== size(waves_Hs))
-            waves_Hs = extend(crop(waves_Hs; to=src_bathy); to=AG.extent(src_bathy))
-            @assert size(src_bathy) == size(waves_Hs)
-        end
-
-        target_Hs = copy(src_bathy)
-
-        # Replace data (important: flip the y-axis!)
-        # The NetCDF is in reverse orientation (south-up), so we have to flip it back.
-        # (remember that the Y dimension is the columns, which corresponds to the longitude)
-        target_Hs.data .= waves_Hs.data[:, end:-1:1]
-
-        # Reproject raster to GDA2020 (degree projection)
-        target_Hs = resample(target_Hs; crs=GDA2020_crs)
-        write(target_waves_Hs_fn, target_Hs)
-
-        waves_Hs = nothing
-        target_waves_Hs = nothing
-        src_bathy = nothing
-        force_gc_cleanup()
-    end
-
-    waves_Tp_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif")
-    if !isfile(waves_Tp_fn)
-        # Use bathy dataset as a template for writing netCDF data to geotiff
-        src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-        src_bathy = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
-
-        target_waves_Tp_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Tp", reg)))
-
-        # Have to load netCDF data into memory to allow missing value replacement
-        waves_Tp = Raster(
-            target_waves_Tp_path,
-            key=:Tp90,
-            crs=EPSG_9473,
-            mappedcrs=EPSG_4326
-        )
-        waves_Tp.data[waves_Tp.data .< -9999.0] .= -9999.0
-
-        # Reset data type from Union{Missing,Float32} -> Float32
-        # and also set missing value
-        waves_Tp = Raster(
-            waves_Tp;
-            data=Matrix{Float32}(waves_Tp.data),
-            missingval=-9999.0
-        )
-
-        # Extend bounds of wave data to match bathymetry if needed
-        # This is needed to ensure a smaller raster matches the size of the larger raster.
-        if !all(size(src_bathy) .== size(waves_Tp))
-            waves_Tp = extend(crop(waves_Tp; to=src_bathy); to=AG.extent(src_bathy))
-            @assert size(src_bathy) == size(waves_Tp)
-        end
-
-        target_Tp = copy(src_bathy)
-
-        # Replace data (important: flip the y-axis!)
-        # The NetCDF is in reverse orientation (south-up), so we have to flip it back.
-        # (remember that the Y dimension is the columns, which corresponds to the longitude)
-        target_Tp.data .= waves_Tp.data[:, end:-1:1]
-
-        # Reproject raster to GDA2020 (degree projection)
-        target_Tp = resample(target_Tp; crs=GDA2020_crs)
-        write(waves_Tp_fn, target_Tp)
-
-        waves_Tp = nothing
-        target_waves_Tp = nothing
-        src_bathy = nothing
-        force_gc_cleanup()
-    end
+    waves_Tp_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Tp", reg)))
+    target_waves_Tp_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif")
+    process_wave_data(waves_Tp_path, target_waves_Tp_fn, :Tp90, rst_template, bathy_gda2020)
 
     turbid_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif")
     if !isfile(turbid_fn)
@@ -509,16 +396,10 @@ end
             )
         )
 
-        write(
-            turbid_fn,
-            resample(
-                target_turbid;
-                to=bathy_gda2020
-            )
-        )
+        resample(target_turbid; to=bathy_gda2020, format="COG", filename=turbid_fn)
 
         target_turbid = nothing
-        force_gc_cleanup()
+        force_gc_cleanup(; wait_time=2)
     end
 
     if reg == "Townsville-Whitsunday"
@@ -526,18 +407,12 @@ end
         if !isfile(rugosity_fn)
             tsv_rugosity_path = joinpath(RUG_DATA_DIR, "std25_Rugosity_Townsville-Whitsunday.tif")
             tsv_rugosity = Raster(tsv_rugosity_path, mappedcrs=EPSG_4326)
-            tsv_rugosity = set_consistent_missingval(tsv_rugosity, -9999.0)
+            tsv_rugosity = set_consistent_missingval!(tsv_rugosity, -9999.0)
 
-            write(
-                rugosity_fn,
-                resample(
-                    tsv_rugosity;
-                    to=bathy_gda2020
-                )
-            )
+            resample(tsv_rugosity; to=bathy_gda2020, format="COG", filename=rugosity_fn)
 
             tsv_rugosity = nothing
-            force_gc_cleanup()
+            force_gc_cleanup(; wait_time=2)
         end
     end
 
@@ -547,9 +422,9 @@ end
         # Indicates where there is valid data across all criteria
 
         # Load required prepared raster files for analysis
-        src_bathy = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"))
-        bathy_crit = boolmask(src_bathy)
-        src_bathy = nothing
+        rst_template = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"))
+        bathy_crit = boolmask(rst_template)
+        rst_template = nothing
         force_gc_cleanup(; wait_time=10)  # Needs extra time to clear it seems
 
         src_slope = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"))
@@ -620,7 +495,7 @@ end
         valid_flats = nothing
         cleaned_flats = nothing
         cleaned_slopes = nothing
-        force_gc_cleanup()
+        force_gc_cleanup(; wait_time=2)
     end
 
     # Calculate distance to nearest port
@@ -633,11 +508,11 @@ end
         valid_slopes = filter_distances(valid_slopes, port_buffer)
         slope_distances = calc_distances(valid_slopes, port_points; units="NM")
 
-        slope_distances = set_consistent_missingval(slope_distances, -9999.0)
+        slope_distances = set_consistent_missingval!(slope_distances, -9999.0)
         write(port_dist_slopes_fn, slope_distances)
         valid_slopes = nothing
         slope_distances = nothing
-        force_gc_cleanup()
+        force_gc_cleanup(; wait_time=2)
     end
 
     port_dist_flats_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
@@ -649,11 +524,11 @@ end
         valid_flats = filter_distances(valid_flats, port_buffer)
         flat_distances = calc_distances(valid_flats, port_points; units="NM")
 
-        flat_distances = set_consistent_missingval(flat_distances, -9999.0)
+        flat_distances = set_consistent_missingval!(flat_distances, -9999.0)
         write(port_dist_flats_fn, flat_distances)
         valid_flats = nothing
         flat_distances = nothing
-        force_gc_cleanup()
+        force_gc_cleanup(; wait_time=2)
     end
 
     # Create lookup tables to support fast querying
@@ -703,6 +578,7 @@ end
         flat_store = nothing
         flat_values = nothing
         _valid = nothing
-        force_gc_cleanup()
+        rst_stack = nothing
+        force_gc_cleanup(; wait_time=4)
     end
 end
