@@ -173,10 +173,15 @@ function stack_values(valid_mask, rst_stack)
         get_index = i == 1
         extracted = extract(rst_tmp, lon_lats; index=get_index)
         if get_index
+            # Returned indices are relative to the view, not the source raster
+            # So we jump through some hoops to obtain the canonical indices.
             inds = getfield.(extracted, :index)
+            true_lon_inds = lookup(rst_tmp, X).data.indices[1][first.(inds)]
+            true_lat_inds = lookup(rst_tmp, Y).data.indices[1][last.(inds)]
+
             v_store[:, 1] .= getfield.(extracted, :geometry)
-            v_store[:, 2] .= first.(inds)
-            v_store[:, 3] .= last.(inds)
+            v_store[:, 2] .= true_lon_inds
+            v_store[:, 3] .= true_lat_inds
             v_store[:, 4] .= getfield.(extracted, stack_name)
         else
             v_store[:, i+3] .= getfield.(extracted, stack_name)
