@@ -33,9 +33,9 @@ if nworkers() < CONFIG["processing"]["N_PROCS"]
             using
                 Rasters,
                 NCDatasets,
-                LibGEOS,
-                GeoInterface
+                LibGEOS
 
+            import GeoInterface as GI
             import GeometryOps as GO
             import GeoFormatTypes as GFT
             import ArchGDAL as AG
@@ -144,7 +144,7 @@ function plot_map(gdf::DataFrame; geom_col=:geometry, color=nothing)
         yticklabelsize=10,
         aspect=AxisAspect(0.75),
         xgridwidth=0.5,
-        ygridwidth=0.5,
+        ygridwidth=0.5
     )
 
     plottable = GeoMakie.geo2basic(AG.forceto.(gdf[!, geom_col], AG.wkbPolygon))
