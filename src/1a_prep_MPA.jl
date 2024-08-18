@@ -78,7 +78,7 @@ end
 # 2. Process MPA files to represent GBRMPA regions in GDA2020 projection
 
 """
-    set_consistent_missingval(raster, val)
+    set_consistent_missingval!(raster, val)
 
 Replace value used to indicate no data, and return a Raster type with this value set.
 
@@ -92,10 +92,11 @@ Replace value used to indicate no data, and return a Raster type with this value
 # Returns
 Raster
 """
-function set_consistent_missingval(raster, val)
+function set_consistent_missingval!(raster, val)
     replace_missing!(raster, val)
     return Raster(raster; missingval=val)
 end
+
 
 """
     remove_orphaned_elements(rst_mask::BitMatrix, min_cluster_size::Int, box_size::Tuple{Int64,Int64})
