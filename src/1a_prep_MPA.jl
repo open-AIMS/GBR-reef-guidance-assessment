@@ -99,6 +99,18 @@ end
 
 
 """
+    extend_to(rst1::Raster, rst2::Raster)::Raster
+
+Extend bounds of a `rst1` to the same shape as `rst2`
+"""
+function extend_to(rst1::Raster, rst2::Raster)::Raster
+    rst1 = extend(rst1; to=GI.extent(rst2))
+    @assert all(size(rst1) .== size(rst2)) "Sizes do not match post-extension: $(size(rst1)) $(size(rst2))"
+
+    return rst1
+end
+
+"""
     remove_orphaned_elements(rst_mask::BitMatrix, min_cluster_size::Int, box_size::Tuple{Int64,Int64})
 
 Cleans up valid pixels that are by themselves and not worth including in later assessments.
@@ -201,6 +213,95 @@ function geoparquet_df!(store_values::Matrix, col_names::Vector{Symbol})::DataFr
     end
 
     return store
+end
+
+"""
+    process_wave_data(src_file, dst_file, rst_template, target_rst)::Nothing
+
+Process wave data from one CRS/PCS to another, writing the results out to disk in COG
+format.
+
+The wave data this function is intended for is provided in netCDF format. The spatial
+extents/coordinates provided in this dataset are not well-read by GDAL. To work around this
+issue, we use a `rst_template` for the same spatial region to provide replace coordinates,
+assuming they are well aligned.
+
+# Notes
+- The data is temporarily converted into a sparse matrix to reduce memory use.
+  The source data *must not* have valid zero values.
+- Existing files are *not* overwritten.
+
+# References
+1. Callaghan, David (2023). Great Barrier Reef non-cyclonic and on-reef wave model predictions.
+   The University of Queensland.
+   Data Collection.
+   https://doi.org/10.48610/8246441
+   https://espace.library.uq.edu.au/view/UQ:8246441
+
+# Arguments
+- `src_file` : Path to netcdf file to process
+- `dst_file` : Location of file to write to
+- `data_layer` : Name of layer to load
+- `rst_template` : Raster in the target Template to use to aid in resampling/reprojection
+- `target_rst` : Raster indicating the spatial extent to resample `src_file` into
+
+# Returns
+Nothing
+"""
+function process_wave_data(
+    src_file::String,
+    dst_file::String,
+    data_layer::Symbol,
+    rst_template::Raster,
+    target_rst::Raster
+)::Nothing
+    if isfile(dst_file)
+        @warn "Wave data not processed as $(dst_file) already exists."
+        return
+    end
+
+    # Have to load netCDF data into memory to allow missing value replacement
+    wave_rst = Raster(
+        src_file,
+        name=data_layer,
+        crs=GI.crs(rst_template),
+        mappedcrs=EPSG_4326
+    )
+
+    # 1. Manually set -infinite missing data value to exact value
+    #    This is necessary as the netCDF was provided without a set `no data` value
+    # 2. We also want to make the type explicit, from Union{Missing,Float32} -> Float32
+    # 3. Important to flip the y-axis as the data was stored in reverse orientation
+    #    (south-up), so we flip it back (2nd dimension is the y-axis)
+    wave_rst.data[wave_rst.data .< -9999.0] .= -9999.0
+    wave_rst = Raster(
+        wave_rst;
+        data=Float32.(wave_rst.data[:, end:-1:1]),
+        missingval=-9999.0
+    )
+
+    wave_rst = crop(wave_rst; to=rst_template)
+
+    # Extend bounds of wave data to match bathymetry if needed
+    # This is needed to ensure a smaller raster matches the size of the larger raster.
+    if !all(size(rst_template) .== size(wave_rst))
+        wave_rst = extend_to(wave_rst, rst_template)
+        @assert all(size(rst_template) .== size(wave_rst))
+    end
+
+    target_Hs = Raster(
+        rst_template;
+        data=wave_rst.data,
+        missingval=-9999.0
+    )
+    wave_rst = nothing
+    force_gc_cleanup()
+
+    # Reproject raster to GDA2020 (degree projection)
+    resample(target_Hs; to=target_rst, filename=dst_file, format="COG")
+    force_gc_cleanup(; wait_time=2)
+
+    return nothing
 end
 
 # If a file already exists it is skipped
