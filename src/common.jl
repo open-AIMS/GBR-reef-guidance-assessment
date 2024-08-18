@@ -120,10 +120,10 @@ if nworkers() < CONFIG["processing"]["N_PROCS"]
 
         # Known Proj strings for each GBRMPA zone - may remove in later cleanup?
         global WAVE_REGION_CRS = Dict(
-            "Townsville-Whitsunday" => "+proj=utm +zone=55 +south +datum=WGS84",
-            "Cairns-Cooktown" => "+proj=utm +zone=55 +south +datum=WGS84",
-            "Mackay-Capricorn" => "+proj=utm +zone=56 +south +datum=WGS84",
-            "FarNorthern" => "+proj=utm +zone=54 +south +datum=WGS84"
+            "Townsville-Whitsunday" => GFT.EPSG(32755),
+            "Cairns-Cooktown" => GFT.EPSG(32755),
+            "Mackay-Capricorn" => GFT.EPSG(32756),
+            "FarNorthern" => GFT.EPSG(32754)
         )
 
         # GBRMPA zones to exclude from site selection
