@@ -15,7 +15,7 @@ compression.
 """
 
 include("common.jl")
-include("raster_processing.jl")
+include("geom_handlers/raster_processing.jl")
 
 # This processing step requires all the memory available so we actually remove the workers
 # that were just set up.
@@ -164,65 +164,110 @@ function geoparquet_df!(store_values::Matrix, col_names::Vector{Symbol})::DataFr
     return store
 end
 
+"""
+    valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_file::String)::Nothing
+
+Create a lookup table of valid data pixels for fast querying of data layers.
+
+# Arguments
+- `raster_files` : NamedTuple containing the file path for each criteria raster file.
+- `valid_areas_file` : Path for file containing target valid areas (slopes or flats).
+- `dst_file` : Path to write parquet lookup file to.
+"""
+function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_file::String)::Nothing
+    # Create stack of prepared data
+    rst_stack = RasterStack(raster_files; lazy=true)
+
+    # Create lookup of valid data
+    valid_areas = Raster(valid_areas_file)
+    _valid = sparse(boolmask(valid_areas).data)
+    valid_areas = nothing
+    force_gc_cleanup()
+
+    col_names = vcat(:geometry, :lon_idx, :lat_idx, keys(raster_files)...)
+    area_values = stack_values(_valid, rst_stack)
+    area_store = geoparquet_df!(area_values, col_names)
+    GP.write(dst_file, area_store, (:geometry, ))
+
+    area_store = nothing
+    area_values = nothing
+    _valid = nothing
+    rst_stack = nothing
+    force_gc_cleanup(; wait_time=4)
+
+    return nothing
+end
+
 # If a file already exists it is skipped
 @showprogress dt = 10 "Prepping benthic/geomorphic/wave data..." for reg in REGIONS
     reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
 
+    # Create NamedTuple to hold all output file paths.
+    criteria_paths = (
+        bathy_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
+        slope_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
+        benthic_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
+        geomorph_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
+        waves_Hs_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
+        waves_Tp_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
+        turbid_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
+        rugosity_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"),
+        port_dist_slopes_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif"),
+        port_dist_flats_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
+    )
+    if reg != "Townsville-Whitsunday"
+        criteria_paths = NamedTupleTools.delete(criteria_paths, :rugosity_fn)
+    end
+
     # Process MPA bathymetry and slope raster files
     raw_bathy_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-    target_bathy_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif")
-    process_MPA_bottom_raster(raw_bathy_fn, target_bathy_fn, bathy_gda2020, -9999.0)
+    process_MPA_bottom_raster(raw_bathy_fn, criteria_paths[:bathy_fn], bathy_gda2020, -9999.0)
 
     raw_slope_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "slope", reg)))
-    target_slope_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif")
-    process_MPA_bottom_raster(raw_slope_fn, target_slope_fn, bathy_gda2020, -9999.0)
+    process_MPA_bottom_raster(raw_slope_fn, criteria_paths[:slope_fn], bathy_gda2020, -9999.0)
 
     # Process GBR-wide and rugosity raster data
     # Load bathymetry data to provide corresponding spatial extent
-    bathy_gda2020 = Raster(base_bathy_fn; lazy=true)
+    bathy_gda2020 = Raster(criteria_paths[:bathy_fn]; lazy=true)
 
     raw_benthic_fn = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
-    target_benthic_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif")
     target_benthic = trim_extent_region(
         raw_benthic_fn,
         EPSG_4326,
         regions_4326[reg_idx_4326, :geometry]
     )
-    resample_and_write(target_benthic, bathy_gda2020, target_benthic_fn)
+    resample_and_write(target_benthic, bathy_gda2020, criteria_paths[:benthic_fn])
     target_benthic = nothing
     force_gc_cleanup()
 
     raw_geomorphic_fn = "$(MPA_DATA_DIR)/geomorphic/GBR10 GBRMP Geomorphic.tif"
-    target_geomorphic_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif")
     target_geomorphic = trim_extent_region(
         raw_geomorphic_fn,
         EPSG_4326,
         regions_4326[reg_idx_4326, :geometry]
     )
-    resample_and_write(target_geomorphic, bathy_gda2020, target_geomorphic_fn)
+    resample_and_write(target_geomorphic, bathy_gda2020, criteria_paths[:geomorph_fn])
     target_geomorphic = nothing
     force_gc_cleanup()
 
     raw_turbid_fn = "$(ACA_DATA_DIR)/Turbidity-Q3-2023/turbidity-quarterly_0.tif"
-    target_turbid_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif")
     target_turbid = trim_extent_region(
         raw_turbid_fn,
         EPSG_4326,
         regions_4326[reg_idx_4326, :geometry]
     )
-    resample_and_write(target_turbid, bathy_gda2020, target_turbid_fn)
+    resample_and_write(target_turbid, bathy_gda2020, criteria_paths[:turbid_fn])
     target_turbid = nothing
     force_gc_cleanup()
 
     if reg == "Townsville-Whitsunday"
         raw_rugosity_fn = joinpath(RUG_DATA_DIR, "std25_Rugosity_Townsville-Whitsunday.tif")
-        target_rugosity_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif")
         target_rugosity = trim_extent_region(
             raw_rugosity_fn,
             EPSG_4326,
             regions_4326[reg_idx_4326, :geometry]
         )
-        resample_and_write(target_rugosity, bathy_gda2020, target_rugosity_fn)
+        resample_and_write(target_rugosity, bathy_gda2020, criteria_paths[:rugosity_fn])
         target_rugosity = nothing
         force_gc_cleanup()
     end
@@ -233,27 +278,12 @@ end
     rst_template = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
 
     waves_Hs_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Hs", reg)))
-    target_waves_Hs_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif")
-    process_wave_data(waves_Hs_path, target_waves_Hs_fn, :Hs90, rst_template, bathy_gda2020, -9999.0)
+    process_wave_data(waves_Hs_path, criteria_paths[:waves_Hs_fn], :Hs90, rst_template, bathy_gda2020, -9999.0)
 
     waves_Tp_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Tp", reg)))
-    target_waves_Tp_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif")
-    process_wave_data(waves_Tp_path, target_waves_Tp_fn, :Tp90, rst_template, bathy_gda2020, -9999.0)
+    process_wave_data(waves_Tp_path, criteria_paths[:waves_Tp_fn], :Tp90, rst_template, bathy_gda2020, -9999.0)
 
     # Find locations containing valid data
-    criteria_paths = Dict(
-        "bathy_fn" => joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
-        "slope_fn" => joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
-        "benthic_fn" => joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
-        "geomorph_fn" => joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
-        "waves_Hs_fn" => joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
-        "waves_Tp_fn" => joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
-        "turbid_fn" => joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif")
-    )
-    if reg == "Townsville-Whitsunday"
-        push!(criteria_paths, "rugosity_fn" => joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"))
-    end
-
     valid_slopes_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif")
     find_valid_locs(
         criteria_paths,
@@ -277,74 +307,27 @@ end
     port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))
     port_points = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
 
-    port_dist_slopes_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif")
     distance_raster(
         valid_slopes_fn,
         port_buffer,
         port_points,
         -9999.0,
-        port_dist_slopes_fn,
+        criteria_paths[:port_dist_slopes_fn],
         "NM"
     )
 
-    port_dist_flats_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
     distance_raster(
         valid_flats_fn,
         port_buffer,
         port_points,
         -9999.0,
-        port_dist_flats_fn,
+        criteria_paths[:port_dist_flats_fn],
         "NM"
     )
 
     # Create lookup tables to support fast querying
-    if !isfile(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq"))
-        # Create stack of prepared data
-        # TODO: These paths should be generated elsewhere...
-        raster_files = (
-            Depth=joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
-            Slope=joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
-            Benthic=joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
-            Geomorphic=joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
-            WavesHs=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
-            WavesTp=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
-            Turbidity=joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
-            PortDistSlopes=port_dist_slopes_fn,
-            PortDistFlats=port_dist_flats_fn
-        )
-
-        rst_stack = RasterStack(raster_files; lazy=true)
-
-        # Create lookup of valid slope data
-        valid_slopes = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif"))
-        _valid = sparse(boolmask(valid_slopes).data)
-        valid_slopes = nothing
-        force_gc_cleanup()
-
-        col_names = vcat(:geometry, :lon_idx, :lat_idx, keys(raster_files)...)
-        slope_values = stack_values(_valid, rst_stack)
-        slope_store = geoparquet_df!(slope_values, col_names)
-        GP.write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq"), slope_store, (:geometry, ))
-
-        slope_store = nothing
-        slope_values = nothing
-        force_gc_cleanup()
-
-        # Create lookup of valid flat data
-        valid_flats = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif"))
-        _valid = sparse(boolmask(valid_flats).data)
-        valid_flats = nothing
-        force_gc_cleanup()
-
-        flat_values = stack_values(_valid, rst_stack)
-        flat_store = geoparquet_df!(flat_values, col_names)
-        GP.write(joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats_lookup.parq"), flat_store, (:geometry, ))
-
-        valid_flats = nothing
-        flat_store = nothing
-        flat_values = nothing
-        _valid = nothing
-        rst_stack = nothing
-        force_gc_cleanup(; wait_time=4)
-    end
+    slopes_lookup_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq")
+    valid_lookup(criteria_paths, valid_slopes_fn, slopes_lookup_fn)
+    flats_lookup_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats_lookup.parq")
+    valid_lookup(criteria_paths, valid_flats_fn, flats_lookup_fn)
 end

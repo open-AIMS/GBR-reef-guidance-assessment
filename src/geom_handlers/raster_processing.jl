@@ -396,7 +396,7 @@ end
 
 """
     function find_valid_locs(
-        criteria_paths::Dict,
+        criteria_paths::NamedTuple,
         benthic_ids::Vector,
         geomorph_ids::Vector,
         first_min_size::Int64,
@@ -410,7 +410,7 @@ end
 Find the pixels that are covered by valid data for all criteria and benthic/geomorphic IDs.
 
 # Arguments
-- `criteria_paths` : Dict containing criteria_fn as keys and path_to_raster_input as values.
+- `criteria_paths` : NamedTuple containing criteria_fn as keys and path_to_raster_input as values.
 - `benthic_ids` : Vector containing the IDs used to filter desired benthic criteria.
 - `geomorph_ids` : Vector containing the IDs used to filder desired geomorphic critera (either flat or slope IDs).
 - `first_min_size` : Size of minimum cluster to use in `remove_orphaned_elements()` raster cleaning.
@@ -421,7 +421,7 @@ Find the pixels that are covered by valid data for all criteria and benthic/geom
 - `reg` : Current processing region.
 """
 function find_valid_locs(
-    criteria_paths::Dict,
+    criteria_paths::NamedTuple,
     benthic_ids::Vector,
     geomorph_ids::Vector,
     first_min_size::Int64,
@@ -436,37 +436,37 @@ function find_valid_locs(
         return
     end
 
-    src_bathy = Raster(criteria_paths["bathy_fn"])
+    src_bathy = Raster(criteria_paths[:bathy_fn])
     bathy_crit = boolmask(src_bathy)
     rst_template = nothing
     force_gc_cleanup(; wait_time=10)  # Needs extra time to clear it seems
 
-    src_slope = Raster(criteria_paths["slope_fn"])
+    src_slope = Raster(criteria_paths[:slope_fn])
     slope_crit = boolmask(src_slope)
     src_slope = nothing
     force_gc_cleanup(; wait_time=2)
 
-    src_benthic = Raster(criteria_paths["benthic_fn"])
+    src_benthic = Raster(criteria_paths[:benthic_fn])
     benthic_crit = src_benthic .∈ [benthic_ids]
     src_benthic = nothing
     force_gc_cleanup(; wait_time=2)
 
-    src_geomorphic = Raster(criteria_paths["geomorph_fn"])
+    src_geomorphic = Raster(criteria_paths[:geomorph_fn])
     geomorphic_crit = src_geomorphic .∈ [geomorph_ids]
     src_geomorphic = nothing
     force_gc_cleanup(; wait_time=2)
 
-    src_waves_Hs = Raster(criteria_paths["waves_Hs_fn"])
+    src_waves_Hs = Raster(criteria_paths[:waves_Hs_fn])
     Hs_waves_crit = boolmask(src_waves_Hs)
     src_waves_Hs = nothing
     force_gc_cleanup(; wait_time=2)
 
-    src_waves_Tp = Raster(criteria_paths["waves_Tp_fn"])
+    src_waves_Tp = Raster(criteria_paths[:waves_Tp_fn])
     Tp_waves_crit = boolmask(src_waves_Tp)
     src_waves_Tp = nothing
     force_gc_cleanup(; wait_time=2)
 
-    src_turbid = Raster(criteria_paths["turbid_fn"])
+    src_turbid = Raster(criteria_paths[:turbid_fn])
     turbid_crit = boolmask(src_turbid)
     src_turbid = nothing
     force_gc_cleanup(; wait_time=2)
@@ -483,7 +483,7 @@ function find_valid_locs(
     )
 
     if reg == "Townsville-Whitsunday"
-        src_rugosity = Raster(criteria_paths["rugosity_fn"])
+        src_rugosity = Raster(criteria_paths[:rugosity_fn])
         valid_areas .= valid_areas .& boolmask(src_rugosity)
         src_rugosity = nothing
         force_gc_cleanup(; wait_time=2)
