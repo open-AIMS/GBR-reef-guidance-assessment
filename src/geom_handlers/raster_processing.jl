@@ -7,7 +7,6 @@ import ArchGDAL as AG
 import GeoInterface as GI
 import GeoFormatTypes as GFT
 
-
 """
     set_consistent_missingval!(raster, val)
 
@@ -148,40 +147,36 @@ function calc_distances(
 end
 
 """
-    process_bottom_UTM_raster(
-        src_file::String,
-        dst_file::String,
-        target_crs::GFT.CoordinateReferenceSystemFormat,
-        target_missingval::Float64,
-        reg::String
-    )::Nothing
+        function process_MPA_bottom_raster(
+        src_file,
+        input_crs,
+        target_crs,
+        target_missingval,
+        output_fn
+    )
 
-Process bathymetry, slope and rugosity datasets from raw input data files and output to `output_fn`
-location. These datasets are in region UTM zone CRS.
-
-Writes to `dst_file` as a Cloud Optimized Geotiff.
+Process MPA bathymetry and slope datasets from raw input data files and output to `output_fn`
+location.
 
 # Arguments
-- `src_file` : Path to raw bathymetry, slope or rugosity raster files in UTM CRS for processing.
+- `src_file` : Path to raw GBRMPA bathymetry or slope raster file for processing.
 - `dst_file` : File location name to create output file. Should include variable and region information.
 - `target_crs` : Target CRS object to use in Rasters.resample(). e.g. using GFT.EPSG() format.
 - `target_missingval` : Consistent missingval to use in output raster.
-- `reg` : Region name for input CRS definition.
 
 """
-function process_bottom_UTM_raster(
+function process_MPA_bottom_raster(
     src_file::String,
     dst_file::String,
     target_crs::GFT.CoordinateReferenceSystemFormat,
-    target_missingval::Float64,
-    reg::String
+    target_missingval::Float64
 )::Nothing
     if isfile(dst_file)
         @warn "Data not processed as $(dst_file) already exists."
         return
     end
 
-    input_raster = Raster(src_file; crs=REGION_CRS_UTM[reg], mappedcrs=EPSG_4326)
+    input_raster = Raster(src_file; mappedcrs=EPSG_4326)
     input_raster = set_consistent_missingval!(input_raster, target_missingval)
 
     resample(input_raster; crs=target_crs, filename=dst_file, format="COG")
@@ -191,20 +186,18 @@ function process_bottom_UTM_raster(
 end
 
 """
-    trim_extent_region(
-        src_file::String,
-        input_crs::GFT.CoordinateReferenceSystemFormat,
-        target_region_geom::Vector{AG.IGeometry{AG.wkbMultiPolygon}},
-        dst_file::String
-    )::Union{Raster,Nothing}
+        function trim_extent_region(
+        src_file,
+        input_crs,
+        target_region_geom
+    )
 
-Trim larger input raster to the extent of `region_geom` geometry.
+Trim larger input raster to the extent of region_geom geometry.
 
 # Arguments
 - `src_file` : Location of raw input raster file for processing (intended for GBR-wide/rugosity files).
 - `input_crs` : CRS of input raster file using GFT.EPSG().
 - `target_region_geom` : Region geometry object to crop to.
-- `dst_file` : Path to output file. (File not created within this function, used to check if file already exists).
 
 # Returns
 - Raster with the spatial extent matching region_geom.
@@ -212,15 +205,14 @@ Trim larger input raster to the extent of `region_geom` geometry.
 function trim_extent_region(
     src_file::String,
     input_crs::GFT.CoordinateReferenceSystemFormat,
-    target_region_geom::Vector{AG.IGeometry{AG.wkbMultiPolygon}},
-    dst_file::String
-)::Union{Raster,Nothing}
+    target_region_geom::Vector{AG.IGeometry{AG.wkbMultiPolygon}}
+)::Raster
     if isfile(dst_file)
         @warn "Data not processed as $(dst_file) already exists."
         return
     end
 
-    input_raster = Raster(src_file; mappedcrs=input_crs, lazy=true)
+    input_raster = Raster(src_file; mappedcrs=input_crs)
 
     return Rasters.trim(
         mask(
@@ -231,15 +223,13 @@ function trim_extent_region(
 end
 
 """
-    resample_and_write(
-        input_raster::Union{Raster,Nothing},
-        template_raster::Raster
-        dst_file::String
-    )::Nothing
+        function resample_and_write(
+        input_raster,
+        template_raster
+        dst_file
+    )
 
-Resample `input_raster` to `template_raster` to ensure matching spatial extent, CRS and resolution.
-
-Writes to `dst_file` as a Cloud Optimized Geotiff.
+Resample input_raster to template_raster to ensure matching spatial extent, CRS and resolution.
 
 # Arguments
 - `input_raster` : Input raster dataset for resampling to template_raster.
@@ -247,7 +237,7 @@ Writes to `dst_file` as a Cloud Optimized Geotiff.
 - `dst_file` : File location name to create output file. Should include variable and region information.
 """
 function resample_and_write(
-    input_raster::Union{Raster,Nothing},
+    input_raster::Raster,
     rst_template::Raster,
     dst_file::String
 )::Nothing
@@ -262,7 +252,7 @@ function resample_and_write(
 end
 
 """
-    process_wave_data(
+    function process_wave_data(
         src_file::String,
         dst_file::String,
         data_layer::Symbol,
@@ -360,18 +350,16 @@ function process_wave_data(
 end
 
 """
-    distance_raster(
+        function distance_raster(
         src_file::String,
         distance_buffer::DataFrame,
         distance_points::DataFrame,
         target_missingval,
         dst_file::String,
         units::String
-    )::Nothing
+    )
 
 Process and create a raster file containing distance values for each cell from a target geometry.
-
-Writes to `dst_file` as a Cloud Optimized Geotiff.
 
 # Arguments
 - `src_file` : Path to raster file for processing. Distance will be calculated for all valid pixels.
@@ -388,7 +376,7 @@ function distance_raster(
     target_missingval,
     dst_file::String,
     units::String
-)::Nothing
+)
     if isfile(dst_file)
         @warn "Data not processed as $(dst_file) already exists."
         return
@@ -398,7 +386,7 @@ function distance_raster(
     target_raster = filter_distances(target_raster, distance_buffer)
     target_raster = calc_distances(target_raster, distance_points; units=units)
 
-    target_raster = set_consistent_missingval!(target_raster, target_missingval)
+    target_raster = set_consistent_missingval(target_raster, target_missingval)
     write(dst_file, target_raster)
     target_raster = nothing
     force_gc_cleanup()
@@ -407,24 +395,22 @@ function distance_raster(
 end
 
 """
-    find_valid_locs(
-        criteria_paths::NamedTuple,
+    function find_valid_locs(
+        criteria_paths::Dict,
         benthic_ids::Vector,
         geomorph_ids::Vector,
         first_min_size::Int64,
-        first_window::Tuple{Int64, Int64},
+        first_window::Tuple{Int64},
         second_min_size::Int64,
-        second_window::Tuple{Int64, Int64},
+        second_window::Tuple{Int64},
         dst_file::String,
         reg::String
     )::Nothing
 
 Find the pixels that are covered by valid data for all criteria and benthic/geomorphic IDs.
 
-Writes to `dst_file` as a Cloud Optimized Geotiff.
-
 # Arguments
-- `criteria_paths` : NamedTuple containing criteria_fn as keys and path_to_raster_input as values.
+- `criteria_paths` : Dict containing criteria_fn as keys and path_to_raster_input as values.
 - `benthic_ids` : Vector containing the IDs used to filter desired benthic criteria.
 - `geomorph_ids` : Vector containing the IDs used to filder desired geomorphic critera (either flat or slope IDs).
 - `first_min_size` : Size of minimum cluster to use in `remove_orphaned_elements()` raster cleaning.
@@ -435,13 +421,13 @@ Writes to `dst_file` as a Cloud Optimized Geotiff.
 - `reg` : Current processing region.
 """
 function find_valid_locs(
-    criteria_paths::NamedTuple,
+    criteria_paths::Dict,
     benthic_ids::Vector,
     geomorph_ids::Vector,
     first_min_size::Int64,
-    first_window::Tuple{Int64,Int64},
+    first_window::Tuple{Int64},
     second_min_size::Int64,
-    second_window::Tuple{Int64,Int64},
+    second_window::Tuple{Int64},
     dst_file::String,
     reg::String
 )::Nothing
@@ -450,37 +436,37 @@ function find_valid_locs(
         return
     end
 
-    src_bathy = Raster(criteria_paths[:bathy_fn])
+    src_bathy = Raster(criteria_paths["bathy_fn"])
     bathy_crit = boolmask(src_bathy)
     rst_template = nothing
     force_gc_cleanup(; wait_time=10)  # Needs extra time to clear it seems
 
-    src_slope = Raster(criteria_paths[:slope_fn])
+    src_slope = Raster(criteria_paths["slope_fn"])
     slope_crit = boolmask(src_slope)
     src_slope = nothing
     force_gc_cleanup(; wait_time=2)
 
-    src_benthic = Raster(criteria_paths[:benthic_fn])
+    src_benthic = Raster(criteria_paths["benthic_fn"])
     benthic_crit = src_benthic .∈ [benthic_ids]
     src_benthic = nothing
     force_gc_cleanup(; wait_time=2)
 
-    src_geomorphic = Raster(criteria_paths[:geomorph_fn])
+    src_geomorphic = Raster(criteria_paths["geomorph_fn"])
     geomorphic_crit = src_geomorphic .∈ [geomorph_ids]
     src_geomorphic = nothing
     force_gc_cleanup(; wait_time=2)
 
-    src_waves_Hs = Raster(criteria_paths[:waves_Hs_fn])
+    src_waves_Hs = Raster(criteria_paths["waves_Hs_fn"])
     Hs_waves_crit = boolmask(src_waves_Hs)
     src_waves_Hs = nothing
     force_gc_cleanup(; wait_time=2)
 
-    src_waves_Tp = Raster(criteria_paths[:waves_Tp_fn])
+    src_waves_Tp = Raster(criteria_paths["waves_Tp_fn"])
     Tp_waves_crit = boolmask(src_waves_Tp)
     src_waves_Tp = nothing
     force_gc_cleanup(; wait_time=2)
 
-    src_turbid = Raster(criteria_paths[:turbid_fn])
+    src_turbid = Raster(criteria_paths["turbid_fn"])
     turbid_crit = boolmask(src_turbid)
     src_turbid = nothing
     force_gc_cleanup(; wait_time=2)
@@ -497,7 +483,7 @@ function find_valid_locs(
     )
 
     if reg == "Townsville-Whitsunday"
-        src_rugosity = Raster(criteria_paths[:rugosity_fn])
+        src_rugosity = Raster(criteria_paths["rugosity_fn"])
         valid_areas .= valid_areas .& boolmask(src_rugosity)
         src_rugosity = nothing
         force_gc_cleanup(; wait_time=2)
