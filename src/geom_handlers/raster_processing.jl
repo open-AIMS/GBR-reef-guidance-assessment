@@ -147,13 +147,13 @@ function calc_distances(
 end
 
 """
-        function process_bottom_UTM_raster(
-        src_file,
-        input_crs,
-        target_crs,
-        target_missingval,
-        output_fn
-    )
+    process_bottom_UTM_raster(
+        src_file::String,
+        dst_file::String,
+        target_crs::GFT.CoordinateReferenceSystemFormat,
+        target_missingval::Float64,
+        reg::String
+    )::Nothing
 
 Process bathymetry, slope and rugosity datasets from raw input data files and output to `output_fn`
 location. These datasets are in region UTM zone CRS.
@@ -163,6 +163,7 @@ location. These datasets are in region UTM zone CRS.
 - `dst_file` : File location name to create output file. Should include variable and region information.
 - `target_crs` : Target CRS object to use in Rasters.resample(). e.g. using GFT.EPSG() format.
 - `target_missingval` : Consistent missingval to use in output raster.
+- `reg` : Region name for input CRS definition.
 
 """
 function process_bottom_UTM_raster(
@@ -187,12 +188,12 @@ function process_bottom_UTM_raster(
 end
 
 """
-        function trim_extent_region(
-        src_file,
-        input_crs,
-        target_region_geom,
-        dst_file
-    )
+    trim_extent_region(
+        src_file::String,
+        input_crs::GFT.CoordinateReferenceSystemFormat,
+        target_region_geom::Vector{AG.IGeometry{AG.wkbMultiPolygon}},
+        dst_file::String
+    )::Union{Raster,Nothing}
 
 Trim larger input raster to the extent of region_geom geometry.
 
@@ -210,7 +211,7 @@ function trim_extent_region(
     input_crs::GFT.CoordinateReferenceSystemFormat,
     target_region_geom::Vector{AG.IGeometry{AG.wkbMultiPolygon}},
     dst_file::String
-)
+)::Union{Raster,Nothing}
     if isfile(dst_file)
         @warn "Data not processed as $(dst_file) already exists."
         return
@@ -227,11 +228,11 @@ function trim_extent_region(
 end
 
 """
-        function resample_and_write(
-        input_raster,
-        template_raster
-        dst_file
-    )
+    resample_and_write(
+        input_raster::Union{Raster,Nothing},
+        template_raster::Raster
+        dst_file::String
+    )::Nothing
 
 Resample input_raster to template_raster to ensure matching spatial extent, CRS and resolution.
 
@@ -256,7 +257,7 @@ function resample_and_write(
 end
 
 """
-    function process_wave_data(
+    process_wave_data(
         src_file::String,
         dst_file::String,
         data_layer::Symbol,
@@ -354,14 +355,14 @@ function process_wave_data(
 end
 
 """
-        function distance_raster(
+    distance_raster(
         src_file::String,
         distance_buffer::DataFrame,
         distance_points::DataFrame,
         target_missingval,
         dst_file::String,
         units::String
-    )
+    )::Nothing
 
 Process and create a raster file containing distance values for each cell from a target geometry.
 
@@ -380,7 +381,7 @@ function distance_raster(
     target_missingval,
     dst_file::String,
     units::String
-)
+)::Nothing
     if isfile(dst_file)
         @warn "Data not processed as $(dst_file) already exists."
         return
@@ -399,7 +400,7 @@ function distance_raster(
 end
 
 """
-    function find_valid_locs(
+    find_valid_locs(
         criteria_paths::NamedTuple,
         benthic_ids::Vector,
         geomorph_ids::Vector,
