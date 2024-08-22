@@ -109,7 +109,7 @@ end
 
     # Process GBR-wide raster data
     # Load bathymetry data to provide corresponding spatial extent
-    bathy_gda2020 = Raster(criteria_paths[:bathy_fn]; crs=EPSG_7844 lazy=true)
+    bathy_gda2020 = Raster(criteria_paths[:bathy_fn]; crs=EPSG_7844, lazy=true)
 
     raw_benthic_fn = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
     target_benthic = trim_extent_region(
