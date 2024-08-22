@@ -126,3 +126,61 @@ end
 # search_plot = create_poly(create_bbox(xs, ys), EPSG(7856))
 
 # b_score, b_degree, b_polys = identify_potential_sites(rst2, 80.0, search_plot, 5.0)
+
+"""
+    geometry_exclusion_process(
+        input_file::String,
+        dst_file::String,
+        input_crs::GFT.CoordinateReferenceSystemFormat,
+        target_crs::GFT.CoordinateReferenceSystemFormat,
+        exclude_col::Symbol,
+        exclude_ids::Vector;
+        geom_col::Symbol=:geometry
+    )::Nothing
+
+Process the input vector data and select only geometries that have the label that is to be
+excluded from analyses. For example, to exclude "Preservation Zones" from analyses in step 2
+"Preservation Zones" would be an element of `exclude_ids` and then an inverse mask applied in step 2.
+
+# Arguments
+- `input_file` : Path to input vector data file.
+- `dst_file` : Path to output vector data with only target geometries.
+- `input_crs` : CRS of input data.
+- `target_crs` : CRS of target analyses.
+- `exclude_col` : Name of column containing target labels in the input file.
+- `exclude_ids` : Vector containing IDs to exclude from exclude_col.
+- `geom_col` : Name of column containing geometries. Default `geometry`.
+"""
+function geometry_exclusion_process(
+    input_file::String,
+    dst_file::String,
+    input_crs::GFT.CoordinateReferenceSystemFormat,
+    target_crs::GFT.CoordinateReferenceSystemFormat,
+    exclude_col::Symbol,
+    exclude_ids::Vector;
+    geom_col::Symbol=:geometry
+)::Nothing
+    if isfile(dst_file)
+        @warn "Data not processed as $(dst_file) already exists."
+        return
+    end
+
+    target_gdf = GDF.read(input_file)
+    if geom_col != :geometry
+        rename!(target_gdf, geom_col => :geometry)
+    end
+
+    if input_crs != target_crs
+        target_gdf.geometry = AG.reproject(
+            target_gdf.geometry,
+            input_crs,
+            target_crs;
+            order=:trad
+        )
+    end
+
+    target_gdf = target_gdf[target_gdf[:, exclude_col] .∈ [exclude_ids], :]
+    GDF.write(dst_file, target_gdf; crs=target_crs)
+
+    return nothing
+end
