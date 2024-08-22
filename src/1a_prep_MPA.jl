@@ -16,6 +16,7 @@ compression.
 
 include("common.jl")
 include("geom_handlers/raster_processing.jl")
+include("geom_handlers/lookup_processing.jl")
 
 # This processing step requires all the memory available so we actually remove the workers
 # that were just set up.
@@ -78,126 +79,6 @@ end
 
 # 2. Process MPA files to represent GBRMPA regions in GDA2020 projection
 
-"""
-    stack_values(valid_mask, rst_stack)
-
-Extract values at specific lon/lat coordinates from a raster stack.
-Loads each stack into memory and extracts values a layer at a time.
-
-# Notes
-Currently expects the raster to have the default X/Y dimensions set.
-
-# Arguments
-- `valid_mask` : mask indicating locations of valid data
-- `rst_stack` : raster stack to extract data from
-
-# Returns
-Tables.jl-compatible vector of named tuples (to build a dataframe with)
-"""
-function stack_values(valid_mask, rst_stack)
-    # Collect locations in lat/longs
-    lons = collect(lookup(rst_stack, X))
-    lats = collect(lookup(rst_stack, Y))
-
-    sorted_valid_idx = sort(Tuple.(findall(valid_mask)))
-    lon_lats = collect(zip(lons[first.(sorted_valid_idx)], lats[last.(sorted_valid_idx)]))
-
-    # Create store, with three additional columns to make space for geometry, lon/lat index
-    v_store = Matrix(undef, length(lon_lats), length(names(rst_stack))+3)
-    for (i, stack_name) in enumerate(names(rst_stack))
-        # Read in valid subset
-        rst_tmp = read(
-            view(
-                rst_stack[stack_name],
-                sort(unique(first.(sorted_valid_idx))),
-                sort(unique(last.(sorted_valid_idx)))
-            )
-        )
-
-        get_index = i == 1
-        extracted = extract(rst_tmp, lon_lats; index=get_index)
-        if get_index
-            # Returned indices are relative to the view, not the source raster
-            # So we jump through some hoops to obtain the canonical indices.
-            inds = getfield.(extracted, :index)
-            true_lon_inds = lookup(rst_tmp, X).data.indices[1][first.(inds)]
-            true_lat_inds = lookup(rst_tmp, Y).data.indices[1][last.(inds)]
-
-            v_store[:, 1] .= getfield.(extracted, :geometry)
-            v_store[:, 2] .= true_lon_inds
-            v_store[:, 3] .= true_lat_inds
-            v_store[:, 4] .= getfield.(extracted, stack_name)
-        else
-            v_store[:, i+3] .= getfield.(extracted, stack_name)
-        end
-
-        rst_tmp = nothing
-        extracted = nothing
-        force_gc_cleanup(; wait_time=5)
-    end
-
-    return v_store
-end
-
-"""
-    geoparquet_df!(store_values::Matrix, col_names::Vector{Symbol})::DataFrame
-
-Create a GeoParquet-compatible dataframe by assigning correct type information
-for each column.
-
-# Arguments
-- `store_values` : Values to put into store
-- `col_names` : column names to use
-"""
-function geoparquet_df!(store_values::Matrix, col_names::Vector{Symbol})::DataFrame
-    store = try
-        DataFrame(store_values, col_names)
-    catch
-        @warn "Assuming values are in compatible namedtuple"
-        DataFrame(store_values)
-    end
-
-    for (i, col) in enumerate(eachcol(store))
-        store[!, i] = convert.(typeof(store[1, i]), col)
-    end
-
-    return store
-end
-
-"""
-    valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_file::String)::Nothing
-
-Create a lookup table of valid data pixels for fast querying of data layers.
-
-# Arguments
-- `raster_files` : NamedTuple containing the file path for each criteria raster file.
-- `valid_areas_file` : Path for file containing target valid areas (slopes or flats).
-- `dst_file` : Path to write parquet lookup file to.
-"""
-function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_file::String)::Nothing
-    # Create stack of prepared data
-    rst_stack = RasterStack(raster_files; lazy=true)
-
-    # Create lookup of valid data
-    valid_areas = Raster(valid_areas_file)
-    _valid = sparse(boolmask(valid_areas).data)
-    valid_areas = nothing
-    force_gc_cleanup()
-
-    col_names = vcat(:geometry, :lon_idx, :lat_idx, keys(raster_files)...)
-    area_values = stack_values(_valid, rst_stack)
-    area_store = geoparquet_df!(area_values, col_names)
-    GP.write(dst_file, area_store, (:geometry, ))
-
-    area_store = nothing
-    area_values = nothing
-    _valid = nothing
-    rst_stack = nothing
-    force_gc_cleanup(; wait_time=4)
-
-    return nothing
-end
-
 # If a file already exists it is skipped
 @showprogress dt = 10 "Prepping benthic/geomorphic/wave data..." for reg in REGIONS
     reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
@@ -219,22 +100,28 @@ end
         criteria_paths = NamedTupleTools.delete(criteria_paths, :rugosity_fn)
     end
 
-    # Process MPA bathymetry and slope raster files
+    # Process bathymetry, slope and rugosity UTM raster files
     raw_bathy_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-    process_MPA_bottom_raster(raw_bathy_fn, criteria_paths[:bathy_fn], bathy_gda2020, -9999.0)
+    process_bottom_UTM_raster(raw_bathy_fn, criteria_paths[:bathy_fn], EPSG_7844, -9999.0, reg)
 
     raw_slope_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "slope", reg)))
-    process_MPA_bottom_raster(raw_slope_fn, criteria_paths[:slope_fn], bathy_gda2020, -9999.0)
+    process_bottom_UTM_raster(raw_slope_fn, criteria_paths[:slope_fn], EPSG_7844, -9999.0, reg)
 
-    # Process GBR-wide and rugosity raster data
+    if reg == "Townsville-Whitsunday"
+        raw_rugosity_fn = joinpath(RUG_DATA_DIR, "std25_Rugosity_Townsville-Whitsunday.tif")
+        process_bottom_UTM_raster(raw_rugosity_fn, criteria_paths[:rugosity_fn], EPSG_7844, -9999.0, reg)
+    end
+
+    # Process GBR-wide raster data
     # Load bathymetry data to provide corresponding spatial extent
-    bathy_gda2020 = Raster(criteria_paths[:bathy_fn]; lazy=true)
+    bathy_gda2020 = Raster(criteria_paths[:bathy_fn]; crs=EPSG_7844 lazy=true)
 
     raw_benthic_fn = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
     target_benthic = trim_extent_region(
         raw_benthic_fn,
         EPSG_4326,
-        regions_4326[reg_idx_4326, :geometry]
+        regions_4326[reg_idx_4326, :geometry],
+        criteria_paths[:benthic_fn]
     )
     resample_and_write(target_benthic, bathy_gda2020, criteria_paths[:benthic_fn])
     target_benthic = nothing
@@ -244,7 +131,8 @@ end
     target_geomorphic = trim_extent_region(
         raw_geomorphic_fn,
         EPSG_4326,
-        regions_4326[reg_idx_4326, :geometry]
+        regions_4326[reg_idx_4326, :geometry],
+        criteria_paths[:geomorph_fn]
     )
     resample_and_write(target_geomorphic, bathy_gda2020, criteria_paths[:geomorph_fn])
     target_geomorphic = nothing
@@ -254,28 +142,17 @@ end
     target_turbid = trim_extent_region(
         raw_turbid_fn,
         EPSG_4326,
-        regions_4326[reg_idx_4326, :geometry]
+        regions_4326[reg_idx_4326, :geometry],
+        criteria_paths[:turbid_fn]
     )
     resample_and_write(target_turbid, bathy_gda2020, criteria_paths[:turbid_fn])
     target_turbid = nothing
     force_gc_cleanup()
 
-    if reg == "Townsville-Whitsunday"
-        raw_rugosity_fn = joinpath(RUG_DATA_DIR, "std25_Rugosity_Townsville-Whitsunday.tif")
-        target_rugosity = trim_extent_region(
-            raw_rugosity_fn,
-            EPSG_4326,
-            regions_4326[reg_idx_4326, :geometry]
-        )
-        resample_and_write(target_rugosity, bathy_gda2020, criteria_paths[:rugosity_fn])
-        target_rugosity = nothing
-        force_gc_cleanup()
-    end
-
     # Process wave raster data
     # Use bathy dataset as a template for writing netCDF data to geotiff
     src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-    rst_template = Raster(src_bathy_path, mappedcrs=EPSG(4326), lazy=true)
+    rst_template = Raster(src_bathy_path, crs=REGION_CRS_UTM[reg], mappedcrs=EPSG(4326), lazy=true)
 
     waves_Hs_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Hs", reg)))
     process_wave_data(waves_Hs_path, criteria_paths[:waves_Hs_fn], :Hs90, rst_template, bathy_gda2020, -9999.0)

@@ -119,7 +119,7 @@ if nworkers() < CONFIG["processing"]["N_PROCS"]
         global ACA_BENTHIC_IDS = ["Coral/Algae", "Rock"]
 
         # Known Proj strings for each GBRMPA zone - may remove in later cleanup?
-        global WAVE_REGION_CRS = Dict(
+        global REGION_CRS_UTM = Dict(
             "Townsville-Whitsunday" => GFT.EPSG(32755),
             "Cairns-Cooktown" => GFT.EPSG(32755),
             "Mackay-Capricorn" => GFT.EPSG(32756),

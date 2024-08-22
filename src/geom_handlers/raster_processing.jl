@@ -147,7 +147,7 @@ function calc_distances(
 end
 
 """
-        function process_MPA_bottom_raster(
+        function process_bottom_UTM_raster(
         src_file,
         input_crs,
         target_crs,
@@ -155,28 +155,29 @@ end
         output_fn
     )
 
-Process MPA bathymetry and slope datasets from raw input data files and output to `output_fn`
-location.
+Process bathymetry, slope and rugosity datasets from raw input data files and output to `output_fn`
+location. These datasets are in region UTM zone CRS.
 
 # Arguments
-- `src_file` : Path to raw GBRMPA bathymetry or slope raster file for processing.
+- `src_file` : Path to raw bathymetry, slope or rugosity raster files in UTM CRS for processing.
 - `dst_file` : File location name to create output file. Should include variable and region information.
 - `target_crs` : Target CRS object to use in Rasters.resample(). e.g. using GFT.EPSG() format.
 - `target_missingval` : Consistent missingval to use in output raster.
 
 """
-function process_MPA_bottom_raster(
+function process_bottom_UTM_raster(
     src_file::String,
     dst_file::String,
     target_crs::GFT.CoordinateReferenceSystemFormat,
-    target_missingval::Float64
+    target_missingval::Float64,
+    reg::String
 )::Nothing
     if isfile(dst_file)
         @warn "Data not processed as $(dst_file) already exists."
         return
     end
 
-    input_raster = Raster(src_file; mappedcrs=EPSG_4326)
+    input_raster = Raster(src_file; crs=REGION_CRS_UTM[reg], mappedcrs=EPSG_4326)
     input_raster = set_consistent_missingval!(input_raster, target_missingval)
 
     resample(input_raster; crs=target_crs, filename=dst_file, format="COG")
@@ -189,7 +190,8 @@ end
         function trim_extent_region(
         src_file,
         input_crs,
-        target_region_geom
+        target_region_geom,
+        dst_file
     )
 
 Trim larger input raster to the extent of region_geom geometry.
@@ -198,6 +200,7 @@ Trim larger input raster to the extent of region_geom geometry.
 - `src_file` : Location of raw input raster file for processing (intended for GBR-wide/rugosity files).
 - `input_crs` : CRS of input raster file using GFT.EPSG().
 - `target_region_geom` : Region geometry object to crop to.
+- `dst_file` : Path to output file. (File not created within this function, used to check if file already exists).
 
 # Returns
 - Raster with the spatial extent matching region_geom.
@@ -205,14 +208,15 @@ Trim larger input raster to the extent of region_geom geometry.
 function trim_extent_region(
     src_file::String,
     input_crs::GFT.CoordinateReferenceSystemFormat,
-    target_region_geom::Vector{AG.IGeometry{AG.wkbMultiPolygon}}
-)::Raster
+    target_region_geom::Vector{AG.IGeometry{AG.wkbMultiPolygon}},
+    dst_file::String
+)
     if isfile(dst_file)
         @warn "Data not processed as $(dst_file) already exists."
         return
     end
 
-    input_raster = Raster(src_file; mappedcrs=input_crs)
+    input_raster = Raster(src_file; mappedcrs=input_crs, lazy=true)
 
     return Rasters.trim(
         mask(
@@ -386,7 +390,7 @@ function distance_raster(
     target_raster = filter_distances(target_raster, distance_buffer)
     target_raster = calc_distances(target_raster, distance_points; units=units)
 
-    target_raster = set_consistent_missingval(target_raster, target_missingval)
+    target_raster = set_consistent_missingval!(target_raster, target_missingval)
     write(dst_file, target_raster)
     target_raster = nothing
     force_gc_cleanup()
@@ -400,9 +404,9 @@ end
         benthic_ids::Vector,
         geomorph_ids::Vector,
         first_min_size::Int64,
-        first_window::Tuple{Int64},
+        first_window::Tuple{Int64, Int64},
         second_min_size::Int64,
-        second_window::Tuple{Int64},
+        second_window::Tuple{Int64, Int64},
         dst_file::String,
         reg::String
     )::Nothing
@@ -425,9 +429,9 @@ function find_valid_locs(
     benthic_ids::Vector,
     geomorph_ids::Vector,
     first_min_size::Int64,
-    first_window::Tuple{Int64},
+    first_window::Tuple{Int64, Int64},
     second_min_size::Int64,
-    second_window::Tuple{Int64},
+    second_window::Tuple{Int64, Int64},
     dst_file::String,
     reg::String
 )::Nothing
