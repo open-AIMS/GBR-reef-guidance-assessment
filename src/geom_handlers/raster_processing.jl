@@ -241,7 +241,7 @@ Resample input_raster to template_raster to ensure matching spatial extent, CRS 
 - `dst_file` : File location name to create output file. Should include variable and region information.
 """
 function resample_and_write(
-    input_raster::Raster,
+    input_raster::Union{Raster,Nothing},
     rst_template::Raster,
     dst_file::String
 )::Nothing
@@ -429,9 +429,9 @@ function find_valid_locs(
     benthic_ids::Vector,
     geomorph_ids::Vector,
     first_min_size::Int64,
-    first_window::Tuple{Int64, Int64},
+    first_window::Tuple{Int64,Int64},
     second_min_size::Int64,
-    second_window::Tuple{Int64, Int64},
+    second_window::Tuple{Int64,Int64},
     dst_file::String,
     reg::String
 )::Nothing
