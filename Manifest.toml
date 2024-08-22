@@ -2359,7 +2359,7 @@ git-tree-sha1 = "b710a2b6de6a000f661290aaff8a23756ed21fb4"
 repo-rev = "resample-cog-write"
 repo-url = "https://www.github.com/ConnectedSystems/Rasters.jl"
 uuid = "a3a2b9e3-a471-40c9-b274-f788e487c689"
-version = "0.11.4"
+version = "0.11.5"
 
     [deps.Rasters.extensions]
     RastersArchGDALExt = "ArchGDAL"
