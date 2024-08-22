@@ -30,22 +30,17 @@ using SparseArrays, NamedTupleTools
 regions_4326 = GDF.read(REGION_PATH_4326)
 
 # 1. Process GBRMPA zoning geopackage to select only zones for site exclusion
-if !isfile(joinpath(MPA_OUTPUT_DIR, "GBRMPA_zone_exclusion.gpkg"))
-    GBRMPA_zoning_poly = GDF.read(
-        joinpath(
-            GDA2020_DATA_DIR,
-            "Great_Barrier_Reef_Marine_Park_Zoning_20_4418126048110066699.gpkg"
-        )
-    )
-    GBRMPA_zoning_poly = GBRMPA_zoning_poly[GBRMPA_zoning_poly.TYPE .∈ [MPA_EXCLUSION_ZONES], :]
-    rename!(GBRMPA_zoning_poly, :SHAPE => :geometry)
-
-    GDF.write(
-        joinpath(MPA_OUTPUT_DIR, "GBRMPA_zone_exclusion.gpkg"),
-        GBRMPA_zoning_poly;
-        crs=EPSG_7844
-    )
-end
+MPA_zoning_input = "$(GDA2020_DATA_DIR)/Great_Barrier_Reef_Marine_Park_Zoning_20_4418126048110066699.gpkg"
+MPA_preserv_zone_fn = joinpath(MPA_OUTPUT_DIR, "GBRMPA_preserv_zone_exclusion.gpkg")
+geometry_exclusion_process(
+    MPA_zoning_input,
+    MPA_preserv_zone_fn,
+    EPSG_7844,
+    EPSG_7844,
+    :TYPE,
+    MPA_EXCLUSION_ZONES;
+    geom_col=:SHAPE
+)
 
 if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
     port_locs = GDF.read("$(PORT_DATA_DIR)/ports_QLD_merc.shp")
