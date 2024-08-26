@@ -7,6 +7,7 @@ import ArchGDAL as AG
 import GeoInterface as GI
 import GeoFormatTypes as GFT
 
+
 """
     set_consistent_missingval!(raster, val)
 
@@ -158,6 +159,8 @@ end
 Process bathymetry, slope and rugosity datasets from raw input data files and output to `output_fn`
 location. These datasets are in region UTM zone CRS.
 
+Writes to `dst_file` as a Cloud Optimized Geotiff.
+
 # Arguments
 - `src_file` : Path to raw bathymetry, slope or rugosity raster files in UTM CRS for processing.
 - `dst_file` : File location name to create output file. Should include variable and region information.
@@ -195,7 +198,7 @@ end
         dst_file::String
     )::Union{Raster,Nothing}
 
-Trim larger input raster to the extent of region_geom geometry.
+Trim larger input raster to the extent of `region_geom` geometry.
 
 # Arguments
 - `src_file` : Location of raw input raster file for processing (intended for GBR-wide/rugosity files).
@@ -234,7 +237,9 @@ end
         dst_file::String
     )::Nothing
 
-Resample input_raster to template_raster to ensure matching spatial extent, CRS and resolution.
+Resample `input_raster` to `template_raster` to ensure matching spatial extent, CRS and resolution.
+
+Writes to `dst_file` as a Cloud Optimized Geotiff.
 
 # Arguments
 - `input_raster` : Input raster dataset for resampling to template_raster.
@@ -366,6 +371,8 @@ end
 
 Process and create a raster file containing distance values for each cell from a target geometry.
 
+Writes to `dst_file` as a Cloud Optimized Geotiff.
+
 # Arguments
 - `src_file` : Path to raster file for processing. Distance will be calculated for all valid pixels.
 - `distance_buffer` : DataFrame containing buffer polygon geometries for masking to remove pixels outside of target distance.
@@ -413,6 +420,8 @@ end
     )::Nothing
 
 Find the pixels that are covered by valid data for all criteria and benthic/geomorphic IDs.
+
+Writes to `dst_file` as a Cloud Optimized Geotiff.
 
 # Arguments
 - `criteria_paths` : NamedTuple containing criteria_fn as keys and path_to_raster_input as values.
