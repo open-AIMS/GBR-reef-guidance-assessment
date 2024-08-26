@@ -147,7 +147,7 @@ include("common.jl")
         suitable_areas = filter_distances(suitable_areas, port_locs, 200; units="NM")
 
         # Filter out cells occurring
-        GBRMPA_zone_exclusion = GDF.read(joinpath(MPA_OUTPUT_DIR, "GBRMPA_preserv_zone_exclusion.gpkg"))
+        GBRMPA_zone_exclusion = GDF.read(joinpath(MPA_OUTPUT_DIR, "GBRMPA_preservation_zone_exclusion.gpkg"))
         suitable_areas = Rasters.mask(suitable_areas; with=GBRMPA_zone_exclusion, invert=true, boundary=:touches)
 
         # Need a copy of raster data type to support writing to `tif`
