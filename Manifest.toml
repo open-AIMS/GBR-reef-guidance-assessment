@@ -2355,9 +2355,11 @@ version = "0.6.0"
 
 [[deps.Rasters]]
 deps = ["Adapt", "ColorTypes", "CommonDataModel", "ConstructionBase", "Dates", "DimensionalData", "DiskArrays", "Extents", "FillArrays", "Flatten", "GeoFormatTypes", "GeoInterface", "Missings", "Mmap", "OffsetArrays", "ProgressMeter", "RecipesBase", "Reexport", "Setfield"]
-git-tree-sha1 = "1dceb16b3f6982f4f161d30b6afc96349ef86c38"
+git-tree-sha1 = "b710a2b6de6a000f661290aaff8a23756ed21fb4"
+repo-rev = "resample-cog-write"
+repo-url = "https://www.github.com/ConnectedSystems/Rasters.jl"
 uuid = "a3a2b9e3-a471-40c9-b274-f788e487c689"
-version = "0.11.5"
+version = "0.11.4"
 
     [deps.Rasters.extensions]
     RastersArchGDALExt = "ArchGDAL"
