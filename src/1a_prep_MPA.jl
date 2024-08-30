@@ -480,8 +480,8 @@ end
             force_gc_cleanup(; wait_time=2)
         end
 
-        valid_slopes = valid_areas .& geomorphic_flat_crit
-        valid_flats = valid_areas .& geomorphic_slope_crit
+        valid_slopes = valid_areas .& geomorphic_slope_crit
+        valid_flats = valid_areas .& geomorphic_flat_crit
 
         # Clean up orphaned pixels (first and second pass)
         cleaned_slopes = remove_orphaned_elements(BitMatrix(valid_slopes.data), 7, (3,3))
