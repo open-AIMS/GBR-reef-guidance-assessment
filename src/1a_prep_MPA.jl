@@ -97,14 +97,14 @@ end
 
     # Process bathymetry, slope and rugosity UTM raster files
     raw_bathy_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-    process_bottom_UTM_raster(raw_bathy_fn, criteria_paths[:bathy_fn], EPSG_7844, -9999.0, reg)
+    process_UTM_raster(raw_bathy_fn, criteria_paths[:bathy_fn], EPSG_7844, -9999.0, reg)
 
     raw_slope_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "slope", reg)))
-    process_bottom_UTM_raster(raw_slope_fn, criteria_paths[:slope_fn], EPSG_7844, -9999.0, reg)
+    process_UTM_raster(raw_slope_fn, criteria_paths[:slope_fn], EPSG_7844, -9999.0, reg)
 
     if reg == "Townsville-Whitsunday"
         raw_rugosity_fn = joinpath(RUG_DATA_DIR, "std25_Rugosity_Townsville-Whitsunday.tif")
-        process_bottom_UTM_raster(raw_rugosity_fn, criteria_paths[:rugosity_fn], EPSG_7844, -9999.0, reg)
+        process_UTM_raster(raw_rugosity_fn, criteria_paths[:rugosity_fn], EPSG_7844, -9999.0, reg)
     end
 
     # Process GBR-wide raster data

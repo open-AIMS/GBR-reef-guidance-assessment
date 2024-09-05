@@ -148,7 +148,7 @@ function calc_distances(
 end
 
 """
-    process_bottom_UTM_raster(
+    process_UTM_raster(
         src_file::String,
         dst_file::String,
         target_crs::GFT.CoordinateReferenceSystemFormat,
@@ -169,7 +169,7 @@ Writes to `dst_file` as a Cloud Optimized Geotiff.
 - `reg` : Region name for input CRS definition.
 
 """
-function process_bottom_UTM_raster(
+function process_UTM_raster(
     src_file::String,
     dst_file::String,
     target_crs::GFT.CoordinateReferenceSystemFormat,
