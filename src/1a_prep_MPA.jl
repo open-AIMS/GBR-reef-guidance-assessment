@@ -80,16 +80,16 @@ end
 
     # Create NamedTuple to hold all output file paths.
     criteria_paths = (
-        bathy_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
-        slope_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
-        benthic_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
-        geomorph_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
-        waves_Hs_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
-        waves_Tp_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
-        turbid_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
-        rugosity_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"),
-        port_dist_slopes_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif"),
-        port_dist_flats_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
+        Depth = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
+        Benthic = joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
+        Geomorphic = joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
+        Slope = joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
+        Turbidity = joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
+        WavesHs = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
+        WavesTp = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
+        Rugosity = joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"),
+        Port_dist_slopes = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif"),
+        Port_dist_flats = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
     )
     if reg != "Townsville-Whitsunday"
         criteria_paths = NamedTupleTools.delete(criteria_paths, :rugosity_fn)
@@ -97,26 +97,26 @@ end
 
     # Process bathymetry, slope and rugosity UTM raster files
     raw_bathy_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-    process_UTM_raster(raw_bathy_fn, criteria_paths[:bathy_fn], EPSG_7844, -9999.0, reg)
+    process_UTM_raster(raw_bathy_fn, criteria_paths[:Depth], EPSG_7844, -9999.0, reg)
 
     raw_slope_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "slope", reg)))
-    process_UTM_raster(raw_slope_fn, criteria_paths[:slope_fn], EPSG_7844, -9999.0, reg)
+    process_UTM_raster(raw_slope_fn, criteria_paths[:Slope], EPSG_7844, -9999.0, reg)
 
     if reg == "Townsville-Whitsunday"
         raw_rugosity_fn = joinpath(RUG_DATA_DIR, "std25_Rugosity_Townsville-Whitsunday.tif")
-        process_UTM_raster(raw_rugosity_fn, criteria_paths[:rugosity_fn], EPSG_7844, -9999.0, reg)
+        process_UTM_raster(raw_rugosity_fn, criteria_paths[:Rugosity], EPSG_7844, -9999.0, reg)
     end
 
     # Process GBR-wide raster data
     # Load bathymetry data to provide corresponding spatial extent
-    bathy_gda2020 = Raster(criteria_paths[:bathy_fn]; crs=EPSG_7844, lazy=true)
+    bathy_gda2020 = Raster(criteria_paths[:Bathy]; crs=EPSG_7844, lazy=true)
 
     raw_benthic_fn = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
     target_benthic = trim_extent_region(
         raw_benthic_fn,
         EPSG_4326,
         regions_4326[reg_idx_4326, :geometry],
-        criteria_paths[:benthic_fn]
+        criteria_paths[:Benthic]
     )
     resample_and_write(target_benthic, bathy_gda2020, criteria_paths[:benthic_fn])
     target_benthic = nothing
@@ -127,9 +127,9 @@ end
         raw_geomorphic_fn,
         EPSG_4326,
         regions_4326[reg_idx_4326, :geometry],
-        criteria_paths[:geomorph_fn]
+        criteria_paths[:Geomorphic]
     )
-    resample_and_write(target_geomorphic, bathy_gda2020, criteria_paths[:geomorph_fn])
+    resample_and_write(target_geomorphic, bathy_gda2020, criteria_paths[:Geomorphic])
     target_geomorphic = nothing
     force_gc_cleanup()
 
@@ -138,9 +138,9 @@ end
         raw_turbid_fn,
         EPSG_4326,
         regions_4326[reg_idx_4326, :geometry],
-        criteria_paths[:turbid_fn]
+        criteria_paths[:Turbidity]
     )
-    resample_and_write(target_turbid, bathy_gda2020, criteria_paths[:turbid_fn])
+    resample_and_write(target_turbid, bathy_gda2020, criteria_paths[:Turbidity])
     target_turbid = nothing
     force_gc_cleanup()
 
@@ -150,10 +150,10 @@ end
     rst_template = Raster(src_bathy_path, crs=REGION_CRS_UTM[reg], mappedcrs=EPSG(4326), lazy=true)
 
     waves_Hs_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Hs", reg)))
-    process_wave_data(waves_Hs_path, criteria_paths[:waves_Hs_fn], :Hs90, rst_template, bathy_gda2020, -9999.0)
+    process_wave_data(waves_Hs_path, criteria_paths[:WavesHs], :Hs90, rst_template, bathy_gda2020, -9999.0)
 
     waves_Tp_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Tp", reg)))
-    process_wave_data(waves_Tp_path, criteria_paths[:waves_Tp_fn], :Tp90, rst_template, bathy_gda2020, -9999.0)
+    process_wave_data(waves_Tp_path, criteria_paths[:WavesTp], :Tp90, rst_template, bathy_gda2020, -9999.0)
 
     # Find locations containing valid data
     valid_slopes_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif")
@@ -184,7 +184,7 @@ end
         port_buffer,
         port_points,
         -9999.0,
-        criteria_paths[:port_dist_slopes_fn],
+        criteria_paths[:Port_dist_slopes],
         "NM"
     )
 
@@ -193,7 +193,7 @@ end
         port_buffer,
         port_points,
         -9999.0,
-        criteria_paths[:port_dist_flats_fn],
+        criteria_paths[:Port_dist_flats],
         "NM"
     )
 
