@@ -299,10 +299,26 @@ MPA bathymetric data to be available due to inconsistent reference systems/units
 All data in `1b_prep_aca.jl` are projected to EPSG:7844/GDA2020 prior to further analysis.
 
 ## Presentation
-
 Recommended Colors
 
 - Flats: #7570b3  (purple)
 - Slopes: #1b9e77  (green)
 
-https://colorbrewer2.org/#type=qualitative&scheme=Dark2&n=3
+### Web Mapping
+Initial results from GBR-reef-guidance-assessment are displayed in the Great Barrier Reef - 
+Reef Guidance Web Application (https://experience.arcgis.com/experience/a165d3d9123f44bd972adcf61ee3b859). 
+These results show flat and slope surrounding hectare suitability between 1-100% as well as context layers.
+Layers can be adjusted for position and transparency, and a grey scale map option is also available. 
+The initial suitability criteria are displayed under `Data Information`.
+
+Layers added for context include:
+- `QLD Port Locations` : Provided by Dr Marji Puotinen
+- `EcoRRAP Site Locations` : Provided by Dr Maren Toor
+- `Tourism Pontoon Locations` 
+- `Cruise Ship Transit Lanes`
+- `Designated Shipping Areas`
+- `Traditional Use of Marine Resources Agreement areas`
+- `Marine Park Zoning`
+- `Mean DHW data 1985-2023` : NOAA Observed DHW data provided by Dr Jessica Benthuysen
+- `Mean projected DHW data 2015-2100 (SSP2-4.5 CNRM-ESM2-1)` : Statistically downscaled data provided by Dr Jessica Benthuysen
+- `ReefMod reef outlines with contextual information` : Produced by canonical-reefs project (https://github.com/gbrrestoration/canonical-reefs)
