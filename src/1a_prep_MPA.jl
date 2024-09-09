@@ -88,11 +88,11 @@ end
         WavesHs = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
         WavesTp = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
         Rugosity = joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"),
-        Port_dist_slopes = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif"),
-        Port_dist_flats = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
+        PortDistSlopes = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif"),
+        PortDistFlats = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
     )
     if reg != "Townsville-Whitsunday"
-        criteria_paths = NamedTupleTools.delete(criteria_paths, :rugosity_fn)
+        criteria_paths = NamedTupleTools.delete(criteria_paths, :Rugosity)
     end
 
     # Process bathymetry, slope and rugosity UTM raster files
@@ -109,7 +109,7 @@ end
 
     # Process GBR-wide raster data
     # Load bathymetry data to provide corresponding spatial extent
-    bathy_gda2020 = Raster(criteria_paths[:Bathy]; crs=EPSG_7844, lazy=true)
+    bathy_gda2020 = Raster(criteria_paths[:Depth]; crs=EPSG_7844, lazy=true)
 
     raw_benthic_fn = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
     target_benthic = trim_extent_region(
@@ -118,7 +118,7 @@ end
         regions_4326[reg_idx_4326, :geometry],
         criteria_paths[:Benthic]
     )
-    resample_and_write(target_benthic, bathy_gda2020, criteria_paths[:benthic_fn])
+    resample_and_write(target_benthic, bathy_gda2020, criteria_paths[:Benthic])
     target_benthic = nothing
     force_gc_cleanup()
 
@@ -184,7 +184,7 @@ end
         port_buffer,
         port_points,
         -9999.0,
-        criteria_paths[:Port_dist_slopes],
+        criteria_paths[:PortDistSlopes],
         "NM"
     )
 
@@ -193,13 +193,21 @@ end
         port_buffer,
         port_points,
         -9999.0,
-        criteria_paths[:Port_dist_flats],
+        criteria_paths[:PortDistFlats],
         "NM"
     )
 
     # Create lookup tables to support fast querying
     slopes_lookup_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq")
-    valid_lookup(criteria_paths, valid_slopes_fn, slopes_lookup_fn)
+    valid_lookup(
+        NamedTupleTools.delete(criteria_paths, :PortDistFlats),
+        valid_slopes_fn,
+        slopes_lookup_fn
+    )
     flats_lookup_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats_lookup.parq")
-    valid_lookup(criteria_paths, valid_flats_fn, flats_lookup_fn)
+    valid_lookup(
+        NamedTupleTools.delete(criteria_paths, :PortDistSlopes),
+        valid_flats_fn,
+        flats_lookup_fn
+    )
 end

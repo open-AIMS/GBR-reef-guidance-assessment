@@ -146,7 +146,7 @@ include("common.jl")
         # Filter out cells over 200NM from the nearest port
         suitable_areas = filter_distances(suitable_areas, port_locs, 200; units="NM")
 
-        # Filter out cells occurring
+        # Filter out cells occurring in preservation zones
         GBRMPA_zone_exclusion = GDF.read(joinpath(MPA_OUTPUT_DIR, "GBRMPA_preservation_zone_exclusion.gpkg"))
         suitable_areas = Rasters.mask(suitable_areas; with=GBRMPA_zone_exclusion, invert=true, boundary=:touches)
 
