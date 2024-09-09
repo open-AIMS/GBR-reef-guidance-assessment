@@ -450,37 +450,37 @@ function find_valid_locs(
         return
     end
 
-    src_bathy = Raster(criteria_paths[:bathy_fn])
+    src_bathy = Raster(criteria_paths[:Depth])
     bathy_crit = boolmask(src_bathy)
     rst_template = nothing
     force_gc_cleanup(; wait_time=10)  # Needs extra time to clear it seems
 
-    src_slope = Raster(criteria_paths[:slope_fn])
+    src_slope = Raster(criteria_paths[:Slope])
     slope_crit = boolmask(src_slope)
     src_slope = nothing
     force_gc_cleanup(; wait_time=2)
 
-    src_benthic = Raster(criteria_paths[:benthic_fn])
+    src_benthic = Raster(criteria_paths[:Benthic])
     benthic_crit = src_benthic .∈ [benthic_ids]
     src_benthic = nothing
     force_gc_cleanup(; wait_time=2)
 
-    src_geomorphic = Raster(criteria_paths[:geomorph_fn])
+    src_geomorphic = Raster(criteria_paths[:Geomorphic])
     geomorphic_crit = src_geomorphic .∈ [geomorph_ids]
     src_geomorphic = nothing
     force_gc_cleanup(; wait_time=2)
 
-    src_waves_Hs = Raster(criteria_paths[:waves_Hs_fn])
+    src_waves_Hs = Raster(criteria_paths[:WavesHs])
     Hs_waves_crit = boolmask(src_waves_Hs)
     src_waves_Hs = nothing
     force_gc_cleanup(; wait_time=2)
 
-    src_waves_Tp = Raster(criteria_paths[:waves_Tp_fn])
+    src_waves_Tp = Raster(criteria_paths[:WavesTp])
     Tp_waves_crit = boolmask(src_waves_Tp)
     src_waves_Tp = nothing
     force_gc_cleanup(; wait_time=2)
 
-    src_turbid = Raster(criteria_paths[:turbid_fn])
+    src_turbid = Raster(criteria_paths[:Turbidity])
     turbid_crit = boolmask(src_turbid)
     src_turbid = nothing
     force_gc_cleanup(; wait_time=2)
@@ -497,7 +497,7 @@ function find_valid_locs(
     )
 
     if reg == "Townsville-Whitsunday"
-        src_rugosity = Raster(criteria_paths[:rugosity_fn])
+        src_rugosity = Raster(criteria_paths[:Rugosity])
         valid_areas .= valid_areas .& boolmask(src_rugosity)
         src_rugosity = nothing
         force_gc_cleanup(; wait_time=2)
