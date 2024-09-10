@@ -87,12 +87,14 @@ end
         Turbidity = joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
         WavesHs = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
         WavesTp = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
-        Rugosity = joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"),
         PortDistSlopes = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif"),
         PortDistFlats = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
     )
-    if reg != "Townsville-Whitsunday"
-        criteria_paths = NamedTupleTools.delete(criteria_paths, :Rugosity)
+    if reg == "Townsville-Whitsunday"
+        criteria_paths = NamedTupleTools.merge(
+            criteria_paths,
+            (Rugosity = joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"),)
+        )
     end
 
     # Process bathymetry, slope and rugosity UTM raster files
