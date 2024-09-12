@@ -162,7 +162,7 @@ location. These datasets are in region UTM zone CRS.
 Writes to `dst_file` as a Cloud Optimized Geotiff.
 
 # Arguments
-- `src_file` : Path to raw bathymetry, slope or rugosity raster files in UTM CRS for processing.
+- `src_file` : Path to raw bathymetry or slope raster files in UTM CRS for processing.
 - `dst_file` : File location name to create output file. Should include variable and region information.
 - `target_crs` : Target CRS object to use in Rasters.resample(). e.g. using GFT.EPSG() format.
 - `target_missingval` : Consistent missingval to use in output raster.
