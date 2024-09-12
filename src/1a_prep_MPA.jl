@@ -97,17 +97,12 @@ end
         )
     end
 
-    # Process bathymetry, slope and rugosity UTM raster files
+    # Process bathymetry and slope UTM raster files
     raw_bathy_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
     process_UTM_raster(raw_bathy_fn, criteria_paths[:Depth], EPSG_7844, -9999.0, reg)
 
     raw_slope_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "slope", reg)))
     process_UTM_raster(raw_slope_fn, criteria_paths[:Slope], EPSG_7844, -9999.0, reg)
-
-    if reg == "Townsville-Whitsunday"
-        raw_rugosity_fn = joinpath(RUG_DATA_DIR, "std25_Rugosity_Townsville-Whitsunday.tif")
-        process_UTM_raster(raw_rugosity_fn, criteria_paths[:Rugosity], EPSG_7844, -9999.0, reg)
-    end
 
     # Process GBR-wide raster data
     # Load bathymetry data to provide corresponding spatial extent
@@ -145,6 +140,16 @@ end
     resample_and_write(target_turbid, bathy_gda2020, criteria_paths[:Turbidity])
     target_turbid = nothing
     force_gc_cleanup()
+
+    # Process Rugosity data
+    if reg == "Townsville-Whitsunday"
+        raw_rugosity_fn = joinpath(RUG_DATA_DIR, "std25_Rugosity_Townsville-Whitsunday.tif")
+        resample_and_write(
+            Raster(raw_rugosity_fn; crs=REGION_CRS_UTM[reg], mappedcrs=EPSG_4326),
+            bathy_gda2020,
+            criteria_paths[:Rugosity]
+        )
+    end
 
     # Process wave raster data
     # Use bathy dataset as a template for writing netCDF data to geotiff
