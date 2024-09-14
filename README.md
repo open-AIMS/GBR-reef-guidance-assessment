@@ -308,6 +308,7 @@ Recommended Colors
 - Slopes: #1b9e77  (green)
 
 ### Web Mapping
+
 Initial results from GBR-reef-guidance-assessment are displayed in the Great Barrier Reef -
 Reef Guidance Web Application (https://experience.arcgis.com/experience/a165d3d9123f44bd972adcf61ee3b859).
 These results show flat and slope surrounding hectare suitability between 1-100% as well as context layers.
