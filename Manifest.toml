@@ -2,7 +2,7 @@
 
 julia_version = "1.10.4"
 manifest_format = "2.0"
-project_hash = "f6398f29565c60bd1024da0436d49896907eb2cf"
+project_hash = "3e871a48c621e1e63b12c15e7e445feef1b40f35"
 
 [[deps.ASCIIrasters]]
 git-tree-sha1 = "1880b17ca0e1c0edd3fa8a968fca20516af7436a"
@@ -1983,6 +1983,11 @@ git-tree-sha1 = "1a0fa0e9613f46c9b8c11eee38ebb4f590013c5e"
 uuid = "71a1bf82-56d0-4bbc-8a3c-48b961074391"
 version = "0.1.5"
 
+[[deps.NamedTupleTools]]
+git-tree-sha1 = "90914795fc59df44120fe3fff6742bb0d7adb1d0"
+uuid = "d9ec5142-1e00-5aa0-9d6a-321866360f50"
+version = "0.14.3"
+
 [[deps.NaturalEarth]]
 deps = ["Downloads", "GeoJSON", "Pkg", "Scratch"]
 git-tree-sha1 = "3f75210ac08fe4496a55f9694b95859c40b8eaea"
@@ -2350,7 +2355,9 @@ version = "0.6.0"
 
 [[deps.Rasters]]
 deps = ["Adapt", "ColorTypes", "CommonDataModel", "ConstructionBase", "Dates", "DimensionalData", "DiskArrays", "Extents", "FillArrays", "Flatten", "GeoFormatTypes", "GeoInterface", "Missings", "Mmap", "OffsetArrays", "ProgressMeter", "RecipesBase", "Reexport", "Setfield"]
-path = "../Rasters.jl"
+git-tree-sha1 = "b710a2b6de6a000f661290aaff8a23756ed21fb4"
+repo-rev = "resample-cog-write"
+repo-url = "https://www.github.com/ConnectedSystems/Rasters.jl"
 uuid = "a3a2b9e3-a471-40c9-b274-f788e487c689"
 version = "0.11.4"
 
