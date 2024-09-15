@@ -5,6 +5,8 @@ Output raster files with proportional suitability.
 """
 
 include("common.jl")
+include("geom_handlers/raster_processing.jl")
+include("geom_handlers/geom_ops.jl")
 
 
 """
@@ -60,13 +62,13 @@ function port_buffer_mask(gdf::DataFrame, dist::Float64; unit::String="NM")
 end
 
 function load_and_assess(data_path, lb, ub)
-    src_data = Raster(data_path)
+    src_data = Raster(data_path; lazy=true)
     in_criteria = (lb .<= src_data .<= ub)
 
     return in_criteria
 end
 function load_and_assess(data_path, func)
-    src_data = Raster(data_path)
+    src_data = Raster(data_path; lazy=true)
 
     return func(src_data)
 end
@@ -114,13 +116,28 @@ function assess_region(reg, port_buffer)
     )
 
     if reg == "Townsville-Whitsunday"
-        src_rugosity = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"))
-        suitable_areas .= suitable_areas .& (src_rugosity .< 6)
+        src_rugosity = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"); lazy=true)
+        suitable_areas = suitable_areas .& (src_rugosity .< 6)
         src_rugosity = nothing
     end
     end  # end raster comparison
 
     end  # initial assessment
+
+    # Filter out cells occurring in preservation zones
+    GBRMPA_zone_exclusion = GDF.read(joinpath(MPA_OUTPUT_DIR, "GBRMPA_preservation_zone_exclusion.gpkg"))
+    region_extent = GI.extent(suitable_areas)
+    rst_extent = [
+        GI.Polygon(
+            create_poly(create_bbox(region_extent.X, region_extent.Y), EPSG(7844))
+        )
+    ]
+    in_region = GO.within.(GBRMPA_zone_exclusion.geometry, rst_extent)
+    GBRMPA_zone_exclusion = GBRMPA_zone_exclusion[in_region, :]
+
+    for polygon in GBRMPA_zone_exclusion.geometry
+        suitable_areas = mask(suitable_areas; with=polygon, invert=true, boundary=:touches)
+    end
 
     # Need a copy of raster data type to support writing to `tif`
     # Assess flats
@@ -131,6 +148,11 @@ function assess_region(reg, port_buffer)
     rebuild(result_raster; missingval=0)
 
     suitable_flats = suitable_areas .& geomorphic_flat_crit
+    cleaned_flats = remove_orphaned_elements(BitMatrix(suitable_flats.data), 7, (3, 3))
+    cleaned_flats = remove_orphaned_elements(cleaned_flats, 70, (9, 9))
+
+    suitable_flats.data .= cleaned_flats
+    cleaned_flats = nothing
 
     # Calculate suitability of 10x10m surroundings of each cell
     res = proportion_suitable(suitable_flats.data)
@@ -150,6 +172,11 @@ function assess_region(reg, port_buffer)
     @info "    Assess slopes"
     @time begin
     suitable_slopes = suitable_areas .& geomorphic_slope_crit
+    cleaned_slopes = remove_orphaned_elements(BitMatrix(suitable_slopes.data), 7, (3, 3))
+    cleaned_slopes = remove_orphaned_elements(cleaned_slopes, 70, (9, 9))
+
+    suitable_slopes.data .= cleaned_slopes
+    cleaned_slopes = nothing
 
     # Calculate suitability of 10x10m surroundings of each cell
     res .= proportion_suitable(suitable_slopes.data)

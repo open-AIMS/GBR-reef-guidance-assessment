@@ -5,6 +5,8 @@ Output raster files with suitability proportions.
 """
 
 include("common.jl")
+include("geom_handlers/raster_processing.jl")
+include("geom_handlers/geom_ops.jl")
 
 @everywhere begin
     """
@@ -148,7 +150,18 @@ include("common.jl")
 
         # Filter out cells occurring in preservation zones
         GBRMPA_zone_exclusion = GDF.read(joinpath(MPA_OUTPUT_DIR, "GBRMPA_preservation_zone_exclusion.gpkg"))
-        suitable_areas = Rasters.mask(suitable_areas; with=GBRMPA_zone_exclusion, invert=true, boundary=:touches)
+        region_extent = GI.extent(suitable_areas)
+        rst_extent = [
+            GI.Polygon(
+                create_poly(create_bbox(region_extent.X, region_extent.Y), EPSG(7844))
+            )
+        ]
+        in_region = GO.within.(GBRMPA_zone_exclusion.geometry, rst_extent)
+        GBRMPA_zone_exclusion = GBRMPA_zone_exclusion[in_region, :]
+
+        for polygon in GBRMPA_zone_exclusion.geometry
+            suitable_areas = mask(suitable_areas; with=polygon, invert=true, boundary=:touches)
+        end
 
         # Need a copy of raster data type to support writing to `tif`
         result_raster = convert.(Int16, copy(suitable_areas))

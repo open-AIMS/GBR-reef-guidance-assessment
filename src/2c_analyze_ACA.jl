@@ -5,6 +5,8 @@ Output raster files with suitability proportions.
 """
 
 include("common.jl")
+include("geom_handlers/raster_processing.jl")
+include("geom_handlers/geom_ops.jl")
 
 @everywhere begin
     """
@@ -61,6 +63,21 @@ include("common.jl")
         # Create reef-scale raster with suitable bathy, turbidity and benthic criteria
         benthic_poly = GDF.read(joinpath(ACA_OUTPUT_DIR, "aca_benthic_$(reg).gpkg"))
         suitable_benthic = Rasters.trim(mask(suitable_raster; with=benthic_poly, boundary=:touches))
+
+        # Filter out cells occurring in preservation zones
+        GBRMPA_zone_exclusion = GDF.read(joinpath(MPA_OUTPUT_DIR, "GBRMPA_preservation_zone_exclusion.gpkg"))
+        region_extent = GI.extent(suitable_benthic)
+        rst_extent = [
+            GI.Polygon(
+                create_poly(create_bbox(region_extent.X, region_extent.Y), EPSG(7844))
+            )
+        ]
+        in_region = GO.within.(GBRMPA_zone_exclusion.geometry, rst_extent)
+        GBRMPA_zone_exclusion = GBRMPA_zone_exclusion[in_region, :]
+
+        for polygon in GBRMPA_zone_exclusion.geometry
+            suitable_benthic = mask(suitable_benthic; with=polygon, invert=true, boundary=:touches)
+        end
 
         # Need a copy of raster data type to support writing to `tif`
         result_raster = convert.(Int16, copy(suitable_benthic))
