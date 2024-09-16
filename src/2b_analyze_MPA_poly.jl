@@ -167,6 +167,6 @@ function assess_region(reg, port_buffer)
 end
 
 # Load QLD_ports buffer data
-port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_buffer.gpkg"))[:,:geometry]
+port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))[:,:geometry]
 
 @showprogress dt = 10 desc = "Analyzing..." map(x -> assess_region(x, port_buffer), REGIONS)

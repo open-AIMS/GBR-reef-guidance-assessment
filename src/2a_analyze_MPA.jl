@@ -39,7 +39,7 @@ include("geom_handlers/geom_ops.jl")
     end
 
     # Load QLD_ports buffer data
-    port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_buffer.gpkg"))[:,:geometry]
+    port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))[:,:geometry]
 
     function assess_region(reg, port_buffer)
         # Load required prepared raster files for analysis
