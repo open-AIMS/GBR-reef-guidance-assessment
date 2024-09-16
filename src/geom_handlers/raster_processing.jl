@@ -184,7 +184,7 @@ function process_UTM_raster(
     input_raster = Raster(src_file; crs=REGION_CRS_UTM[reg], mappedcrs=EPSG_4326)
     input_raster = set_consistent_missingval!(input_raster, target_missingval)
 
-    resample(input_raster; crs=target_crs, filename=dst_file, format="COG")
+    resample(input_raster; crs=target_crs, filename=dst_file, format="COG", method=:bilinear)
     force_gc_cleanup(; wait_time=2)
 
     return nothing
@@ -256,7 +256,7 @@ function resample_and_write(
         return
     end
 
-    resample(input_raster; to=rst_template, filename=dst_file, format="COG")
+    resample(input_raster; to=rst_template, filename=dst_file, format="COG", method=:bilinear)
 
     return nothing
 end
@@ -353,7 +353,7 @@ function process_wave_data(
     force_gc_cleanup()
 
     # Reproject raster to GDA2020 (degree projection)
-    resample(target_waves; to=target_rst, filename=dst_file, format="COG")
+    resample(target_waves; to=target_rst, filename=dst_file, format="COG", method=:bilinear)
     force_gc_cleanup(; wait_time=2)
 
     return nothing
