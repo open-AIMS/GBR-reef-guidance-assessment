@@ -137,7 +137,12 @@ end
         regions_4326[reg_idx_4326, :geometry],
         criteria_paths[:Turbidity]
     )
-    resample_and_write(target_turbid, bathy_gda2020, criteria_paths[:Turbidity])
+    resample_and_write(
+        target_turbid,
+        bathy_gda2020,
+        criteria_paths[:Turbidity];
+        method=:bilinear
+    )
     target_turbid = nothing
     force_gc_cleanup()
 
@@ -147,7 +152,8 @@ end
         resample_and_write(
             Raster(raw_rugosity_fn; crs=REGION_CRS_UTM[reg], mappedcrs=EPSG_4326),
             bathy_gda2020,
-            criteria_paths[:Rugosity]
+            criteria_paths[:Rugosity];
+            method=:bilinear
         )
     end
 
