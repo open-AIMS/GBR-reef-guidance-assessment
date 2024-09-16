@@ -38,67 +38,10 @@ include("geom_handlers/geom_ops.jl")
         return nothing
     end
 
-    """
-        filter_distances(
-            target_rast::Raster,
-            gdf::DataFrame,
-            dist_nm
-        )::Raster
+    # Load QLD_ports buffer data
+    port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_buffer.gpkg"))[:,:geometry]
 
-    Exclude pixels in target_rast that are beyond `dist_nm` (nautical miles) from a geometry
-    in `gdf`. Target_rast and gdf should be in the same CRS (EPSG:7844 / GDA2020 for GBR-reef-guidance-assessment).
-
-    # Arguments
-    - `target_rast` : Raster of suitable pixels (Bool) to filter pixels from.
-    - `gdf` : DataFrame with `geometry` column that contains vector objects of interest.
-    - `dist_nm` : Filtering distance from geometry object in nautical miles.
-
-    # Returns
-    - `tmp_areas` : Raster of filtered pixels containing only pixels within target distance
-    from a geometry centroid.
-    """
-    function filter_distances(target_rast::Raster, gdf::DataFrame, dist; units::String="NM")::Raster
-        tmp_areas = copy(target_rast)
-
-        # First dimension is the rows (latitude)
-        # Second dimension is the cols (longitude)
-        raster_lat = Vector{Float64}(tmp_areas.dims[1].val)
-        raster_lon = Vector{Float64}(tmp_areas.dims[2].val)
-
-        @floop for row_col in findall(tmp_areas)
-            (lat_ind, lon_ind) = Tuple(row_col)
-            point = AG.createpoint()
-
-            lon = raster_lon[lon_ind]
-            lat = raster_lat[lat_ind]
-            AG.addpoint!(point, lon, lat)
-
-            pixel_dists = AG.distance.([point], port_locs.geometry)
-            geom_point = gdf[argmin(pixel_dists), :geometry]
-            geom_point = (AG.getx(geom_point, 0), AG.gety(geom_point, 0))
-
-            dist_nearest = Distances.haversine(geom_point, (lon, lat))
-
-            # Convert from meters to nautical miles
-            if units == "NM"
-                dist_nearest = dist_nearest / 1852
-            end
-
-            # Convert from meters to kilometers
-            if units == "km"
-                dist_nearest = dist_nearest / 1000
-            end
-
-            tmp_areas.data[lon_ind, lat_ind] = dist_nearest < dist ? 1 : 0
-        end
-
-        return tmp_areas
-    end
-
-    # Load QLD_ports data
-    port_locs = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
-
-    function assess_region(reg)
+    function assess_region(reg, port_buffer)
         # Load required prepared raster files for analysis
         src_bathy = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG_7844)
         bathy_crit = (-9.0 .<= src_bathy .<= -2.0)
@@ -146,7 +89,7 @@ include("geom_handlers/geom_ops.jl")
         end
 
         # Filter out cells over 200NM from the nearest port
-        suitable_areas = filter_distances(suitable_areas, port_locs, 200; units="NM")
+        bathy_crit = filter_distances(bathy_crit, port_buffer)
 
         # Filter out cells occurring in preservation zones
         GBRMPA_zone_exclusion = GDF.read(joinpath(MPA_OUTPUT_DIR, "GBRMPA_preservation_zone_exclusion.gpkg"))
@@ -202,4 +145,4 @@ include("geom_handlers/geom_ops.jl")
     end
 end
 
-@showprogress dt = 10 desc = "Analyzing..." pmap(assess_region, REGIONS)
+@showprogress dt = 10 desc = "Analyzing..." map(x -> assess_region(x, port_buffer), REGIONS)

@@ -29,38 +29,6 @@ function proportion_suitable(x::BitMatrix)::Matrix{Int16}
     return x′
 end
 
-"""
-    port_buffer_mask(gdf::DataFrame, dist::Float64; unit::String="NM")
-
-Create a masking buffer around indicated port locations.
-
-# Arguments
-- `gdf` : GeoDataFrame of port locations (given as long/lat points)
-- `dist` : distance from port in degrees (deg), kilometers (km), or nautical miles (NM; default)
-- `unit` : unit `dist` is in
-"""
-function port_buffer_mask(gdf::DataFrame, dist::Float64; unit::String="NM")
-    # Determine conversion factor (nautical miles or kilometers)
-    conv_factor = 1.0
-    if unit == "NM"
-        conv_factor = 60.0  # 60 NM = 1 degree
-    elseif unit == "km"
-        conv_factor = 111.0  # 111 km = 1 degree
-    elseif unit != "deg"
-        error("Unknown distance unit requested. Can only be one of `NM` or `km` or `deg`")
-    end
-
-    ports = gdf.geometry  # TODO: Replace with `GI.geometrycolumns()`
-
-    # Make buffer around ports
-    buffered_ports = GO.buffer.(ports, dist / conv_factor)
-
-    # Combine all geoms into one
-    port_mask = reduce((x1, x2) -> LibGEOS.union(x1, x2), buffered_ports)
-
-    return port_mask
-end
-
 function load_and_assess(data_path, lb, ub)
     src_data = Raster(data_path; lazy=true)
     in_criteria = (lb .<= src_data .<= ub)
@@ -199,6 +167,6 @@ function assess_region(reg, port_buffer)
 end
 
 # Load QLD_ports buffer data
-port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))[:,:geometry]
+port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_buffer.gpkg"))[:,:geometry]
 
 @showprogress dt = 10 desc = "Analyzing..." map(x -> assess_region(x, port_buffer), REGIONS)
