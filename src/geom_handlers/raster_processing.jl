@@ -317,7 +317,7 @@ function process_wave_data(
     data_layer::Symbol,
     rst_template::Raster,
     target_rst::Raster,
-    target_missingval::Float64,
+    target_missingval::Float64;
     method::Symbol
 )::Nothing
     if isfile(dst_file)
