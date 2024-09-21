@@ -249,7 +249,8 @@ Writes to `dst_file` as a Cloud Optimized Geotiff.
 - `input_raster` : Input raster dataset for resampling to template_raster.
 - `rst_template` : Template raster for resampling.
 - `dst_file` : File location name to create output file. Should include variable and region information.
-- `method` : Resampling interpolation method (default is nearest-neighbour)(more information https://rafaqz.github.io/Rasters.jl/stable/api#Rasters.resample-Tuple).
+- `method` : Resampling interpolation method supported by Rasters.jl, defaulting to `:near` (nearest neighbor)
+             (See [Rasters.jl documentation](https://rafaqz.github.io/Rasters.jl/stable/api#Rasters.resample-Tuple)).
 """
 function resample_and_write(
     input_raster::Union{Raster,Nothing},
