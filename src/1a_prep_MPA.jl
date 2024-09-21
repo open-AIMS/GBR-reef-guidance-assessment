@@ -99,10 +99,10 @@ end
 
     # Process bathymetry and slope UTM raster files
     raw_bathy_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-    process_UTM_raster(raw_bathy_fn, criteria_paths[:Depth], EPSG_7844, -9999.0, reg)
+    process_UTM_raster(raw_bathy_fn, criteria_paths[:Depth], EPSG_7844, -9999.0, reg, :bilinear)
 
     raw_slope_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "slope", reg)))
-    process_UTM_raster(raw_slope_fn, criteria_paths[:Slope], EPSG_7844, -9999.0, reg)
+    process_UTM_raster(raw_slope_fn, criteria_paths[:Slope], EPSG_7844, -9999.0, reg, :bilinear)
 
     # Process GBR-wide raster data
     # Load bathymetry data to provide corresponding spatial extent
@@ -137,7 +137,12 @@ end
         regions_4326[reg_idx_4326, :geometry],
         criteria_paths[:Turbidity]
     )
-    resample_and_write(target_turbid, bathy_gda2020, criteria_paths[:Turbidity])
+    resample_and_write(
+        target_turbid,
+        bathy_gda2020,
+        criteria_paths[:Turbidity];
+        method=:bilinear
+    )
     target_turbid = nothing
     force_gc_cleanup()
 
@@ -147,7 +152,8 @@ end
         resample_and_write(
             Raster(raw_rugosity_fn; crs=REGION_CRS_UTM[reg], mappedcrs=EPSG_4326),
             bathy_gda2020,
-            criteria_paths[:Rugosity]
+            criteria_paths[:Rugosity];
+            method=:bilinear
         )
     end
 
@@ -157,10 +163,26 @@ end
     rst_template = Raster(src_bathy_path, crs=REGION_CRS_UTM[reg], mappedcrs=EPSG(4326), lazy=true)
 
     waves_Hs_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Hs", reg)))
-    process_wave_data(waves_Hs_path, criteria_paths[:WavesHs], :Hs90, rst_template, bathy_gda2020, -9999.0)
+    process_wave_data(
+        waves_Hs_path,
+        criteria_paths[:WavesHs],
+        :Hs90,
+        rst_template,
+        bathy_gda2020,
+        -9999.0,
+        :bilinear
+    )
 
     waves_Tp_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Tp", reg)))
-    process_wave_data(waves_Tp_path, criteria_paths[:WavesTp], :Tp90, rst_template, bathy_gda2020, -9999.0)
+    process_wave_data(
+        waves_Tp_path,
+        criteria_paths[:WavesTp],
+        :Tp90,
+        rst_template,
+        bathy_gda2020,
+        -9999.0,
+        :bilinear
+    )
 
     # Find locations containing valid data
     valid_slopes_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif")

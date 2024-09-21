@@ -153,7 +153,8 @@ end
         dst_file::String,
         target_crs::GFT.CoordinateReferenceSystemFormat,
         target_missingval::Float64,
-        reg::String
+        reg::String,
+        method::Symbol
     )::Nothing
 
 Process bathymetry, slope and rugosity datasets from raw input data files and output to `output_fn`
@@ -167,6 +168,7 @@ Writes to `dst_file` as a Cloud Optimized Geotiff.
 - `target_crs` : Target CRS object to use in Rasters.resample(). e.g. using GFT.EPSG() format.
 - `target_missingval` : Consistent missingval to use in output raster.
 - `reg` : Region name for input CRS definition.
+- `method` : Resampling interpolation method (more information https://rafaqz.github.io/Rasters.jl/stable/api#Rasters.resample-Tuple).
 
 """
 function process_UTM_raster(
@@ -174,7 +176,8 @@ function process_UTM_raster(
     dst_file::String,
     target_crs::GFT.CoordinateReferenceSystemFormat,
     target_missingval::Float64,
-    reg::String
+    reg::String,
+    method::Symbol
 )::Nothing
     if isfile(dst_file)
         @warn "Data not processed as $(dst_file) already exists."
@@ -184,7 +187,7 @@ function process_UTM_raster(
     input_raster = Raster(src_file; crs=REGION_CRS_UTM[reg], mappedcrs=EPSG_4326)
     input_raster = set_consistent_missingval!(input_raster, target_missingval)
 
-    resample(input_raster; crs=target_crs, filename=dst_file, format="COG", method=:bilinear)
+    resample(input_raster; crs=target_crs, filename=dst_file, format="COG", method=method)
     force_gc_cleanup(; wait_time=2)
 
     return nothing
@@ -233,8 +236,9 @@ end
 """
     resample_and_write(
         input_raster::Union{Raster,Nothing},
-        template_raster::Raster
-        dst_file::String
+        rst_template::Raster,
+        dst_file::String;
+        method::Symbol=:near
     )::Nothing
 
 Resample `input_raster` to `template_raster` to ensure matching spatial extent, CRS and resolution.
@@ -245,18 +249,21 @@ Writes to `dst_file` as a Cloud Optimized Geotiff.
 - `input_raster` : Input raster dataset for resampling to template_raster.
 - `rst_template` : Template raster for resampling.
 - `dst_file` : File location name to create output file. Should include variable and region information.
+- `method` : Resampling interpolation method supported by Rasters.jl, defaulting to `:near` (nearest neighbor)
+             (See [Rasters.jl documentation](https://rafaqz.github.io/Rasters.jl/stable/api#Rasters.resample-Tuple)).
 """
 function resample_and_write(
     input_raster::Union{Raster,Nothing},
     rst_template::Raster,
-    dst_file::String
+    dst_file::String;
+    method::Symbol=:near
 )::Nothing
     if isfile(dst_file)
         @warn "Data not processed as $(dst_file) already exists."
         return
     end
 
-    resample(input_raster; to=rst_template, filename=dst_file, format="COG", method=:bilinear)
+    resample(input_raster; to=rst_template, filename=dst_file, format="COG", method=method)
 
     return nothing
 end
@@ -268,7 +275,8 @@ end
         data_layer::Symbol,
         rst_template::Raster,
         target_rst::Raster,
-        target_missingval::Float64
+        target_missingval::Float64;
+        method::Symbol
     )::Nothing
 
 Process wave data from one CRS/PCS to another, writing the results out to disk in COG
@@ -298,6 +306,7 @@ assuming they are well aligned.
 - `rst_template` : Raster in the target Template to use to aid in resampling/reprojection
 - `target_rst` : Raster indicating the spatial extent to resample `src_file` into
 - `target_missingval` : Intended missingval for the Float64 output
+- `method` : Resampling interpolation method (more information https://rafaqz.github.io/Rasters.jl/stable/api#Rasters.resample-Tuple).
 
 # Returns
 Nothing
@@ -308,7 +317,8 @@ function process_wave_data(
     data_layer::Symbol,
     rst_template::Raster,
     target_rst::Raster,
-    target_missingval::Float64
+    target_missingval::Float64;
+    method::Symbol
 )::Nothing
     if isfile(dst_file)
         @warn "Wave data not processed as $(dst_file) already exists."
@@ -353,7 +363,7 @@ function process_wave_data(
     force_gc_cleanup()
 
     # Reproject raster to GDA2020 (degree projection)
-    resample(target_waves; to=target_rst, filename=dst_file, format="COG", method=:bilinear)
+    resample(target_waves; to=target_rst, filename=dst_file, format="COG", method=method)
     force_gc_cleanup(; wait_time=2)
 
     return nothing
