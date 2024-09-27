@@ -10,16 +10,16 @@ include("common.jl")
 """
     TODO: Replace with polygon-based search
 """
-function proportion_suitable(x::BitMatrix)::Matrix{Int16}
+function proportion_suitable(x::BitMatrix, window::Tuple)::Matrix{Int16}
     x′ = zeros(Int16, size(x))
 
     @floop for row_col in ThreadsX.findall(x)
         (row, col) = Tuple(row_col)
-        x_left = max(col - 4, 1)
-        x_right = min(col + 4, size(x, 2))
+        x_left = max(col + window[1], 1)
+        x_right = min(col + window[2], size(x, 2))
 
-        y_top = max(row - 4, 1)
-        y_bottom = min(row + 4, size(x, 1))
+        y_top = max(row + window[1], 1)
+        y_bottom = min(row + window[2], size(x, 1))
 
         x′[row, col] = Int16(sum(@views x[y_top:y_bottom, x_left:x_right]))
     end
@@ -27,46 +27,14 @@ function proportion_suitable(x::BitMatrix)::Matrix{Int16}
     return x′
 end
 
-"""
-    port_buffer_mask(gdf::DataFrame, dist::Float64; unit::String="NM")
-
-Create a masking buffer around indicated port locations.
-
-# Arguments
-- `gdf` : GeoDataFrame of port locations (given as long/lat points)
-- `dist` : distance from port in degrees (deg), kilometers (km), or nautical miles (NM; default)
-- `unit` : unit `dist` is in
-"""
-function port_buffer_mask(gdf::DataFrame, dist::Float64; unit::String="NM")
-    # Determine conversion factor (nautical miles or kilometers)
-    conv_factor = 1.0
-    if unit == "NM"
-        conv_factor = 60.0  # 60 NM = 1 degree
-    elseif unit == "km"
-        conv_factor = 111.0  # 111 km = 1 degree
-    elseif unit != "deg"
-        error("Unknown distance unit requested. Can only be one of `NM` or `km` or `deg`")
-    end
-
-    ports = gdf.geometry  # TODO: Replace with `GI.geometrycolumns()`
-
-    # Make buffer around ports
-    buffered_ports = GO.buffer.(ports, dist / conv_factor)
-
-    # Combine all geoms into one
-    port_mask = reduce((x1, x2) -> LibGEOS.union(x1, x2), buffered_ports)
-
-    return port_mask
-end
-
 function load_and_assess(data_path, lb, ub)
-    src_data = Raster(data_path)
+    src_data = Raster(data_path; lazy=true)
     in_criteria = (lb .<= src_data .<= ub)
 
     return in_criteria
 end
 function load_and_assess(data_path, func)
-    src_data = Raster(data_path)
+    src_data = Raster(data_path; lazy=true)
 
     return func(src_data)
 end
@@ -99,9 +67,6 @@ function assess_region(reg, port_buffer)
     @info "Initial assessment"
     @time begin
 
-    # Filter out cells over 200NM from the nearest port
-    bathy_crit = filter_distances(bathy_crit, port_buffer)
-
     # Apply filtering criteria to raster grid
     @time begin
     suitable_areas = (
@@ -114,11 +79,29 @@ function assess_region(reg, port_buffer)
     )
 
     if reg == "Townsville-Whitsunday"
-        src_rugosity = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"))
-        suitable_areas .= suitable_areas .& (src_rugosity .< 6)
+        src_rugosity = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"); lazy=true)
+        suitable_areas = suitable_areas .& (src_rugosity .<= 6)
         src_rugosity = nothing
     end
     end  # end raster comparison
+
+    # Filter out cells over 200NM from the nearest port
+    suitable_areas = filter_distances(suitable_areas, port_buffer)
+
+    # Filter out cells occurring in preservation zones
+    GBRMPA_zone_exclusion = GDF.read(joinpath(MPA_OUTPUT_DIR, "GBRMPA_preservation_zone_exclusion.gpkg"))
+    region_extent = GI.extent(suitable_areas)
+    rst_extent = [
+        GI.Polygon(
+            create_poly(create_bbox(region_extent.X, region_extent.Y), EPSG(7844))
+        )
+    ]
+    in_region = GO.within.(GBRMPA_zone_exclusion.geometry, rst_extent)
+    GBRMPA_zone_exclusion = GBRMPA_zone_exclusion[in_region, :]
+
+    for polygon in GBRMPA_zone_exclusion.geometry
+        suitable_areas = mask(suitable_areas; with=polygon, invert=true, boundary=:touches)
+    end
 
     end  # initial assessment
 
@@ -131,9 +114,14 @@ function assess_region(reg, port_buffer)
     rebuild(result_raster; missingval=0)
 
     suitable_flats = suitable_areas .& geomorphic_flat_crit
+    cleaned_flats = remove_orphaned_elements(BitMatrix(suitable_flats.data), 7, (3, 3))
+    cleaned_flats = remove_orphaned_elements(cleaned_flats, 70, (9, 9))
+
+    suitable_flats.data .= cleaned_flats
+    cleaned_flats = nothing
 
     # Calculate suitability of 10x10m surroundings of each cell
-    res = proportion_suitable(suitable_flats.data)
+    res = proportion_suitable(suitable_flats.data, (-4, 5))
     if reg == "Townsville-Whitsunday"
         fpath = joinpath(MPA_ANALYSIS_RESULTS, "$(reg)_suitable_flats_rugosity.tif")
     else
