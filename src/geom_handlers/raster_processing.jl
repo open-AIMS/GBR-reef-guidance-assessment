@@ -446,6 +446,7 @@ Writes to `dst_file` as a Cloud Optimized Geotiff.
 """
 function find_valid_locs(
     criteria_paths::NamedTuple,
+    mask_gdf::String,
     benthic_ids::Vector,
     geomorph_ids::Vector,
     first_min_size::Int64,
@@ -511,6 +512,20 @@ function find_valid_locs(
         valid_areas .= valid_areas .& boolmask(src_rugosity)
         src_rugosity = nothing
         force_gc_cleanup(; wait_time=2)
+    end
+
+    mask_gdf = GDF.read(mask_gdf)
+    region_extent = GI.extent(valid_areas)
+    rst_extent = [
+        GI.Polygon(
+            create_poly(create_bbox(region_extent.X, region_extent.Y), EPSG(7844))
+        )
+    ]
+    in_region = GO.within.(mask_gdf.geometry, rst_extent)
+    mask_gdf = mask_gdf[in_region, :]
+
+    for polygon in mask_gdf.geometry
+        valid_areas = mask(valid_areas; with=polygon, invert=true, boundary=:touches)
     end
 
     # Clean up orphaned pixels (first and second pass)

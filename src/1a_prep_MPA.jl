@@ -15,6 +15,7 @@ compression.
 """
 
 include("common.jl")
+include("geom_handlers/geom_ops.jl")
 include("geom_handlers/raster_processing.jl")
 include("geom_handlers/lookup_processing.jl")
 
@@ -170,7 +171,7 @@ end
         rst_template,
         bathy_gda2020,
         -9999.0,
-        :bilinear
+        method=:bilinear
     )
 
     waves_Tp_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Tp", reg)))
@@ -181,13 +182,14 @@ end
         rst_template,
         bathy_gda2020,
         -9999.0,
-        :bilinear
+        method=:bilinear
     )
 
     # Find locations containing valid data
     valid_slopes_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif")
     find_valid_locs(
         criteria_paths,
+        joinpath(MPA_OUTPUT_DIR, "GBRMPA_preservation_zone_exclusion.gpkg"),
         MPA_BENTHIC_IDS,
         MPA_SLOPE_IDS,
         7, (3,3), 70, (9,9),
@@ -197,6 +199,7 @@ end
     valid_flats_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif")
     find_valid_locs(
         criteria_paths,
+        joinpath(MPA_OUTPUT_DIR, "GBRMPA_preservation_zone_exclusion.gpkg"),
         MPA_BENTHIC_IDS,
         MPA_FLAT_IDS,
         7, (3,3), 70, (9,9),
@@ -205,8 +208,8 @@ end
     )
 
     # Calculate distance to nearest port
-    port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))
-    port_points = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
+    port_buffer = GDF.read(joinpath("../outputs/MPA", "port_buffer.gpkg"))
+    port_points = GDF.read(joinpath("../outputs/MPA", "ports_GDA2020.gpkg"))
 
     distance_raster(
         valid_slopes_fn,
