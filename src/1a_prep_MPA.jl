@@ -99,10 +99,10 @@ end
 
     # Process bathymetry and slope UTM raster files
     raw_bathy_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-    process_UTM_raster(raw_bathy_fn, criteria_paths[:Depth], EPSG_7844, -9999.0, reg, :bilinear)
+    process_UTM_raster(raw_bathy_fn, criteria_paths[:Depth], EPSG_7844, -9999.0, reg; method=:bilinear)
 
     raw_slope_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "slope", reg)))
-    process_UTM_raster(raw_slope_fn, criteria_paths[:Slope], EPSG_7844, -9999.0, reg, :bilinear)
+    process_UTM_raster(raw_slope_fn, criteria_paths[:Slope], EPSG_7844, -9999.0, reg; method=:bilinear)
 
     # Process GBR-wide raster data
     # Load bathymetry data to provide corresponding spatial extent
@@ -115,7 +115,12 @@ end
         regions_4326[reg_idx_4326, :geometry],
         criteria_paths[:Benthic]
     )
-    resample_and_write(target_benthic, bathy_gda2020, criteria_paths[:Benthic])
+    resample_and_write(
+        target_benthic,
+        bathy_gda2020,
+        criteria_paths[:Benthic];
+        method=:bilinear
+    )
     target_benthic = nothing
     force_gc_cleanup()
 
@@ -126,7 +131,12 @@ end
         regions_4326[reg_idx_4326, :geometry],
         criteria_paths[:Geomorphic]
     )
-    resample_and_write(target_geomorphic, bathy_gda2020, criteria_paths[:Geomorphic])
+    resample_and_write(
+        target_geomorphic,
+        bathy_gda2020,
+        criteria_paths[:Geomorphic];
+        method=:bilinear
+    )
     target_geomorphic = nothing
     force_gc_cleanup()
 
@@ -169,8 +179,8 @@ end
         :Hs90,
         rst_template,
         bathy_gda2020,
-        -9999.0,
-        :bilinear
+        -9999.0;
+        method=:bilinear
     )
 
     waves_Tp_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Tp", reg)))
@@ -180,8 +190,8 @@ end
         :Tp90,
         rst_template,
         bathy_gda2020,
-        -9999.0,
-        :bilinear
+        -9999.0;
+        method=:bilinear
     )
 
     # Find locations containing valid data

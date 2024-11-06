@@ -176,7 +176,7 @@ function process_UTM_raster(
     dst_file::String,
     target_crs::GFT.CoordinateReferenceSystemFormat,
     target_missingval::Float64,
-    reg::String,
+    reg::String;
     method::Symbol
 )::Nothing
     if isfile(dst_file)
