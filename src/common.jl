@@ -1,7 +1,7 @@
 using Statistics, StatsBase
 using Distributed
 using TOML
-using GLMakie, GeoMakie
+# using GLMakie, GeoMakie
 using ProgressMeter
 import GeometryOps as GO
 
@@ -237,7 +237,7 @@ function port_buffer_mask(gdf::DataFrame, dist::Float64; unit::String="NM")
     ports = gdf.geometry  # TODO: Replace with `GI.geometrycolumns()`
 
     # Make buffer around ports
-    buffered_ports = GO.buffer.(ports, dist / conv_factor)
+    buffered_ports = LibGEOS.buffer.(ports, dist / conv_factor)
 
     # Combine all geoms into one
     port_mask = reduce((x1, x2) -> LibGEOS.union(x1, x2), buffered_ports)

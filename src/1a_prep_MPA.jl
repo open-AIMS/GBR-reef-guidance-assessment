@@ -15,6 +15,7 @@ compression.
 """
 
 include("common.jl")
+include("geom_handlers/geom_ops.jl")
 include("geom_handlers/raster_processing.jl")
 include("geom_handlers/lookup_processing.jl")
 
