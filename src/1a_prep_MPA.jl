@@ -19,6 +19,8 @@ include("geom_handlers/geom_ops.jl")
 include("geom_handlers/raster_processing.jl")
 include("geom_handlers/lookup_processing.jl")
 
+using Dates
+
 # This processing step requires all the memory available so we actually remove the workers
 # that were just set up.
 # This can be commented out if working on a system with large enough amounts of memory
@@ -30,7 +32,7 @@ using SparseArrays, NamedTupleTools
 # Loading regions_4326 for cropping of vector and raster data.
 regions_4326 = GDF.read(REGION_PATH_4326)
 
-# 1. Process GBRMPA zoning geopackage to select only zones for site exclusion
+# 1a. Process GBRMPA zoning geopackage (used to avoid Pink/Exclusion zones)
 MPA_zoning_input = "$(GDA2020_DATA_DIR)/Great_Barrier_Reef_Marine_Park_Zoning_20_4418126048110066699.gpkg"
 MPA_preservation_zone_fn = joinpath(MPA_OUTPUT_DIR, "GBRMPA_preservation_zone_exclusion.gpkg")
 geometry_exclusion_process(
@@ -43,6 +45,7 @@ geometry_exclusion_process(
     geom_col=:SHAPE
 )
 
+# 1b. Process port locations
 if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
     port_locs = GDF.read("$(PORT_DATA_DIR)/ports_QLD_merc.shp")
     port_locs.geometry = AG.reproject(
@@ -59,6 +62,7 @@ if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
     )
 end
 
+# 1c. Create buffer around ports (200 NM said to be max range considered)
 if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_buffer.gpkg"))
     port_locs = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
 
@@ -81,23 +85,24 @@ end
 
     # Create NamedTuple to hold all output file paths.
     criteria_paths = (
-        Depth = joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
-        Benthic = joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
-        Geomorphic = joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
-        Slope = joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
-        Turbidity = joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
-        WavesHs = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
-        WavesTp = joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
-        PortDistSlopes = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif"),
-        PortDistFlats = joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
+        Depth=joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
+        Benthic=joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
+        Geomorphic=joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
+        Slope=joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
+        Turbidity=joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
+        WavesHs=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
+        WavesTp=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
+        PortDistSlopes=joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif"),
+        PortDistFlats=joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
     )
     if reg == "Townsville-Whitsunday"
         criteria_paths = NamedTupleTools.merge(
             criteria_paths,
-            (Rugosity = joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"),)
+            (Rugosity=joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"),)
         )
     end
 
+    @debug "$(now()) - Processing $(reg) - bathy and slope"
     # Process bathymetry and slope UTM raster files
     raw_bathy_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
     process_UTM_raster(raw_bathy_fn, criteria_paths[:Depth], EPSG_7844, -9999.0, reg; method=:bilinear)
@@ -109,6 +114,7 @@ end
     # Load bathymetry data to provide corresponding spatial extent
     bathy_gda2020 = Raster(criteria_paths[:Depth]; crs=EPSG_7844, lazy=true)
 
+    @debug "$(now()) - Processing $(reg) - Benthic"
     raw_benthic_fn = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
     target_benthic = trim_extent_region(
         raw_benthic_fn,
@@ -125,6 +131,7 @@ end
     target_benthic = nothing
     force_gc_cleanup()
 
+    @debug "$(now()) - Processing $(reg) - Geomorphic"
     raw_geomorphic_fn = "$(MPA_DATA_DIR)/geomorphic/GBR10 GBRMP Geomorphic.tif"
     target_geomorphic = trim_extent_region(
         raw_geomorphic_fn,
@@ -141,6 +148,7 @@ end
     target_geomorphic = nothing
     force_gc_cleanup()
 
+    @debug "$(now()) - Processing $(reg) - Turbidity"
     raw_turbid_fn = "$(ACA_DATA_DIR)/Turbidity-Q3-2023/turbidity-quarterly_0.tif"
     target_turbid = trim_extent_region(
         raw_turbid_fn,
@@ -159,6 +167,7 @@ end
 
     # Process Rugosity data
     if reg == "Townsville-Whitsunday"
+        @debug "$(now()) - Processing $(reg) - Rugosity"
         raw_rugosity_fn = joinpath(RUG_DATA_DIR, "std25_Rugosity_Townsville-Whitsunday.tif")
         resample_and_write(
             Raster(raw_rugosity_fn; crs=REGION_CRS_UTM[reg], mappedcrs=EPSG_4326),
@@ -173,6 +182,7 @@ end
     src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
     rst_template = Raster(src_bathy_path, crs=REGION_CRS_UTM[reg], mappedcrs=EPSG(4326), lazy=true)
 
+    @debug "$(now()) - Processing $(reg) - Waves Hs"
     waves_Hs_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Hs", reg)))
     process_wave_data(
         waves_Hs_path,
@@ -184,6 +194,7 @@ end
         method=:bilinear
     )
 
+    @debug "$(now()) - Processing $(reg) - Waves Tp"
     waves_Tp_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Tp", reg)))
     process_wave_data(
         waves_Tp_path,
@@ -238,6 +249,7 @@ end
     )
 
     # Create lookup tables to support fast querying
+    @debug "$(now()) - Processing $(reg) - Lookup table"
     slopes_lookup_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq")
     valid_lookup(
         NamedTupleTools.delete(criteria_paths, :PortDistFlats),

@@ -116,6 +116,7 @@ function calc_distances(
     raster_lon = Vector{Float64}(tmp_areas.dims[1].val)
     raster_lat = Vector{Float64}(tmp_areas.dims[2].val)
 
+    FLoops.assistant(false)
     @floop for (lon_ind, lon) in enumerate(raster_lon)
         for (lat_ind, lat) in enumerate(raster_lat)
             if tmp_areas[lon_ind, lat_ind] != 0.0
