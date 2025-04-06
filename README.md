@@ -2,6 +2,21 @@
 
 Analyses to support workshop discussions for pilot deployment program.
 
+## Setup
+
+Initialize the project the usual way:
+
+```julia
+]instantiate
+```
+
+This project currently relies on a fork of Rasters.jl with customizations to allow
+writing Cloud Optimized Geotiffs (COGs) directly to disk.
+
+```code
+]add https://www.github.com/ConnectedSystems/Rasters.jl#resample-cog-write
+```
+
 ## Project Layout
 
 Assumes `src` is the project root. Each file in `src` is expected to be run in order.
@@ -231,6 +246,11 @@ https://www.allencoralatlas.org/
 ### Rugosity data
 
 Provided by Ben Radford for Townsville-Whitsunday region.
+
+### Port-Distance data
+
+Port distances calculated in step 1 are in Nautical Miles using QLD-Ports location data to
+calculate the distances to locations with available data and benthic/geomorphic IDs.
 
 ## Resolution
 

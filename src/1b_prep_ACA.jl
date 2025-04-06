@@ -34,7 +34,7 @@ target_benthic_poly = benthic_poly[target_benthic_features, :]
         flat_is_in_region = AG.contains.([region_4326_geom], target_flat_poly.geometry)
         target_flats_reg = target_flat_poly[flat_is_in_region, :]
 
-        target_flats_reg.geometry = AG.reproject(target_flats_reg.geometry, crs(region_4326_geom), GDA2020_crs; order=:trad)
+        target_flats_reg.geometry = AG.reproject(target_flats_reg.geometry, crs(region_4326_geom), EPSG_7844; order=:trad)
 
         GDF.write(joinpath(ACA_OUTPUT_DIR, "aca_target_flats_$(reg).gpkg"), target_flats_reg; crs=EPSG(7844))
     end
@@ -43,7 +43,7 @@ target_benthic_poly = benthic_poly[target_benthic_features, :]
         slope_is_in_region = AG.contains.([region_4326_geom], target_slope_poly.geometry)
         target_slopes_reg = target_slope_poly[slope_is_in_region, :]
 
-        target_slopes_reg.geometry = AG.reproject(target_slopes_reg.geometry, crs(region_4326_geom), GDA2020_crs; order=:trad)
+        target_slopes_reg.geometry = AG.reproject(target_slopes_reg.geometry, crs(region_4326_geom), EPSG_7844; order=:trad)
 
         GDF.write(joinpath(ACA_OUTPUT_DIR, "aca_target_slopes_$(reg).gpkg"), target_slopes_reg; crs=EPSG(7844))
     end
@@ -52,7 +52,7 @@ target_benthic_poly = benthic_poly[target_benthic_features, :]
         ben_is_in_region = AG.contains.([region_4326_geom], benthic_poly.geometry)
         benthic_reg = benthic_poly[ben_is_in_region, :]
 
-        benthic_reg.geometry = AG.reproject(benthic_reg.geometry, crs(region_4326_geom), GDA2020_crs; order=:trad)
+        benthic_reg.geometry = AG.reproject(benthic_reg.geometry, crs(region_4326_geom), EPSG_7844; order=:trad)
 
         GDF.write(joinpath(ACA_OUTPUT_DIR, "aca_benthic_$(reg).gpkg"), benthic_reg; crs=EPSG(7844))
     end
@@ -75,7 +75,7 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"))
         target_bathy = Rasters.crop(aca_bathy; to=regions_4326[reg_idx_4326, :])
         target_bathy = Rasters.trim(mask(target_bathy; with=regions_4326[reg_idx_4326, :]))
-        target_bathy = Rasters.resample(target_bathy; crs=GDA2020_crs)
+        target_bathy = Rasters.resample(target_bathy; crs=EPSG_7844)
 
         write(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"), target_bathy; force=true)
 
@@ -124,7 +124,7 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
         replace_missing!(target_waves_Hs, -9999.0)
 
         # Reproject raster to GDA 2020
-        target_waves_Hs = Rasters.resample(target_waves_Hs; crs=GDA2020_crs)
+        target_waves_Hs = Rasters.resample(target_waves_Hs; crs=EPSG_7844)
 
         # Have to resample to aca_bathy to ensure extent and resolution is consistent
         aca_bathy = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG(7844), lazy=true)
@@ -164,7 +164,7 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG(4326), lazy=true)
         replace_missing!(target_waves_Tp, -9999.0)
 
         # Reproject raster to GDA 2020
-        target_waves_Tp = Rasters.resample(target_waves_Tp; crs=GDA2020_crs)
+        target_waves_Tp = Rasters.resample(target_waves_Tp; crs=EPSG_7844)
 
         # Have to resample to aca_bathy to ensure extent and resolution is consistent
         aca_bathy = Raster(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"); crs=EPSG(7844), lazy=true)
