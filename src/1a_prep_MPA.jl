@@ -256,10 +256,21 @@ end
         valid_slopes_fn,
         slopes_lookup_fn
     )
-    flats_lookup_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats_lookup.parq")
-    valid_lookup(
-        NamedTupleTools.delete(criteria_paths, :PortDistSlopes),
-        valid_flats_fn,
-        flats_lookup_fn
-    )
+
+    # valid_flats_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif")
+    # write_valid_locs(
+    #     criteria_paths,
+    #     MPA_BENTHIC_IDS,
+    #     MPA_FLAT_IDS,
+    #     7, (3, 3), 70, (9, 9),
+    #     valid_flats_fn,
+    #     reg
+    # )
+
+    # flats_lookup_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats_lookup.parq")
+    # valid_lookup(
+    #     criteria_paths,
+    #     valid_flats_fn,
+    #     flats_lookup_fn
+    # )
 end
