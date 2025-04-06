@@ -1,10 +1,11 @@
 using Statistics, StatsBase
 using Distributed
 using TOML
-# using GLMakie, GeoMakie
+
 using ProgressMeter
 import GeometryOps as GO
 
+using WGLMakie, GeoMakie
 
 try
     global CONFIG = TOML.parsefile(".config.toml")
@@ -134,7 +135,7 @@ end
 function plot_map(gdf::DataFrame; geom_col=:geometry, color=nothing)
     f = Figure(; size=(600, 900))
     ga = GeoAxis(
-        f[1,1];
+        f[1, 1];
         dest="+proj=latlong +datum=WGS84",
         xlabel="Longitude",
         ylabel="Latitude",
