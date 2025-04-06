@@ -23,22 +23,23 @@ function stack_values(valid_mask, rst_stack)
     lon_lats = collect(zip(lons[first.(sorted_valid_idx)], lats[last.(sorted_valid_idx)]))
 
     # Create store, with three additional columns to make space for geometry, lon/lat index
-    v_store = Matrix(undef, length(lon_lats), length(names(rst_stack))+3)
+    v_store = Matrix(undef, length(lon_lats), length(names(rst_stack)) + 3)
     for (i, stack_name) in enumerate(names(rst_stack))
         # Read in valid subset
-        rst_tmp = read(
-            view(
-                rst_stack[stack_name],
-                sort(unique(first.(sorted_valid_idx))),
-                sort(unique(last.(sorted_valid_idx)))
-            )
+        rst_tmp = view(
+            rst_stack[stack_name],
+            sort(unique(first.(sorted_valid_idx))),
+            sort(unique(last.(sorted_valid_idx)))
         )
 
-        get_index = i == 1
-        extracted = extract(rst_tmp, lon_lats; index=get_index)
+        get_index = i == 1  # only get the indices for the first raster
+
+        # Extract data from lazily loaded dataset. Indexing (`[:, :]`) is to force
+        # data to be read into memory (for speed!)
+        extracted = extract(rst_tmp[:, :], lon_lats; index=get_index)
         if get_index
             # Returned indices are relative to the view, not the source raster
-            # So we jump through some hoops to obtain the canonical indices.
+            # so we jump through some hoops to obtain the canonical indices.
             inds = getfield.(extracted, :index)
             true_lon_inds = lookup(rst_tmp, X).data.indices[1][first.(inds)]
             true_lat_inds = lookup(rst_tmp, Y).data.indices[1][last.(inds)]
@@ -112,7 +113,7 @@ function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_fi
     col_names = vcat(:geometry, :lon_idx, :lat_idx, keys(raster_files)...)
     area_values = stack_values(_valid, rst_stack)
     area_store = geoparquet_df!(area_values, col_names)
-    GP.write(dst_file, area_store, (:geometry, ))
+    GP.write(dst_file, area_store, (:geometry,))
 
     area_store = nothing
     area_values = nothing

@@ -179,8 +179,8 @@ function geometry_exclusion_process(
         )
     end
 
-    target_gdf = target_gdf[target_gdf[:, exclude_col] .∈ [exclude_ids], :]
-    GDF.write(dst_file, target_gdf; crs=target_crs)
+    target_gdf = target_gdf[target_gdf[:, exclude_col].∈[exclude_ids], :]
+    GDF.write(dst_file, target_gdf; crs=target_crs, geom_columns=(:geometry,))
 
     return nothing
 end

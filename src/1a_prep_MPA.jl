@@ -116,7 +116,7 @@ end
 
     @debug "$(now()) - Processing $(reg) - Benthic"
     raw_benthic_fn = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
-    target_benthic = trim_extent_region(
+    target_benthic = crop_to_region(
         raw_benthic_fn,
         EPSG_4326,
         regions_4326[reg_idx_4326, :geometry],
@@ -126,14 +126,14 @@ end
         target_benthic,
         bathy_gda2020,
         criteria_paths[:Benthic];
-        method=:bilinear
+        method=:near
     )
     target_benthic = nothing
     force_gc_cleanup()
 
     @debug "$(now()) - Processing $(reg) - Geomorphic"
     raw_geomorphic_fn = "$(MPA_DATA_DIR)/geomorphic/GBR10 GBRMP Geomorphic.tif"
-    target_geomorphic = trim_extent_region(
+    target_geomorphic = crop_to_region(
         raw_geomorphic_fn,
         EPSG_4326,
         regions_4326[reg_idx_4326, :geometry],
@@ -143,14 +143,14 @@ end
         target_geomorphic,
         bathy_gda2020,
         criteria_paths[:Geomorphic];
-        method=:bilinear
+        method=:near
     )
     target_geomorphic = nothing
     force_gc_cleanup()
 
     @debug "$(now()) - Processing $(reg) - Turbidity"
     raw_turbid_fn = "$(ACA_DATA_DIR)/Turbidity-Q3-2023/turbidity-quarterly_0.tif"
-    target_turbid = trim_extent_region(
+    target_turbid = crop_to_region(
         raw_turbid_fn,
         EPSG_4326,
         regions_4326[reg_idx_4326, :geometry],
@@ -180,7 +180,7 @@ end
     # Process wave raster data
     # Use bathy dataset as a template for writing netCDF data to geotiff
     src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-    rst_template = Raster(src_bathy_path, crs=REGION_CRS_UTM[reg], mappedcrs=EPSG(4326), lazy=true)
+    rst_template = Raster(src_bathy_path, crs=REGION_CRS_UTM[reg], mappedcrs=EPSG(4326))
 
     @debug "$(now()) - Processing $(reg) - Waves Hs"
     waves_Hs_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Hs", reg)))
@@ -206,53 +206,38 @@ end
         method=:bilinear
     )
 
-    # Find locations containing valid data
-    valid_slopes_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif")
-    find_valid_locs(
-        criteria_paths,
-        MPA_BENTHIC_IDS,
-        MPA_SLOPE_IDS,
-        7, (3,3), 70, (9,9),
-        valid_slopes_fn,
-        reg
-    )
-    valid_flats_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif")
-    find_valid_locs(
-        criteria_paths,
-        MPA_BENTHIC_IDS,
-        MPA_FLAT_IDS,
-        7, (3,3), 70, (9,9),
-        valid_flats_fn,
-        reg
-    )
-
     # Calculate distance to nearest port
     port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))
     port_points = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
 
-    distance_raster(
-        valid_slopes_fn,
+    @debug "$(now()) - Processing $(reg) - Ports"
+    within_port_range(
+        criteria_paths[:Depth],
         port_buffer,
-        port_points,
         -9999.0,
         criteria_paths[:PortDistSlopes],
-        "NM"
     )
 
-    distance_raster(
-        valid_flats_fn,
-        port_buffer,
-        port_points,
-        -9999.0,
-        criteria_paths[:PortDistFlats],
-        "NM"
+    # Create copy for reef flats (TODO: Could reuse just the one file)
+    cp(criteria_paths[:PortDistSlopes], criteria_paths[:PortDistFlats]; force=true)
+
+    @debug "$(now()) - Processing $(reg) - Valid area"
+    # Find locations containing valid data
+    valid_slopes_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif")
+    write_valid_locs(
+        criteria_paths,
+        MPA_BENTHIC_IDS,
+        MPA_SLOPE_IDS,
+        7, (3, 3), 70, (9, 9),
+        valid_slopes_fn,
+        reg
     )
 
     # Create lookup tables to support fast querying
     @debug "$(now()) - Processing $(reg) - Lookup table"
     slopes_lookup_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq")
     valid_lookup(
-        NamedTupleTools.delete(criteria_paths, :PortDistFlats),
+        criteria_paths,
         valid_slopes_fn,
         slopes_lookup_fn
     )
