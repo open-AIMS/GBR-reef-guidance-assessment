@@ -76,7 +76,6 @@ if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_buffer.gpkg"))
         port_buffer;
         crs=EPSG_7844
     )
-    port_buffer = nothing
 end
 
 
@@ -106,17 +105,74 @@ end
     end
 
     @debug "$(now()) - Processing $(reg) - bathy and slope"
+
     # Process bathymetry and slope UTM raster files
+    # Write to "[some_file].tif.tif" temporarily.
+    # The extra extension is used so the correct format is auto-selected without
+    # needing a separate temporary filename (useful for debugging)
     raw_bathy_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-    process_UTM_raster(raw_bathy_fn, criteria_paths[:Depth], EPSG_7844, -9999.0, reg; method=:bilinear)
+    process_UTM_raster(
+        raw_bathy_fn,
+        criteria_paths[:Depth] * ".tif",
+        EPSG_7844,
+        -9999.0,
+        reg;
+        method=:bilinear
+    )
 
-    raw_slope_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "slope", reg)))
-    process_UTM_raster(raw_slope_fn, criteria_paths[:Slope], EPSG_7844, -9999.0, reg; method=:bilinear)
+    target_depth = crop_to_region(
+        criteria_paths[:Depth] * ".tif",
+        EPSG_4326,
+        regions_4326[reg_idx_4326, :geometry],
+        criteria_paths[:Depth]
+    )
 
-    # Process GBR-wide raster data
+    if !isnothing(target_depth)
+        # Write out cropped dataset if needed
+        Rasters.write(criteria_paths[:Depth], target_depth; force=true)
+        target_depth = nothing
+    end
+
     # Load bathymetry data to provide corresponding spatial extent
     bathy_gda2020 = Raster(criteria_paths[:Depth]; crs=EPSG_7844, lazy=true)
 
+    # Delete the temporary copy
+    rm(criteria_paths[:Depth] * ".tif"; force=true)
+
+    # Write to "[some_file].tif.tif" temporarily.
+    # The extra extension is used so the correct format is auto-selected without
+    # needing a separate temporary filename (useful for debugging)
+    raw_slope_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "slope", reg)))
+    process_UTM_raster(
+        raw_slope_fn,
+        criteria_paths[:Slope] * ".tif",
+        EPSG_7844,
+        -9999.0,
+        reg;
+        method=:bilinear
+    )
+
+    target_slope = crop_to_region(
+        criteria_paths[:Slope] * ".tif",
+        EPSG_4326,
+        regions_4326[reg_idx_4326, :geometry],
+        criteria_paths[:Slope]
+    )
+
+    # Resample to align with depth dataset
+    resample_and_write(
+        target_slope,
+        bathy_gda2020,
+        criteria_paths[:Slope];
+        method=:bilinear
+    )
+
+    # Delete the temporary copy
+    rm(criteria_paths[:Slope] * ".tif"; force=true)
+
+    target_slope = nothing
+
+    # Process other raster data for region
     @debug "$(now()) - Processing $(reg) - Benthic"
     raw_benthic_fn = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
     target_benthic = crop_to_region(
@@ -183,7 +239,12 @@ end
     # Process wave raster data
     # Use bathy dataset as a template for writing netCDF data to geotiff
     src_bathy_path = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-    rst_template = Raster(src_bathy_path, crs=REGION_CRS_UTM[reg], mappedcrs=EPSG(4326))
+    rst_template = Raster(
+        src_bathy_path;
+        crs=REGION_CRS_UTM[reg],
+        mappedcrs=EPSG(4326),
+        lazy=true
+    )
 
     @debug "$(now()) - Processing $(reg) - Waves Hs"
     waves_Hs_path = first(glob("*.nc", joinpath(WAVE_DATA_DIR, "Hs", reg)))
@@ -210,14 +271,12 @@ end
     )
 
     # Calculate distance to nearest port
-    port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))
     port_points = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
 
     @debug "$(now()) - Processing $(reg) - Ports"
     within_port_range(
         criteria_paths[:Depth],
         port_buffer,
-        -9999.0,
         criteria_paths[:PortDistSlopes],
     )
 
@@ -232,8 +291,12 @@ end
         MPA_BENTHIC_IDS,
         MPA_SLOPE_IDS,
         7, (3, 3), 70, (9, 9),
-        valid_slopes_fn,
-        reg
+        valid_slopes_fn
+    )
+
+    resize_to_valid_area(
+        criteria_paths,
+        valid_slopes_fn
     )
 
     # Create lookup tables to support fast querying
