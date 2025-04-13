@@ -170,7 +170,6 @@ Writes to `dst_file` as a Cloud Optimized Geotiff.
 - `target_missingval` : Consistent missingval to use in output raster.
 - `reg` : Region name for input CRS definition.
 - `method` : Resampling interpolation method (more information https://rafaqz.github.io/Rasters.jl/stable/api#Rasters.resample-Tuple).
-
 """
 function process_UTM_raster(
     src_file::String,
@@ -182,13 +181,25 @@ function process_UTM_raster(
 )::Nothing
     if isfile(dst_file)
         @warn "Data not processed as $(dst_file) already exists."
-        return
+        return nothing
     end
 
     input_raster = Raster(src_file; crs=REGION_CRS_UTM[reg], mappedcrs=EPSG_4326)
-    input_raster = set_consistent_missingval!(input_raster, target_missingval)
+    input_raster = set_consistent_missingval!(Rasters.trim(input_raster), target_missingval)
 
-    resample(input_raster; crs=target_crs, filename=dst_file, format="COG", method=method)
+    try
+        # Using `filename` argument reduces memory use but the resulting file is
+        # orders of magnitude bigger, so write out manually
+        input_raster = resample(input_raster; crs=target_crs, method=method)
+        Rasters.write(dst_file, input_raster)
+    catch
+        # In cases where data is too big to fit into memory, attempt to resample
+        # writing out to disk. This results in a larger than usual file but better
+        # than crashing out.
+        resample(input_raster; crs=target_crs, method=method, filename=dst_file)
+    end
+
+    input_raster = nothing
     force_gc_cleanup(; wait_time=2)
 
     return nothing
@@ -224,9 +235,20 @@ function crop_to_region(
         return nothing
     end
 
-    input_raster = Raster(src_file; mappedcrs=input_crs, lazy=true)
+    input_raster = try
+        Raster(src_file; mappedcrs=input_crs)
+    catch
+        Raster(src_file; mappedcrs=input_crs, lazy=true)
+    end
 
-    return crop(input_raster; to=target_region_geom)
+    # Note: trim/mask is very important - otherwise file sizes are GBs!
+    return read(
+        Rasters.trim(
+            Rasters.mask(
+                crop(input_raster; to=target_region_geom); with=target_region_geom
+            )
+        )
+    )
 end
 
 """
@@ -244,7 +266,7 @@ Writes to `dst_file` as a Cloud Optimized Geotiff.
 # Arguments
 - `input_raster` : Input raster dataset for resampling to template_raster.
 - `rst_template` : Template raster for resampling.
-- `dst_file` : File location name to create output file. Should include variable and region information.
+- `dst_file` : File location to check - if exists, this function does nothing.
 - `method` : Resampling interpolation method supported by Rasters.jl, defaulting to `:near` (nearest neighbor)
              (See [Rasters.jl documentation](https://rafaqz.github.io/Rasters.jl/stable/api#Rasters.resample-Tuple)).
 """
@@ -259,7 +281,10 @@ function resample_and_write(
         return nothing
     end
 
-    resample(input_raster; to=rst_template, filename=dst_file, format="COG", method=method)
+    # Using `filename` argument reduces memory use but the resulting file is
+    # orders of magnitude bigger, so write out manually
+    input_raster = resample(input_raster; to=rst_template, method=method)
+    Rasters.write(dst_file, input_raster)
 
     return nothing
 end
@@ -275,8 +300,7 @@ end
         method::Symbol
     )::Nothing
 
-Process wave data from one CRS/PCS to another, writing the results out to disk in COG
-format.
+Process wave data from one CRS/PCS to another, writing the results out to disk as geotiff.
 
 The wave data this function is intended for is provided in netCDF format. The spatial
 extents/coordinates provided in this dataset are not well-read by GDAL. To work around this
@@ -359,7 +383,10 @@ function process_wave_data(
     force_gc_cleanup()
 
     # Reproject raster to GDA2020 (degree projection)
-    resample(target_waves; to=target_rst, filename=dst_file, format="COG", method=method)
+    # Using `filename` argument reduces memory use but the resulting file is
+    # orders of magnitude bigger, so write out manually
+    target_waves = resample(target_waves; to=target_rst, method=method)
+    Rasters.write(dst_file, target_waves)
     force_gc_cleanup(; wait_time=2)
 
     return nothing
@@ -405,7 +432,7 @@ function distance_raster(
     target_raster = calc_distances(target_raster, distance_points; units=units)
 
     target_raster = set_consistent_missingval!(target_raster, target_missingval)
-    write(dst_file, target_raster)
+    Rasters.write(dst_file, target_raster)
     target_raster = nothing
     force_gc_cleanup()
 
@@ -428,7 +455,6 @@ step.
 function within_port_range(
     src_file::String,
     dist_buffer::DataFrame,
-    target_missingval::Union{Int64,Float64},
     dst_file::String
 )::Nothing
     if isfile(dst_file)
@@ -437,9 +463,8 @@ function within_port_range(
     end
 
     target_raster = Raster(src_file; crs=EPSG_7844)
-    target_raster = mask(target_raster; with=dist_buffer, missingval=target_missingval)
-    target_raster[target_raster.>0] .= 1.0
-    write(dst_file, target_raster)
+    target_raster = boolmask(mask(target_raster; with=dist_buffer); missingval=0)
+    Rasters.write(dst_file, UInt8.(target_raster))
 
     target_raster = nothing
     force_gc_cleanup()
@@ -485,8 +510,7 @@ function write_valid_locs(
     first_window::Tuple{Int64,Int64},
     second_min_size::Int64,
     second_window::Tuple{Int64,Int64},
-    dst_file::String,
-    reg::String
+    dst_file::String
 )::Nothing
     if isfile(dst_file)
         @warn "Data not processed as $(dst_file) already exists."
@@ -512,14 +536,31 @@ function write_valid_locs(
     valid_areas.data .= cleaned_areas
     valid_areas = convert.(UInt8, Rasters.trim(valid_areas))
 
-    write(dst_file, valid_areas)
+    Rasters.write(dst_file, valid_areas)
 
     cleaned_areas = nothing
     force_gc_cleanup(; wait_time=2)
 
-    # Replace datasets with data so it covers only the relevant valid areas
+    return nothing
+end
+
+"""
+    resize_to_valid_area(criteria_paths::NamedTuple, valid_fn::String)
+
+Resize processed data files to the area that has data across all criteria layers.
+Replaces existing file.
+
+# Arguments
+- `criteria_paths` : Named collection of criteria paths
+- `valid_fn` : Path/name to valid dataset
+"""
+function resize_to_valid_area(criteria_paths::NamedTuple, valid_fn::String)
+    crits = keys(criteria_paths)
+    valid_areas = Raster(valid_fn; lazy=true)
+
+    # Replace files with copies that only cover the relevant valid areas
     for crit in crits
-        crit_area = Raster(criteria_paths[crit])
+        crit_area = Raster(criteria_paths[crit]; lazy=true)
 
         if crit ∈ [:Benthic, :Geomorphic]
             m = :near
@@ -527,9 +568,19 @@ function write_valid_locs(
             m = :bilinear
         end
 
-        src_data = resample(crop(crit_area; to=valid_areas); to=valid_areas, method=m)
-        @assert size(src_data) == size(valid_areas) "Mismatch between valid area and data area"
-        write(criteria_paths[crit], src_data; force=true)
+        if size(crit_area) == size(valid_areas)
+            @debug "Skipping resizing of $crit ..."
+            continue
+        end
+
+        # Using `filename` argument reduces memory use but the resulting file is
+        # orders of magnitude bigger, so write out manually
+        crit_area = resample(
+            read(Rasters.trim(crit_area));
+            to=valid_areas,
+            method=m
+        )
+        Rasters.write(criteria_paths[crit], crit_area; force=true)
     end
 
     return nothing

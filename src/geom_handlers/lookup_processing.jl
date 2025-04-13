@@ -98,7 +98,7 @@ Create a lookup table of valid data pixels for fast querying of data layers.
 function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_file::String)::Nothing
     if isfile(dst_file)
         @warn "Data not processed as $(dst_file) already exists."
-        return
+        return nothing
     end
 
     # Create stack of prepared data
