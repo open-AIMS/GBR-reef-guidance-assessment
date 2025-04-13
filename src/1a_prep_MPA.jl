@@ -1,6 +1,9 @@
 """
 Prepare data for analysis by processing MPA files for each GBRMPA management region.
 
+"MPA" is the internal designation. This dataset is commonly known as the UQ-GBRMPA or
+EoMap dataset.
+
 Crop GBR-wide GBRMPA rasters into management regions.
 Reproject all data from WGS84 / UTM Zone 54 - 56 into consistent CRS (GDA2020).
 Ensure all rasters are the same size/shape for each region of interest with the same
