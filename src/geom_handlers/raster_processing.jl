@@ -170,7 +170,6 @@ Writes to `dst_file` as a Cloud Optimized Geotiff.
 - `target_missingval` : Consistent missingval to use in output raster.
 - `reg` : Region name for input CRS definition.
 - `method` : Resampling interpolation method (more information https://rafaqz.github.io/Rasters.jl/stable/api#Rasters.resample-Tuple).
-
 """
 function process_UTM_raster(
     src_file::String,
@@ -182,7 +181,7 @@ function process_UTM_raster(
 )::Nothing
     if isfile(dst_file)
         @warn "Data not processed as $(dst_file) already exists."
-        return
+        return nothing
     end
 
     input_raster = Raster(src_file; crs=REGION_CRS_UTM[reg], mappedcrs=EPSG_4326)
