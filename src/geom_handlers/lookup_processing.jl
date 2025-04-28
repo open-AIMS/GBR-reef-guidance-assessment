@@ -15,12 +15,20 @@ Currently expects the raster to have the default X/Y dimensions set.
 Tables.jl-compatible vector of named tuples (to build a dataframe with)
 """
 function stack_values(valid_mask, rst_stack)
+    # Calculate cell sizes
+    x_res = abs(step(lookup(rst_stack, X)))
+    y_res = abs(step(lookup(rst_stack, Y)))
+
     # Collect locations in lat/longs
     lons = collect(lookup(rst_stack, X))
     lats = collect(lookup(rst_stack, Y))
 
     sorted_valid_idx = sort(Tuple.(findall(valid_mask)))
-    lon_lats = collect(zip(lons[first.(sorted_valid_idx)], lats[last.(sorted_valid_idx)]))
+
+    # Create centroid-adjusted coordinates
+    centroid_lons = [lon + (x_res / 2) for lon in lons[first.(sorted_valid_idx)]]
+    centroid_lats = [lat + (y_res / 2) for lat in lats[last.(sorted_valid_idx)]]
+    lon_lats = collect(zip(centroid_lons, centroid_lats))
 
     # Create store, with three additional columns to make space for geometry, lon/lat index
     v_store = Matrix(undef, length(lon_lats), length(names(rst_stack)) + 3)
