@@ -73,6 +73,7 @@ if nworkers() < CONFIG["processing"]["N_PROCS"]
         global GDA2020_DATA_DIR = CONFIG["gda2020_data"]["GDA2020_DATA_DIR"]
         global RUG_DATA_DIR = CONFIG["rugosity_data"]["RUG_DATA_DIR"]
         global PORT_DATA_DIR = CONFIG["ports_data"]["PORT_DATA_DIR"]
+        global TIDAL_DATA_DIR = CONFIG["tidal_data"]["TIDAL_DATA_DIR"]
 
         regions_GDA2020_path = joinpath(
             GDA2020_DATA_DIR,
