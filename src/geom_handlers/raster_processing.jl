@@ -208,7 +208,6 @@ end
 """
     crop_to_region(
         src_file::String,
-        input_crs::GFT.CoordinateReferenceSystemFormat,
         target_region_geom::Vector{AG.IGeometry{AG.wkbMultiPolygon}},
         dst_file::String
     )::Union{Raster,Nothing}
@@ -217,7 +216,6 @@ Crop larger input raster to the extent of `target_region_geom` geometry.
 
 # Arguments
 - `src_file` : Location of raw input raster file for processing (intended for GBR-wide/rugosity files).
-- `input_crs` : CRS of input raster file using GFT.EPSG().
 - `target_region_geom` : Region geometry object to crop to.
 - `dst_file` : Path to output file. (File not created within this function, used to check if file already exists).
 
@@ -226,7 +224,6 @@ Crop larger input raster to the extent of `target_region_geom` geometry.
 """
 function crop_to_region(
     src_file::String,
-    input_crs::GFT.CoordinateReferenceSystemFormat,
     target_region_geom::Vector{AG.IGeometry{AG.wkbMultiPolygon}},
     dst_file::String
 )::Union{Raster,Nothing}
@@ -236,9 +233,9 @@ function crop_to_region(
     end
 
     input_raster = try
-        Raster(src_file; mappedcrs=input_crs)
+        Raster(src_file)
     catch
-        Raster(src_file; mappedcrs=input_crs, lazy=true)
+        Raster(src_file; lazy=true)
     end
 
     # Note: trim/mask is very important - otherwise file sizes are GBs!
@@ -268,7 +265,7 @@ Writes to `dst_file` as a Cloud Optimized Geotiff.
 - `rst_template` : Template raster for resampling.
 - `dst_file` : File location to check - if exists, this function does nothing.
 - `method` : Resampling interpolation method supported by Rasters.jl, defaulting to `:near` (nearest neighbor)
-             (See [Rasters.jl documentation](https://rafaqz.github.io/Rasters.jl/stable/api#Rasters.resample-Tuple)).
+             (See [Rasters.jl documentation](https://rafaqz.github.io/Rasters.jl/v0.14.4/api#Rasters.resample-Tuple)).
 """
 function resample_and_write(
     input_raster::Union{Raster,Nothing},
@@ -478,11 +475,10 @@ end
         benthic_ids::Vector,
         geomorph_ids::Vector,
         first_min_size::Int64,
-        first_window::Tuple{Int64, Int64},
+        first_window::Tuple{Int64,Int64},
         second_min_size::Int64,
-        second_window::Tuple{Int64, Int64},
-        dst_file::String,
-        reg::String
+        second_window::Tuple{Int64,Int64},
+        dst_file::String
     )::Nothing
 
 Find the pixels that are covered by valid data for all criteria and benthic/geomorphic IDs.
@@ -500,7 +496,6 @@ Writes to `dst_file` as a Cloud Optimized Geotiff.
 - `second_min_size` : Size of minimum cluster to use in `remove_orphaned_elements()` raster cleaning.
 - `second_window` : Tuple containing the size of the second window used in cleaning orphaned elements.
 - `dst_file` : Path to output results `.tif` file.
-- `reg` : Current region being processed.
 """
 function write_valid_locs(
     criteria_paths::NamedTuple,
