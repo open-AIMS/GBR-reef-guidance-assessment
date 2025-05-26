@@ -121,6 +121,12 @@ function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_fi
     col_names = vcat(:geometry, :lon_idx, :lat_idx, keys(raster_files)...)
     area_values = stack_values(_valid, rst_stack)
     area_store = geoparquet_df!(area_values, col_names)
+
+    # Store pre-extracted lon/lats
+    lon_lats = GI.coordinates.(area_store.geometry)
+    area_store[!, :lon] = first.(lon_lats)
+    area_store[!, :lat] = last.(lon_lats)
+
     GP.write(dst_file, area_store, (:geometry,))
 
     area_store = nothing
