@@ -162,7 +162,7 @@ function geometry_exclusion_process(
 )::Nothing
     if isfile(dst_file)
         @warn "Data not processed as $(dst_file) already exists."
-        return
+        return nothing
     end
 
     target_gdf = GDF.read(input_file)
