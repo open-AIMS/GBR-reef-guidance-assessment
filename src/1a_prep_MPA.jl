@@ -94,6 +94,8 @@ end
         Turbidity=joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
         WavesHs=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
         WavesTp=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
+        HighTide=joinpath(MPA_OUTPUT_DIR, "$(reg)_high_tide.tif"),
+        LowTide=joinpath(MPA_OUTPUT_DIR, "$(reg)_low_tide.tif"),
         PortDistSlopes=joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif"),
         PortDistFlats=joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
     )
@@ -122,7 +124,6 @@ end
 
     target_depth = crop_to_region(
         criteria_paths[:Depth] * ".tif",
-        EPSG_4326,
         regions_4326[reg_idx_4326, :geometry],
         criteria_paths[:Depth]
     )
@@ -154,7 +155,6 @@ end
 
     target_slope = crop_to_region(
         criteria_paths[:Slope] * ".tif",
-        EPSG_4326,
         regions_4326[reg_idx_4326, :geometry],
         criteria_paths[:Slope]
     )
@@ -177,7 +177,6 @@ end
     raw_benthic_fn = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
     target_benthic = crop_to_region(
         raw_benthic_fn,
-        EPSG_4326,
         regions_4326[reg_idx_4326, :geometry],
         criteria_paths[:Benthic]
     )
@@ -194,7 +193,6 @@ end
     raw_geomorphic_fn = "$(MPA_DATA_DIR)/geomorphic/GBR10 GBRMP Geomorphic.tif"
     target_geomorphic = crop_to_region(
         raw_geomorphic_fn,
-        EPSG_4326,
         regions_4326[reg_idx_4326, :geometry],
         criteria_paths[:Geomorphic]
     )
@@ -211,7 +209,6 @@ end
     raw_turbid_fn = "$(ACA_DATA_DIR)/Turbidity-Q3-2023/turbidity-quarterly_0.tif"
     target_turbid = crop_to_region(
         raw_turbid_fn,
-        EPSG_4326,
         regions_4326[reg_idx_4326, :geometry],
         criteria_paths[:Turbidity]
     )
@@ -270,9 +267,35 @@ end
         method=:bilinear
     )
 
-    # Calculate distance to nearest port
-    port_points = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
+    # Tidal data is already separated into management regions
+    # so we only need to reproject into consistent datum
+    @debug "$(now()) - Processing $(reg) - High Tide"
+    hightide_fn = first(glob("*_hightide_*_$reg*.tif", TIDAL_DATA_DIR))
+    if !isfile(criteria_paths[:HighTide])
+        high_tide = resample(Raster(hightide_fn); to=bathy_gda2020, method=:bilinear)
+        Rasters.write(
+            criteria_paths[:HighTide],
+            Rasters.crop(high_tide; to=bathy_gda2020)
+        )
 
+        high_tide = nothing
+        force_gc_cleanup()
+    end
+
+    @debug "$(now()) - Processing $(reg) - Low Tide"
+    lowtide_fn = first(glob("*_lowtide_*_$reg*.tif", TIDAL_DATA_DIR))
+    if !isfile(criteria_paths[:LowTide])
+        low_tide = resample(Raster(lowtide_fn); to=bathy_gda2020, method=:bilinear)
+        Rasters.write(
+            criteria_paths[:LowTide],
+            Rasters.crop(low_tide; to=bathy_gda2020)
+        )
+
+        low_tide = nothing
+        force_gc_cleanup()
+    end
+
+    # Calculate distance to nearest port
     @debug "$(now()) - Processing $(reg) - Ports"
     within_port_range(
         criteria_paths[:Depth],
