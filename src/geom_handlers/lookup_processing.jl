@@ -124,10 +124,10 @@ function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_fi
 
     # Store pre-extracted lon/lats
     lon_lats = GI.coordinates.(area_store.geometry)
-    area_store[!, :lon] = first.(lon_lats)
-    area_store[!, :lat] = last.(lon_lats)
+    area_store[!, :lons] = first.(lon_lats)
+    area_store[!, :lats] = last.(lon_lats)
 
-    GP.write(dst_file, area_store, (:geometry,))
+    GP.write(dst_file, area_store, (:geometry,), EPSG_7844)
 
     area_store = nothing
     area_values = nothing
