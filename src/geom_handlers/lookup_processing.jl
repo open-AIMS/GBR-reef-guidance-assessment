@@ -114,7 +114,7 @@ function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_fi
 
     # Create lookup of valid data
     valid_areas = Raster(valid_areas_file)
-    _valid = sparse(boolmask(valid_areas).data)
+    _valid = ExtendableSparseMatrix(boolmask(valid_areas).data)
     valid_areas = nothing
     force_gc_cleanup()
 
@@ -127,7 +127,17 @@ function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_fi
     area_store[!, :lons] = first.(lon_lats)
     area_store[!, :lats] = last.(lon_lats)
 
-    GP.write(dst_file, area_store, (:geometry,), EPSG_7844)
+    # Reset CRS for geometries (gets lost when creating the dataframe)
+    # Currently being ignored when written out so no point in doing this right now.
+    # Convert tuple to point
+    # area_store.geometry .= AG.createpoint.(area_store.geometry)
+    # area_store = GDF.reproject(
+    #     area_store,
+    #     Rasters.crs(rst_stack),
+    #     Rasters.crs(rst_stack)
+    # )
+
+    GP.write(dst_file, area_store, (:geometry,))
 
     area_store = nothing
     area_values = nothing
