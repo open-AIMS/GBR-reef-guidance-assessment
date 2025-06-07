@@ -31,6 +31,7 @@ rmprocs(workers()[2:end]...)
 GC.gc()
 
 using SparseArrays, NamedTupleTools
+using ExtendableSparse
 
 # Loading regions_4326 for cropping of vector and raster data.
 regions_4326 = GDF.read(REGION_PATH_4326)
@@ -94,6 +95,8 @@ end
         Turbidity=joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
         WavesHs=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
         WavesTp=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
+        HighTide=joinpath(MPA_OUTPUT_DIR, "$(reg)_high_tide.tif"),
+        LowTide=joinpath(MPA_OUTPUT_DIR, "$(reg)_low_tide.tif"),
         PortDistSlopes=joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif"),
         PortDistFlats=joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
     )
@@ -110,119 +113,124 @@ end
     # Write to "[some_file].tif.tif" temporarily.
     # The extra extension is used so the correct format is auto-selected without
     # needing a separate temporary filename (useful for debugging)
-    raw_bathy_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
-    process_UTM_raster(
-        raw_bathy_fn,
-        criteria_paths[:Depth] * ".tif",
-        EPSG_7844,
-        -9999.0,
-        reg;
-        method=:bilinear
-    )
+    if !isfile(criteria_paths[:Depth])
+        raw_bathy_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "bathy", reg)))
+        process_UTM_raster(
+            raw_bathy_fn,
+            criteria_paths[:Depth] * ".tif",
+            EPSG_7844,
+            -9999.0,
+            reg;
+            method=:bilinear
+        )
 
-    target_depth = crop_to_region(
-        criteria_paths[:Depth] * ".tif",
-        EPSG_4326,
-        regions_4326[reg_idx_4326, :geometry],
-        criteria_paths[:Depth]
-    )
+        target_depth = crop_to_region(
+            criteria_paths[:Depth] * ".tif",
+            regions_4326[reg_idx_4326, :geometry],
+            criteria_paths[:Depth]
+        )
 
-    if !isnothing(target_depth)
-        # Write out cropped dataset if needed
-        Rasters.write(criteria_paths[:Depth], target_depth; force=true)
-        target_depth = nothing
+        if !isnothing(target_depth)
+            # Write out cropped dataset if needed
+            Rasters.write(criteria_paths[:Depth], target_depth; force=true)
+            target_depth = nothing
+        end
+
+        # Delete the temporary copy
+        rm(criteria_paths[:Depth] * ".tif"; force=true)
     end
 
     # Load bathymetry data to provide corresponding spatial extent
     bathy_gda2020 = Raster(criteria_paths[:Depth]; crs=EPSG_7844, lazy=true)
 
-    # Delete the temporary copy
-    rm(criteria_paths[:Depth] * ".tif"; force=true)
-
     # Write to "[some_file].tif.tif" temporarily.
     # The extra extension is used so the correct format is auto-selected without
     # needing a separate temporary filename (useful for debugging)
-    raw_slope_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "slope", reg)))
-    process_UTM_raster(
-        raw_slope_fn,
-        criteria_paths[:Slope] * ".tif",
-        EPSG_7844,
-        -9999.0,
-        reg;
-        method=:bilinear
-    )
+    if !isfile(criteria_paths[:Slope])
+        raw_slope_fn = first(glob("*.tif", joinpath(MPA_DATA_DIR, "slope", reg)))
+        process_UTM_raster(
+            raw_slope_fn,
+            criteria_paths[:Slope] * ".tif",
+            EPSG_7844,
+            -9999.0,
+            reg;
+            method=:bilinear
+        )
 
-    target_slope = crop_to_region(
-        criteria_paths[:Slope] * ".tif",
-        EPSG_4326,
-        regions_4326[reg_idx_4326, :geometry],
-        criteria_paths[:Slope]
-    )
+        target_slope = crop_to_region(
+            criteria_paths[:Slope] * ".tif",
+            regions_4326[reg_idx_4326, :geometry],
+            criteria_paths[:Slope]
+        )
 
-    # Resample to align with depth dataset
-    resample_and_write(
-        target_slope,
-        bathy_gda2020,
-        criteria_paths[:Slope];
-        method=:bilinear
-    )
+        # Resample to align with depth dataset
+        resample_and_write(
+            target_slope,
+            bathy_gda2020,
+            criteria_paths[:Slope];
+            method=:bilinear
+        )
 
-    # Delete the temporary copy
-    rm(criteria_paths[:Slope] * ".tif"; force=true)
+        # Delete the temporary copy
+        rm(criteria_paths[:Slope] * ".tif"; force=true)
 
-    target_slope = nothing
+        target_slope = nothing
+    end
 
     # Process other raster data for region
     @debug "$(now()) - Processing $(reg) - Benthic"
-    raw_benthic_fn = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
-    target_benthic = crop_to_region(
-        raw_benthic_fn,
-        EPSG_4326,
-        regions_4326[reg_idx_4326, :geometry],
-        criteria_paths[:Benthic]
-    )
-    resample_and_write(
-        target_benthic,
-        bathy_gda2020,
-        criteria_paths[:Benthic];
-        method=:near
-    )
-    target_benthic = nothing
-    force_gc_cleanup()
+    if !isfile(criteria_paths[:Benthic])
+        raw_benthic_fn = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
+        target_benthic = crop_to_region(
+            raw_benthic_fn,
+            regions_4326[reg_idx_4326, :geometry],
+            criteria_paths[:Benthic]
+        )
+        resample_and_write(
+            target_benthic,
+            bathy_gda2020,
+            criteria_paths[:Benthic];
+            method=:near
+        )
+        target_benthic = nothing
+        force_gc_cleanup()
+    end
 
     @debug "$(now()) - Processing $(reg) - Geomorphic"
-    raw_geomorphic_fn = "$(MPA_DATA_DIR)/geomorphic/GBR10 GBRMP Geomorphic.tif"
-    target_geomorphic = crop_to_region(
-        raw_geomorphic_fn,
-        EPSG_4326,
-        regions_4326[reg_idx_4326, :geometry],
-        criteria_paths[:Geomorphic]
-    )
-    resample_and_write(
-        target_geomorphic,
-        bathy_gda2020,
-        criteria_paths[:Geomorphic];
-        method=:near
-    )
-    target_geomorphic = nothing
-    force_gc_cleanup()
+    if !isfile(criteria_paths[:Geomorphic])
+        raw_geomorphic_fn = "$(MPA_DATA_DIR)/geomorphic/GBR10 GBRMP Geomorphic.tif"
+        target_geomorphic = crop_to_region(
+            raw_geomorphic_fn,
+            regions_4326[reg_idx_4326, :geometry],
+            criteria_paths[:Geomorphic]
+        )
+        resample_and_write(
+            target_geomorphic,
+            bathy_gda2020,
+            criteria_paths[:Geomorphic];
+            method=:near
+        )
+        target_geomorphic = nothing
+        force_gc_cleanup()
+    end
 
     @debug "$(now()) - Processing $(reg) - Turbidity"
-    raw_turbid_fn = "$(ACA_DATA_DIR)/Turbidity-Q3-2023/turbidity-quarterly_0.tif"
-    target_turbid = crop_to_region(
-        raw_turbid_fn,
-        EPSG_4326,
-        regions_4326[reg_idx_4326, :geometry],
-        criteria_paths[:Turbidity]
-    )
-    resample_and_write(
-        target_turbid,
-        bathy_gda2020,
-        criteria_paths[:Turbidity];
-        method=:bilinear
-    )
-    target_turbid = nothing
-    force_gc_cleanup()
+    if !isfile(criteria_paths[:Turbidity])
+        raw_turbid_fn = "$(ACA_DATA_DIR)/Turbidity-Q3-2023/turbidity-quarterly_0.tif"
+        target_turbid = crop_to_region(
+            raw_turbid_fn,
+            regions_4326[reg_idx_4326, :geometry],
+            criteria_paths[:Turbidity]
+        )
+        resample_and_write(
+            target_turbid,
+            bathy_gda2020,
+            criteria_paths[:Turbidity];
+            method=:bilinear
+        )
+        target_turbid = nothing
+        force_gc_cleanup()
+    end
 
     # Process Rugosity data
     if reg == "Townsville-Whitsunday"
@@ -270,9 +278,35 @@ end
         method=:bilinear
     )
 
-    # Calculate distance to nearest port
-    port_points = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
+    # Tidal data is already separated into management regions
+    # so we only need to reproject into consistent datum
+    @debug "$(now()) - Processing $(reg) - High Tide"
+    hightide_fn = first(glob("*_hightide_*_$reg*.tif", TIDAL_DATA_DIR))
+    if !isfile(criteria_paths[:HighTide])
+        high_tide = resample(Raster(hightide_fn); to=bathy_gda2020, method=:bilinear)
+        Rasters.write(
+            criteria_paths[:HighTide],
+            Rasters.crop(high_tide; to=bathy_gda2020)
+        )
 
+        high_tide = nothing
+        force_gc_cleanup()
+    end
+
+    @debug "$(now()) - Processing $(reg) - Low Tide"
+    lowtide_fn = first(glob("*_lowtide_*_$reg*.tif", TIDAL_DATA_DIR))
+    if !isfile(criteria_paths[:LowTide])
+        low_tide = resample(Raster(lowtide_fn); to=bathy_gda2020, method=:bilinear)
+        Rasters.write(
+            criteria_paths[:LowTide],
+            Rasters.crop(low_tide; to=bathy_gda2020)
+        )
+
+        low_tide = nothing
+        force_gc_cleanup()
+    end
+
+    # Calculate distance to nearest port
     @debug "$(now()) - Processing $(reg) - Ports"
     within_port_range(
         criteria_paths[:Depth],
@@ -281,23 +315,27 @@ end
     )
 
     # Create copy for reef flats (TODO: Could reuse just the one file)
-    cp(criteria_paths[:PortDistSlopes], criteria_paths[:PortDistFlats]; force=true)
+    if !isfile(criteria_paths[:PortDistFlats])
+        cp(criteria_paths[:PortDistSlopes], criteria_paths[:PortDistFlats]; force=true)
+    end
 
     @debug "$(now()) - Processing $(reg) - Valid area"
     # Find locations containing valid data
     valid_slopes_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif")
-    write_valid_locs(
-        criteria_paths,
-        MPA_BENTHIC_IDS,
-        MPA_SLOPE_IDS,
-        7, (3, 3), 70, (9, 9),
-        valid_slopes_fn
-    )
+    if !isfile(valid_slopes_fn)
+        write_valid_locs(
+            criteria_paths,
+            MPA_BENTHIC_IDS,
+            MPA_SLOPE_IDS,
+            7, (3, 3), 70, (9, 9),
+            valid_slopes_fn
+        )
 
-    resize_to_valid_area(
-        criteria_paths,
-        valid_slopes_fn
-    )
+        resize_to_valid_area(
+            criteria_paths,
+            valid_slopes_fn
+        )
+    end
 
     # Create lookup tables to support fast querying
     @debug "$(now()) - Processing $(reg) - Lookup table"

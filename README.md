@@ -56,6 +56,9 @@ RUG_DATA_DIR = "path to Rugosity raster data"  # location of Rugosity data
 
 [ports_data]
 PORT_DATA_DIR = "path to QLD Ports vector data"  # Location of QLD Ports data.
+
+[tidal_data]
+TIDAL_DATA_DIR = "path to tidal data"
 ```
 
 ### Data layout
