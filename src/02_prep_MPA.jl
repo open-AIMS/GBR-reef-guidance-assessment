@@ -1,8 +1,8 @@
 """
-Prepare data for analysis by processing MPA files for each GBRMPA management region.
+Prepare data for analysis by processing UQ-GBRMPA files for each GBRMPA management region.
 
-"MPA" is the internal designation. This dataset is commonly known as the UQ-GBRMPA or
-EoMap dataset.
+"MPA" is the internal designation. This dataset is commonly known as the UQ-GBRMPA or,
+for the bathymetry data specifically, the EoMap dataset.
 
 Crop GBR-wide GBRMPA rasters into management regions.
 Reproject all data from WGS84 / UTM Zone 54 - 56 into consistent CRS (GDA2020).
@@ -89,8 +89,8 @@ end
     # Create NamedTuple to hold all output file paths.
     criteria_paths = (
         Depth=joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
-        Benthic=joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
-        Geomorphic=joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"),
+        Benthic=joinpath(MPA_OUTPUT_DIR, "$(reg)_hybrid_benthic.tif"),
+        Geomorphic=joinpath(MPA_OUTPUT_DIR, "$(reg)_hybrid_geomorphic.tif"),
         Slope=joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
         Turbidity=joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
         WavesHs=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
