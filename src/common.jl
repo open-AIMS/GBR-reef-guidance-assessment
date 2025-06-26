@@ -4,8 +4,9 @@ using TOML
 
 using ProgressMeter
 import GeometryOps as GO
+import SortTileRecursiveTree as STRT
 
-using WGLMakie, GeoMakie
+using CairoMakie, GeoMakie
 
 try
     global CONFIG = TOML.parsefile(".config.toml")
@@ -113,12 +114,27 @@ if nworkers() < CONFIG["processing"]["N_PROCS"]
         global MPA_SLOPE_IDS = [21, 22, 24]  # Sheltered Reef Slope, Reef Slope, Back Reef Slope
         global MPA_BENTHIC_IDS = [0x0d, 0x0f] # 0x0d = 13 = Rock # 0x0f = 15 = Coral/Algae
 
+        # Manually extracted from Raster Attribute Table
+        global MPA_GEOMORPHIC_IDS = (;
+            deep=2,
+            shallow_lagoon=11,
+            deep_lagoon=12,
+            inner_reef_flat=13,
+            outer_reef_flat=14,
+            reef_crest=15,
+            sheltered_reef_slope=21,
+            reef_slope=22,
+            plateau=23,
+            back_reef_slope=24,
+            patch_reef=25,
+        )
+
         # ACA IDs Manually extracted from Raster Attribute Table(s)
         global ACA_FLAT_IDS = [
             "Terrestrial Reef Flat", "Plateau", "Inner Reef Flat", "Outer Reef Flat"
         ]
         global ACA_SLOPE_IDS = ["Sheltered Reef Slope", "Back Reef Slope", "Reef Slope"]
-        global ACA_BENTHIC_IDS = ["Coral/Algae", "Rock"]
+        global ACA_BENTHIC_IDS = ["Rock", "Coral/Algae"]
 
         # Known Proj strings for each GBRMPA zone - may remove in later cleanup?
         global REGION_CRS_UTM = Dict(
