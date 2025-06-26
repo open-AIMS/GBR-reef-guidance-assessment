@@ -10,8 +10,6 @@ using CoordinateTransformations, Rotations
 
 using Rasters
 
-using GLMakie
-
 
 function create_poly(verts, crs)
     sel_lines = GI.LineString(GI.Point.(verts))
