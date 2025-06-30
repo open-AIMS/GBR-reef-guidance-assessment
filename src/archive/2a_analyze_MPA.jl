@@ -19,7 +19,7 @@ include("common.jl")
             return 0.0
         end
 
-        return Int16(round((total / length(subsection))*100))
+        return Int16(round((total / length(subsection)) * 100))
     end
 
     function _write_data(fpath::String, data, cache)::Nothing
@@ -107,12 +107,12 @@ include("common.jl")
         src_slope = nothing
 
         src_benthic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"); crs=EPSG_7844)
-        benthic_crit = (src_benthic .∈ [MPA_BENTHIC_IDS])
+        benthic_crit = (src_benthic .∈ values(MPA_BENTHIC_IDS))
         src_benthic = nothing
 
         src_geomorphic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"); crs=EPSG_7844)
-        geomorphic_flat_crit = src_geomorphic .∈ [MPA_FLAT_IDS]
-        geomorphic_slope_crit = src_geomorphic .∈ [MPA_SLOPE_IDS]
+        geomorphic_flat_crit = src_geomorphic .∈ values(MPA_FLAT_IDS)
+        geomorphic_slope_crit = src_geomorphic .∈ values(MPA_SLOPE_IDS)
         src_geomorphic = nothing
 
         src_waves_Hs = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"); crs=EPSG_7844)

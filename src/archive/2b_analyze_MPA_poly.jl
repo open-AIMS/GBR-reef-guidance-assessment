@@ -76,49 +76,49 @@ function assess_region(reg, port_buffer)
 
     @info "Reading"
     @time begin
-    # Load required prepared raster files for analysis
-    bathy_crit = load_and_assess(joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"), -9.0, -2.0)
-    slope_crit = load_and_assess(joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"), 0.0, 40.0)
+        # Load required prepared raster files for analysis
+        bathy_crit = load_and_assess(joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"), -9.0, -2.0)
+        slope_crit = load_and_assess(joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"), 0.0, 40.0)
 
-    benthic_crit = load_and_assess(
-        joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
-        x -> (x .∈ [MPA_BENTHIC_IDS])
-    )
+        benthic_crit = load_and_assess(
+            joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic.tif"),
+            x -> (x .∈ Ref(values(MPA_BENTHIC_IDS)))
+        )
 
-    src_geomorphic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"))
-    geomorphic_flat_crit = src_geomorphic .∈ [MPA_FLAT_IDS]
-    geomorphic_slope_crit = src_geomorphic .∈ [MPA_SLOPE_IDS]
-    src_geomorphic = nothing
+        src_geomorphic = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic.tif"))
+        geomorphic_flat_crit = src_geomorphic .∈ values(MPA_FLAT_IDS)
+        geomorphic_slope_crit = src_geomorphic .∈ values(MPA_SLOPE_IDS)
+        src_geomorphic = nothing
 
-    Hs_waves_crit = load_and_assess(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"), 0.0, 1.0)
-    Tp_waves_crit = load_and_assess(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"), 0.0, 6.0)
-    turbid_crit = load_and_assess(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"), 0.0, 58)
+        Hs_waves_crit = load_and_assess(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"), 0.0, 1.0)
+        Tp_waves_crit = load_and_assess(joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"), 0.0, 6.0)
+        turbid_crit = load_and_assess(joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"), 0.0, 58)
     end
 
     @info "Assessment"
     @info "Initial assessment"
     @time begin
 
-    # Filter out cells over 200NM from the nearest port
-    bathy_crit = filter_distances(bathy_crit, port_buffer)
+        # Filter out cells over 200NM from the nearest port
+        bathy_crit = filter_distances(bathy_crit, port_buffer)
 
-    # Apply filtering criteria to raster grid
-    @time begin
-    suitable_areas = (
-        bathy_crit .&
-        benthic_crit .&
-        slope_crit .&
-        Hs_waves_crit .&
-        Tp_waves_crit .&
-        turbid_crit
-    )
+        # Apply filtering criteria to raster grid
+        @time begin
+            suitable_areas = (
+                bathy_crit .&
+                benthic_crit .&
+                slope_crit .&
+                Hs_waves_crit .&
+                Tp_waves_crit .&
+                turbid_crit
+            )
 
-    if reg == "Townsville-Whitsunday"
-        src_rugosity = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"))
-        suitable_areas .= suitable_areas .& (src_rugosity .< 6)
-        src_rugosity = nothing
-    end
-    end  # end raster comparison
+            if reg == "Townsville-Whitsunday"
+                src_rugosity = Raster(joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"))
+                suitable_areas .= suitable_areas .& (src_rugosity .< 6)
+                src_rugosity = nothing
+            end
+        end  # end raster comparison
 
     end  # initial assessment
 
@@ -127,19 +127,19 @@ function assess_region(reg, port_buffer)
     @info "    Assess flats"
     @time begin
 
-    result_raster = convert.(Int16, copy(suitable_areas))
-    rebuild(result_raster; missingval=0)
+        result_raster = convert.(Int16, copy(suitable_areas))
+        rebuild(result_raster; missingval=0)
 
-    suitable_flats = suitable_areas .& geomorphic_flat_crit
+        suitable_flats = suitable_areas .& geomorphic_flat_crit
 
-    # Calculate suitability of 10x10m surroundings of each cell
-    res = proportion_suitable(suitable_flats.data)
-    if reg == "Townsville-Whitsunday"
-        fpath = joinpath(MPA_ANALYSIS_RESULTS, "$(reg)_suitable_flats_rugosity.tif")
-    else
-        fpath = joinpath(MPA_ANALYSIS_RESULTS, "$(reg)_suitable_flats.tif")
-    end
-    result_raster .= res
+        # Calculate suitability of 10x10m surroundings of each cell
+        res = proportion_suitable(suitable_flats.data)
+        if reg == "Townsville-Whitsunday"
+            fpath = joinpath(MPA_ANALYSIS_RESULTS, "$(reg)_suitable_flats_rugosity.tif")
+        else
+            fpath = joinpath(MPA_ANALYSIS_RESULTS, "$(reg)_suitable_flats.tif")
+        end
+        result_raster .= res
 
     end  # end assess flats
 
@@ -149,15 +149,15 @@ function assess_region(reg, port_buffer)
     # Assess slopes
     @info "    Assess slopes"
     @time begin
-    suitable_slopes = suitable_areas .& geomorphic_slope_crit
+        suitable_slopes = suitable_areas .& geomorphic_slope_crit
 
-    # Calculate suitability of 10x10m surroundings of each cell
-    res .= proportion_suitable(suitable_slopes.data)
-    if reg == "Townsville-Whitsunday"
-        fpath = joinpath(MPA_ANALYSIS_RESULTS, "$(reg)_suitable_slopes_rugosity.tif")
-    else
-        fpath = joinpath(MPA_ANALYSIS_RESULTS, "$(reg)_suitable_slopes.tif")
-    end
+        # Calculate suitability of 10x10m surroundings of each cell
+        res .= proportion_suitable(suitable_slopes.data)
+        if reg == "Townsville-Whitsunday"
+            fpath = joinpath(MPA_ANALYSIS_RESULTS, "$(reg)_suitable_slopes_rugosity.tif")
+        else
+            fpath = joinpath(MPA_ANALYSIS_RESULTS, "$(reg)_suitable_slopes.tif")
+        end
 
     end  # assess slopes
 
@@ -172,6 +172,6 @@ function assess_region(reg, port_buffer)
 end
 
 # Load QLD_ports buffer data
-port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))[:,:geometry]
+port_buffer = GDF.read(joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"))[:, :geometry]
 
 @showprogress dt = 10 desc = "Analyzing..." map(x -> assess_region(x, port_buffer), REGIONS)
