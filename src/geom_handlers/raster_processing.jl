@@ -9,6 +9,39 @@ import GeoFormatTypes as GFT
 
 
 """
+    write_cog(file_path::String, data::Raster, config::Dict)::Nothing
+
+Write out a COG using common options.
+
+# Arguments
+- `file_path` : Path to write data out to
+- `data` : Raster data to write out
+- `tile_size` : Size of tiles to use in the COG (x,y dimension)
+- `num_threads` : Number of threads to use for writing
+"""
+function write_cog(
+    file_path::String, data::Raster; tile_size::Tuple{Integer}=(256,), num_threads::Integer=4
+)::Nothing
+    Rasters.write(
+        file_path,
+        data;
+        ext=".tiff",
+        source="gdal",
+        driver="COG",
+        options=Dict{String,String}(
+            "COMPRESS" => "DEFLATE",
+            "SPARSE_OK" => "TRUE",
+            "OVERVIEW_COUNT" => "5",
+            "BLOCKSIZE" => string(first(tile_size)),
+            "NUM_THREADS" => string(num_threads)
+        ),
+        force=true
+    )
+
+    return nothing
+end
+
+"""
     set_consistent_missingval!(raster, val)
 
 Replace value used to indicate no data, and return a Raster type with this value set.
@@ -232,20 +265,15 @@ function crop_to_region(
         return nothing
     end
 
-    input_raster = try
-        Raster(src_file)
-    catch
-        Raster(src_file; lazy=true)
-    end
+    input_raster = Raster(src_file; lazy=true)
 
     # Note: trim/mask is very important - otherwise file sizes are GBs!
-    return read(
-        Rasters.trim(
-            Rasters.mask(
-                crop(input_raster; to=target_region_geom); with=target_region_geom
-            )
+    return Rasters.trim(
+        Rasters.mask(
+            crop(input_raster; to=target_region_geom); with=target_region_geom
         )
     )
+
 end
 
 """
@@ -278,9 +306,13 @@ function resample_and_write(
         return nothing
     end
 
-    # Using `filename` argument reduces memory use but the resulting file is
-    # orders of magnitude bigger, so write out manually
-    input_raster = resample(input_raster; to=rst_template, method=method)
+    # Using `filename` argument reduces memory use but explodes size of file.
+    # https://github.com/rafaqz/Rasters.jl/issues/706
+    input_raster = resample(
+        Raster(input_raster; data=ExtendableSparse.sparse(coalesce.(input_raster.data, 0)));
+        to=rst_template,
+        method=method
+    )
     Rasters.write(dst_file, input_raster)
 
     return nothing
