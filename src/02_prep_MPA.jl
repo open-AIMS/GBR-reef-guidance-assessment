@@ -4,17 +4,18 @@ Prepare data for analysis by processing UQ-GBRMPA files for each GBRMPA manageme
 "MPA" is the internal designation. This dataset is commonly known as the UQ-GBRMPA or,
 for the bathymetry data specifically, the EoMap dataset.
 
-Crop GBR-wide GBRMPA rasters into management regions.
-Reproject all data from WGS84 / UTM Zone 54 - 56 into consistent CRS (GDA2020).
-Ensure all rasters are the same size/shape for each region of interest with the same
-values used to indicate no data.
-
 The general approach is to crop down to an extent of the region, then trim/mask to just the
-areas of interest. Processing data in this way minimized the amount of data being handled.
+areas of interest. Processing data in this way minimizes the amount of data being handled.
 
 Still, the largest chunk of time is spent resampling to the same projections and writing
 data to file (as it takes time to compress the data). The datasets can be in the GBs without
 compression.
+
+The steps are:
+1. Crop GBR-wide GBRMPA rasters into management regions.
+2. Reproject all data from WGS84 / UTM Zone 54 - 56 into a consistent CRS (GDA2020).
+3. Ensure all rasters are the same size/shape for each region of interest with the same \
+   values used to indicate no data.
 """
 
 include("common.jl")
@@ -87,25 +88,7 @@ end
     reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
 
     # Create NamedTuple to hold all output file paths.
-    criteria_paths = (
-        Depth=joinpath(MPA_OUTPUT_DIR, "$(reg)_bathy.tif"),
-        Benthic=joinpath(MPA_OUTPUT_DIR, "$(reg)_hybrid_benthic.tif"),
-        Geomorphic=joinpath(MPA_OUTPUT_DIR, "$(reg)_hybrid_geomorphic.tif"),
-        Slope=joinpath(MPA_OUTPUT_DIR, "$(reg)_slope.tif"),
-        Turbidity=joinpath(MPA_OUTPUT_DIR, "$(reg)_turbid.tif"),
-        WavesHs=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"),
-        WavesTp=joinpath(MPA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"),
-        HighTide=joinpath(MPA_OUTPUT_DIR, "$(reg)_high_tide.tif"),
-        LowTide=joinpath(MPA_OUTPUT_DIR, "$(reg)_low_tide.tif"),
-        PortDistSlopes=joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_slopes.tif"),
-        PortDistFlats=joinpath(MPA_OUTPUT_DIR, "$(reg)_port_distance_flats.tif")
-    )
-    if reg == "Townsville-Whitsunday"
-        criteria_paths = NamedTupleTools.merge(
-            criteria_paths,
-            (Rugosity=joinpath(MPA_OUTPUT_DIR, "$(reg)_rugosity.tif"),)
-        )
-    end
+    criteria_paths = create_criteria_paths(reg)
 
     @debug "$(now()) - Processing $(reg) - bathy and slope"
 
@@ -138,10 +121,12 @@ end
 
         # Delete the temporary copy
         rm(criteria_paths[:Depth] * ".tif"; force=true)
+        force_gc_cleanup()
     end
 
     # Load bathymetry data to provide corresponding spatial extent
     bathy_gda2020 = Raster(criteria_paths[:Depth]; crs=EPSG_7844, lazy=true)
+    # template_rst = Raster(bathy_gda2020; data=zeros(Float32, size(bathy_gda2020)))
 
     # Write to "[some_file].tif.tif" temporarily.
     # The extra extension is used so the correct format is auto-selected without
@@ -162,6 +147,7 @@ end
             regions_4326[reg_idx_4326, :geometry],
             criteria_paths[:Slope]
         )
+        force_gc_cleanup()
 
         # Resample to align with depth dataset
         resample_and_write(
@@ -175,53 +161,38 @@ end
         rm(criteria_paths[:Slope] * ".tif"; force=true)
 
         target_slope = nothing
+        force_gc_cleanup()
     end
 
     # Process other raster data for region
     @debug "$(now()) - Processing $(reg) - Benthic"
-    if !isfile(criteria_paths[:Benthic])
-        raw_benthic_fn = "$(MPA_DATA_DIR)/benthic/GBR10 GBRMP Benthic.tif"
-        target_benthic = crop_to_region(
-            raw_benthic_fn,
-            regions_4326[reg_idx_4326, :geometry],
-            criteria_paths[:Benthic]
-        )
-        resample_and_write(
-            target_benthic,
-            bathy_gda2020,
-            criteria_paths[:Benthic];
-            method=:near
-        )
-        target_benthic = nothing
-        force_gc_cleanup()
-    end
+    resample_and_write(
+        Raster(create_intermediate_filenames(reg).Benthic; lazy=true),
+        bathy_gda2020,
+        criteria_paths[:Benthic];
+        method=:near
+    )
+    force_gc_cleanup()
 
     @debug "$(now()) - Processing $(reg) - Geomorphic"
-    if !isfile(criteria_paths[:Geomorphic])
-        raw_geomorphic_fn = "$(MPA_DATA_DIR)/geomorphic/GBR10 GBRMP Geomorphic.tif"
-        target_geomorphic = crop_to_region(
-            raw_geomorphic_fn,
-            regions_4326[reg_idx_4326, :geometry],
-            criteria_paths[:Geomorphic]
-        )
-        resample_and_write(
-            target_geomorphic,
-            bathy_gda2020,
-            criteria_paths[:Geomorphic];
-            method=:near
-        )
-        target_geomorphic = nothing
-        force_gc_cleanup()
-    end
+    resample_and_write(
+        Raster(create_intermediate_filenames(reg).Geomorphic; lazy=true),
+        bathy_gda2020,
+        criteria_paths[:Geomorphic];
+        method=:near
+    )
+    force_gc_cleanup()
 
     @debug "$(now()) - Processing $(reg) - Turbidity"
     if !isfile(criteria_paths[:Turbidity])
-        raw_turbid_fn = "$(ACA_DATA_DIR)/Turbidity-Q3-2023/turbidity-quarterly_0.tif"
+        raw_turbid_fn = "$(ACA_DATA_DIR)/Turbidity-2024/turbidity-annual_0.tif"
         target_turbid = crop_to_region(
             raw_turbid_fn,
             regions_4326[reg_idx_4326, :geometry],
             criteria_paths[:Turbidity]
         )
+        force_gc_cleanup()
+
         resample_and_write(
             target_turbid,
             bathy_gda2020,
@@ -325,8 +296,8 @@ end
     if !isfile(valid_slopes_fn)
         write_valid_locs(
             criteria_paths,
-            MPA_BENTHIC_IDS,
-            MPA_SLOPE_IDS,
+            [values(MPA_BENTHIC_IDS)...],
+            [values(MPA_SLOPE_IDS)...],
             7, (3, 3), 70, (9, 9),
             valid_slopes_fn
         )
