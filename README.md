@@ -1,6 +1,11 @@
-# GBR-reef-guidance-assessment
+# ReefGuide-GBR data prep
 
-Analyses to support workshop discussions for pilot deployment program.
+Scripts to prepare data for ReefGuide-GBR.
+
+Due to the amount of source data, these scripts require a minimum of 64GB of ram to be
+available for processing to complete comfortably. Lower amounts may still work, but will
+likely hit out-of-memory errors and require repeat runs to restart the process where it
+last errored.
 
 ## Setup
 
@@ -23,13 +28,14 @@ Assumes `src` is the project root. Each file in `src` is expected to be run in o
 
 ```code
 GBR-reef-guidance-assessment/
-├─ src/           # Analysis
-├─ outputs/       # Intermediate data files
-├─ figs/          # Figures
+├─ src/            # Analysis
+├─ outputs/        # Intermediate data files
+├─ figs/           # Figures
 ├─ .gitignore
-├─ Project.toml   # Julia project spec
-├─ LICENSE.md
-└─ README.md      # this file
+├─ Project.toml    # Julia project spec
+├─ Manifest.toml   # Julia project manifest
+├─ LICENSE.md      # License information
+└─ README.md       # this file
 ```
 
 In addition to the above, spatial data should be stored outside the repository and its
@@ -155,20 +161,12 @@ $ julia --project=..
 
 Scripts are labelled by their expected run order for GBRMPA (MPA) and Allen Coral Atlas (ACA),
 and are written to be as stand-alone as possible.
+
 It should be possible to run one script, so long as other scripts earlier in the
 indicated order have been run previously.
-e.g., Script 3 could be run after script 1 and 2, so long as 1 and 2 were run at some point
-previously.
-(Note: Running `1b_*.jl` requires the user to have raw MPA bathymetry input data,
-as it is required for processing of wave data.)
-(Note: Running `1a_*.jl` requires the user to have raw ACA turbidity input data,
-as it is also required for MPA analyses.)
 
-- `1_*.jl` : Separate data into regions to reduce computational requirements. Ensure all data
-used in later steps are in EPSG:7844/GDA2020.
-- `2_*.jl` : Filter raster data into cells that meet selected criteria and calculate the
-proportion of suitability in the hectare surrounding each cell.
-- `3_*.jl` : Count the number of cells that have a surrounding suitability >= 0.95.
+For example, Script 3 could be run after Script 1 and 2, so long as 1 and 2 were run at some point
+previously.
 
 ## Manual steps
 
@@ -178,13 +176,6 @@ Processing Toolbox -> Raster Tools -> Generate XYZ tiles (MBTiles)
 
 ## Data Sources
 
-### Benthic Habitat Layer
-
-Great Barrier Reef 10m Grid (GBR10) GBRMP Benthic
-Great Barrier Reef Marine Park Authority
-https://gbrmpa.maps.arcgis.com/home/item.html?id=d1c58d71667d490ba650c8fd07d6f7ee
-https://metadata.imas.utas.edu.au/geonetwork/srv/eng/catalog.search#/metadata/492a87d95e8243728486718e7aed02a8
-
 ### Bathymetry 10m Grid
 
 https://gbrmpa.maps.arcgis.com/home/item.html?id=f644f02ec646496eb5d31ad4f9d0fc64
@@ -192,17 +183,24 @@ https://gbrmpa.maps.arcgis.com/home/item.html?id=f644f02ec646496eb5d31ad4f9d0fc6
 Bathymetry data that can be sourced from the sharepoint folder `GBR-Bathy10m` has been split into
 management regions and reprojected to the relevant UTM zones.
 
-### Slope 10m Grid
+### Benthic Habitat Layer
 
-Calculated by Dr M. Puotinen based on the bathymetry.
-
-### GBRMPA Features
-
-https://data.gov.au/dataset/ds-dga-51199513-98fa-46e6-b766-8e1e1c896869/details
+Great Barrier Reef 10m Grid (GBR10) GBRMP Benthic
+Great Barrier Reef Marine Park Authority
+https://gbrmpa.maps.arcgis.com/home/item.html?id=d1c58d71667d490ba650c8fd07d6f7ee
+https://metadata.imas.utas.edu.au/geonetwork/srv/eng/catalog.search#/metadata/492a87d95e8243728486718e7aed02a8
 
 ### Geomorphic
 
 https://gbrmpa.maps.arcgis.com/home/item.html?id=93fd689452e44e74801845b7935c54c4
+
+### Slope 10m Grid
+
+Calculated by Dr M. Puotinen based on the bathymetry.
+
+### GBRMPA Reef Features
+
+https://geohub-gbrmpa.hub.arcgis.com/datasets/GBRMPA::great-barrier-reef-features-/explore?location=-19.221541%2C145.776418%2C4.94
 
 ### GBRMPA Zones
 
@@ -244,15 +242,15 @@ used for pilot deployment scenarios for 2025.
 
 ### ACA data
 
-https://www.allencoralatlas.org/
+Downloaded via: https://www.allencoralatlas.org/
 
 ### Rugosity data
 
-Provided by Ben Radford for Townsville-Whitsunday region.
+Provided by Dr. Ben Radford for Townsville-Whitsunday region.
 
 ### Port-Distance data
 
-Port distances calculated in step 1 are in Nautical Miles using QLD-Ports location data to
+Port distances calculated in Script 2 are in Nautical Miles using QLD-Ports location data to
 calculate the distances to locations with available data and benthic/geomorphic IDs.
 
 ## Resolution
@@ -303,7 +301,7 @@ After trimming to bathymetry extents:
 
 **Note the east-most longitude is outside the nominal bounds for UTM Zone 55S.**
 
-As a tentative workaround, it is assumed that the embedded extents in the wave netCDFs are
+As a workaround, it is assumed that the embedded extents in the wave netCDFs are
 incorrect. Extents of the wave data typically match the size/shape of bathymetry data
 (i.e., the number of rows/columns are the same). When missing data is cropped away, the
 remaining wave data is well within the bathymetry bounds. Where the sizes do not match,
@@ -313,16 +311,12 @@ with values denoting `missing` data).
 The bathymetry data structure is then copied (so metadata on its extent, projection, etc.
 are retained), and finally, the wave data is copied across.
 
-All data in `1a_prep_MPA.jl` are projected to EPSG:7844/GDA2020 prior to further analysis.
+All data in `02_prep_MPA.jl` are projected to EPSG:7844/GDA2020 prior to further analysis.
 
 #### ACA Data
 
-ACA raster data is in EPSG:4326/WGS84.
-Wave data preparation in `1b_prep_aca.jl` requires
-MPA bathymetric data to be available due to inconsistent reference systems/units
-(see 'Projections - MPA Data' section for more details).
-
-All data in `1b_prep_aca.jl` are projected to EPSG:7844/GDA2020 prior to further analysis.
+ACA data are reprojected to EPSG:7844/GDA2020 prior to further analysis to align with
+the UQ-GBRMPA data processed by this collection of scripts.
 
 ## Presentation
 
@@ -331,14 +325,12 @@ Recommended Colors
 - Flats: #7570b3  (purple)
 - Slopes: #1b9e77  (green)
 
-### Web Mapping
+### Additional Web Mapping
 
-Initial results from GBR-reef-guidance-assessment are displayed in the Great Barrier Reef -
-Reef Guidance Web Application (https://experience.arcgis.com/experience/a165d3d9123f44bd972adcf61ee3b859).
-These results show flat and slope surrounding hectare suitability between 1-100% as well as context layers.
-Layers can be adjusted for position and transparency, and a grey scale map option is also available.
-The initial suitability criteria are displayed under `Data Information`.
+The ReefGuide Context Layers Web Application (https://experience.arcgis.com/experience/d1fb62d8671943a0a4f40dbafe834083/).
+display additional context layers, including:
 
+This
 Layers added for context include:
 - `QLD Port Locations` : Provided by Dr Marji Puotinen
 - `EcoRRAP Site Locations` : Provided by Dr Maren Toor
@@ -347,6 +339,4 @@ Layers added for context include:
 - `Designated Shipping Areas`
 - `Traditional Use of Marine Resources Agreement areas`
 - `Marine Park Zoning`
-- `Mean DHW data 1985-2023` : NOAA Observed DHW data provided by Dr Jessica Benthuysen
-- `Mean projected DHW data 2015-2100 (SSP2-4.5 CNRM-ESM2-1)` : Statistically downscaled data provided by Dr Jessica Benthuysen
-- `ReefMod reef outlines with contextual information` : Produced by canonical-reefs project (https://github.com/gbrrestoration/canonical-reefs)
+- `Reef outlines with contextual information` : Produced by canonical-reefs project (https://github.com/gbrrestoration/canonical-reefs)
