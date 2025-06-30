@@ -1,10 +1,32 @@
-using Statistics, StatsBase
-using Distributed
-using TOML
 
+using TOML
+using Glob
 using ProgressMeter
+
+using Distributed, FLoops
+using Statistics, StatsBase
+using SparseArrays
+
+using
+    Rasters,
+    NCDatasets,
+    LibGEOS
+
 import GeometryOps as GO
+import GeoInterface as GI
+import GeometryOps as GO
+import GeoFormatTypes as GFT
+import ArchGDAL as AG
 import SortTileRecursiveTree as STRT
+
+using Distances
+
+using DataFrames
+import GeoDataFrames as GDF
+import GeoParquet as GP
+
+using Images, ImageFiltering
+using ImageMorphology: label_components
 
 using CairoMakie, GeoMakie
 
@@ -18,135 +40,153 @@ catch err
     rethrow(err)
 end
 
-if nworkers() < CONFIG["processing"]["N_PROCS"]
-    addprocs(CONFIG["processing"]["N_PROCS"]; dir=@__DIR__)
+FIG_DIR = "../figs/"
+global MPA_FIG_DIR = joinpath(FIG_DIR, "MPA")
+global ACA_FIG_DIR = joinpath(FIG_DIR, "ACA")
 
-    @everywhere begin
-        @eval begin
-            using Statistics, StatsBase
-            using ProgressMeter
-            using TOML
-            using Glob
+QGIS_DIR = "../qgis/"
+global MPA_QGIS_DIR = joinpath(QGIS_DIR, "MPA")
+global ACA_QGIS_DIR = joinpath(QGIS_DIR, "ACA")
 
-            using
-                FLoops,
-                ThreadsX
+OUTPUT_DIR = "../outputs/"
+global MPA_OUTPUT_DIR = joinpath(OUTPUT_DIR, "MPA")
+global ACA_OUTPUT_DIR = joinpath(OUTPUT_DIR, "ACA")
 
-            using
-                Rasters,
-                NCDatasets,
-                LibGEOS
+global MPA_ANALYSIS_RESULTS = joinpath(MPA_OUTPUT_DIR, "analysis_results")
+global ACA_ANALYSIS_RESULTS = joinpath(ACA_OUTPUT_DIR, "analysis_results")
 
-            import GeoInterface as GI
-            import GeometryOps as GO
-            import GeoFormatTypes as GFT
-            import ArchGDAL as AG
+CONFIG = TOML.parsefile(".config.toml")
+global MPA_DATA_DIR = CONFIG["mpa_data"]["MPA_DATA_DIR"]
+global ACA_DATA_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
+global WAVE_DATA_DIR = CONFIG["wave_data"]["WAVE_DATA_DIR"]
+global GDA2020_DATA_DIR = CONFIG["gda2020_data"]["GDA2020_DATA_DIR"]
+global RUG_DATA_DIR = CONFIG["rugosity_data"]["RUG_DATA_DIR"]
+global PORT_DATA_DIR = CONFIG["ports_data"]["PORT_DATA_DIR"]
+global TIDAL_DATA_DIR = CONFIG["tidal_data"]["TIDAL_DATA_DIR"]
 
-            using Distances
+regions_GDA2020_path = joinpath(
+    GDA2020_DATA_DIR,
+    "Great_Barrier_Reef_Marine_Park_Management_Areas_20_1685154518472315942.gpkg"
+)
+regions_GDA2020 = GDF.read(regions_GDA2020_path)
+rename!(regions_GDA2020, Dict(:SHAPE => :geometry))
 
-            using DataFrames
-            import GeoDataFrames as GDF
-            import GeoParquet as GP
+global EPSG_4326 = GFT.EPSG(4326)  # Web mercator
+global EPSG_7844 = GFT.EPSG(7844)  # GDA2020 in degrees
+global EPSG_9473 = GFT.EPSG(9473)  # GDA2020 in meter projection
 
-            using Images, ImageFiltering
-            using ImageMorphology: label_components
-        end
+# Get polygon of management areas
+global REGION_PATH_4326 = joinpath(
+    MPA_DATA_DIR,
+    "zones",
+    "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
+)
 
-        FIG_DIR = "../figs/"
-        global MPA_FIG_DIR = joinpath(FIG_DIR, "MPA")
-        global ACA_FIG_DIR = joinpath(FIG_DIR, "ACA")
+# The reef features GDA94 dataset has added `Area_HA` column needed in 3*_.jl
+global REEF_PATH_GDA94 = joinpath(
+    MPA_DATA_DIR,
+    "features",
+    "Great_Barrier_Reef_Features.shp"
+)
 
-        QGIS_DIR = "../qgis/"
-        global MPA_QGIS_DIR = joinpath(QGIS_DIR, "MPA")
-        global ACA_QGIS_DIR = joinpath(QGIS_DIR, "ACA")
+# Folder names (TODO: Generalize)
+global REGIONS = String[
+    "Townsville-Whitsunday",
+    "Cairns-Cooktown",
+    "Mackay-Capricorn",
+    "FarNorthern"
+]
 
-        OUTPUT_DIR = "../outputs/"
-        global MPA_OUTPUT_DIR = joinpath(OUTPUT_DIR, "MPA")
-        global ACA_OUTPUT_DIR = joinpath(OUTPUT_DIR, "ACA")
+# GBRMPA IDs Manually extracted from Raster Attribute Table(s)
+global MPA_FLAT_IDS = (;
+    inner_reef_flat=13,
+    outer_reef_flat=14,
+    plateau=23
+)
 
-        global MPA_ANALYSIS_RESULTS = joinpath(MPA_OUTPUT_DIR, "analysis_results")
-        global ACA_ANALYSIS_RESULTS = joinpath(ACA_OUTPUT_DIR, "analysis_results")
+global MPA_SLOPE_IDS = (;
+    sheltered_reef_slope=21,
+    reef_slope=22,
+    back_reef_slope=24
+)
 
-        CONFIG = TOML.parsefile(".config.toml")
-        global MPA_DATA_DIR = CONFIG["mpa_data"]["MPA_DATA_DIR"]
-        global ACA_DATA_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
-        global WAVE_DATA_DIR = CONFIG["wave_data"]["WAVE_DATA_DIR"]
-        global GDA2020_DATA_DIR = CONFIG["gda2020_data"]["GDA2020_DATA_DIR"]
-        global RUG_DATA_DIR = CONFIG["rugosity_data"]["RUG_DATA_DIR"]
-        global PORT_DATA_DIR = CONFIG["ports_data"]["PORT_DATA_DIR"]
-        global TIDAL_DATA_DIR = CONFIG["tidal_data"]["TIDAL_DATA_DIR"]
+global MPA_BENTHIC_IDS = (;
+    rock=13,
+    coral_algae=15
+)
 
-        regions_GDA2020_path = joinpath(
-            GDA2020_DATA_DIR,
-            "Great_Barrier_Reef_Marine_Park_Management_Areas_20_1685154518472315942.gpkg"
+# Manually extracted from Raster Attribute Table
+global MPA_GEOMORPHIC_IDS = (;
+    deep=2,
+    shallow_lagoon=11,
+    deep_lagoon=12,
+    inner_reef_flat=13,
+    outer_reef_flat=14,
+    reef_crest=15,
+    sheltered_reef_slope=21,
+    reef_slope=22,
+    plateau=23,
+    back_reef_slope=24,
+    patch_reef=25
+)
+
+# ACA IDs Manually extracted from Raster Attribute Table(s)
+global ACA_FLAT_IDS = [
+    "Terrestrial Reef Flat", "Plateau", "Inner Reef Flat", "Outer Reef Flat"
+]
+global ACA_SLOPE_IDS = ["Sheltered Reef Slope", "Back Reef Slope", "Reef Slope"]
+global ACA_BENTHIC_IDS = ["Rock", "Coral/Algae"]
+
+# Known Proj strings for each GBRMPA zone - may remove in later cleanup?
+global REGION_CRS_UTM = Dict(
+    "Townsville-Whitsunday" => GFT.EPSG(32755),
+    "Cairns-Cooktown" => GFT.EPSG(32755),
+    "Mackay-Capricorn" => GFT.EPSG(32756),
+    "FarNorthern" => GFT.EPSG(32754)
+)
+
+# GBRMPA zones to exclude from site selection
+global MPA_EXCLUSION_ZONES = ["Preservation Zone"]
+
+"""
+    create_intermediate_filenames(region_name::String)
+
+Generate intermediate filenames for benthic and geomorphic layers.
+"""
+function create_intermediate_filenames(region_name::String)
+    return (;
+        Benthic=joinpath(MPA_OUTPUT_DIR, "$(region_name)_hybrid_benthic.tif"),
+        Geomorphic=joinpath(MPA_OUTPUT_DIR, "$(region_name)_hybrid_geomorphic.tif")
+    )
+end
+
+"""
+    create_criteria_paths(region_name::String)
+
+Generate output filenames for each criteria layer.
+"""
+function create_criteria_paths(region_name::String)
+    criteria_paths = (
+        Depth=joinpath(MPA_OUTPUT_DIR, "$(region_name)_bathy.tif"),
+        Benthic=joinpath(MPA_OUTPUT_DIR, "$(region_name)_benthic.tif"),
+        Geomorphic=joinpath(MPA_OUTPUT_DIR, "$(region_name)_geomorphic.tif"),
+        Slope=joinpath(MPA_OUTPUT_DIR, "$(region_name)_slope.tif"),
+        Turbidity=joinpath(MPA_OUTPUT_DIR, "$(region_name)_turbid.tif"),
+        WavesHs=joinpath(MPA_OUTPUT_DIR, "$(region_name)_waves_Hs.tif"),
+        WavesTp=joinpath(MPA_OUTPUT_DIR, "$(region_name)_waves_Tp.tif"),
+        HighTide=joinpath(MPA_OUTPUT_DIR, "$(region_name)_high_tide.tif"),
+        LowTide=joinpath(MPA_OUTPUT_DIR, "$(region_name)_low_tide.tif"),
+        PortDistSlopes=joinpath(MPA_OUTPUT_DIR, "$(region_name)_port_distance_slopes.tif"),
+        PortDistFlats=joinpath(MPA_OUTPUT_DIR, "$(region_name)_port_distance_flats.tif")
+    )
+    if region_name == "Townsville-Whitsunday"
+        criteria_paths = NamedTupleTools.merge(
+            criteria_paths,
+            (Rugosity=joinpath(MPA_OUTPUT_DIR, "$(region_name)_rugosity.tif"),)
         )
-        regions_GDA2020 = GDF.read(regions_GDA2020_path)
-        rename!(regions_GDA2020, Dict(:SHAPE => :geometry))
-
-        global EPSG_4326 = GFT.EPSG(4326)  # Web mercator
-        global EPSG_7844 = GFT.EPSG(7844)  # GDA2020 in degrees
-        global EPSG_9473 = GFT.EPSG(9473)  # GDA2020 in meter projection
-
-        # Get polygon of management areas
-        global REGION_PATH_4326 = joinpath(
-            MPA_DATA_DIR,
-            "zones",
-            "Management_Areas_of_the_Great_Barrier_Reef_Marine_Park.geojson"
-        )
-
-        # The reef features GDA94 dataset has added `Area_HA` column needed in 3*_.jl
-        global REEF_PATH_GDA94 = joinpath(
-            MPA_DATA_DIR,
-            "features",
-            "Great_Barrier_Reef_Features.shp"
-        )
-
-        # Folder names (TODO: Generalize)
-        global REGIONS = String[
-            "Townsville-Whitsunday",
-            "Cairns-Cooktown",
-            "Mackay-Capricorn",
-            "FarNorthern"
-        ]
-
-        # GBRMPA IDs Manually extracted from Raster Attribute Table(s)
-        global MPA_FLAT_IDS = [13, 14, 23]  # Inner Reef Flat, Outer Reef Flat, Plateau
-        global MPA_SLOPE_IDS = [21, 22, 24]  # Sheltered Reef Slope, Reef Slope, Back Reef Slope
-        global MPA_BENTHIC_IDS = [0x0d, 0x0f] # 0x0d = 13 = Rock # 0x0f = 15 = Coral/Algae
-
-        # Manually extracted from Raster Attribute Table
-        global MPA_GEOMORPHIC_IDS = (;
-            deep=2,
-            shallow_lagoon=11,
-            deep_lagoon=12,
-            inner_reef_flat=13,
-            outer_reef_flat=14,
-            reef_crest=15,
-            sheltered_reef_slope=21,
-            reef_slope=22,
-            plateau=23,
-            back_reef_slope=24,
-            patch_reef=25,
-        )
-
-        # ACA IDs Manually extracted from Raster Attribute Table(s)
-        global ACA_FLAT_IDS = [
-            "Terrestrial Reef Flat", "Plateau", "Inner Reef Flat", "Outer Reef Flat"
-        ]
-        global ACA_SLOPE_IDS = ["Sheltered Reef Slope", "Back Reef Slope", "Reef Slope"]
-        global ACA_BENTHIC_IDS = ["Rock", "Coral/Algae"]
-
-        # Known Proj strings for each GBRMPA zone - may remove in later cleanup?
-        global REGION_CRS_UTM = Dict(
-            "Townsville-Whitsunday" => GFT.EPSG(32755),
-            "Cairns-Cooktown" => GFT.EPSG(32755),
-            "Mackay-Capricorn" => GFT.EPSG(32756),
-            "FarNorthern" => GFT.EPSG(32754)
-        )
-
-        # GBRMPA zones to exclude from site selection
-        global MPA_EXCLUSION_ZONES = ["Preservation Zone"]
     end
+
+    return criteria_paths
 end
 
 function plot_map(gdf::DataFrame; geom_col=:geometry, color=nothing)
@@ -262,3 +302,7 @@ function port_buffer_mask(gdf::DataFrame, dist::Float64; unit::String="NM")
 
     return port_mask
 end
+
+include("geom_handlers/raster_processing.jl")
+include("geom_handlers/lookup_processing.jl")
+include("geom_handlers/geom_ops.jl")
