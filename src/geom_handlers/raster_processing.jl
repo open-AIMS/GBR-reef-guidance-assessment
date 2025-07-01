@@ -308,12 +308,13 @@ function resample_and_write(
 
     # Using `filename` argument reduces memory use but explodes size of file.
     # https://github.com/rafaqz/Rasters.jl/issues/706
+    # Using a custom fork that enforces compression.
     input_raster = resample(
-        Raster(input_raster; data=ExtendableSparse.sparse(coalesce.(input_raster.data, 0)));
+        input_raster;
         to=rst_template,
-        method=method
+        method=method,
+        filename=dst_file
     )
-    Rasters.write(dst_file, input_raster)
 
     return nothing
 end
