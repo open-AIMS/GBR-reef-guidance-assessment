@@ -16,10 +16,10 @@ Initialize the project the usual way:
 ```
 
 This project currently relies on a fork of Rasters.jl with customizations to allow
-writing Cloud Optimized Geotiffs (COGs) directly to disk.
+writing compressed resampled rasters direct to disk.
 
 ```code
-]add https://www.github.com/ConnectedSystems/Rasters.jl#resample-cog-write
+]add https://www.github.com/ConnectedSystems/Rasters.jl#resample-default-compress
 ```
 
 ## Project Layout
