@@ -82,7 +82,7 @@ for reg in REGIONS
     )
 
     @info "Writing hybrid data for $reg"
-    write_cog(fn, Raster(cropped_mz; data=sparse(Int8.(cropped_mz .| d))))
+    write_cog(fn, Raster(cropped_mz; data=sparse(Int8.(max.(cropped_mz, d)))))
     rm(tmp_fn)
 end
 
