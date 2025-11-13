@@ -115,6 +115,15 @@ global MPA_BENTHIC_IDS = (;
     coral_algae=15
 )
 
+global MPA_FULL_BENTHIC_IDS = (;
+    sand=11,
+    rubble=12,
+    rock=13,
+    seagrass=14,
+    coral_algae=15,
+    microalgal_mats=18
+)
+
 # Manually extracted from Raster Attribute Table
 global MPA_GEOMORPHIC_IDS = (;
     deep=2,
@@ -123,6 +132,7 @@ global MPA_GEOMORPHIC_IDS = (;
     inner_reef_flat=13,
     outer_reef_flat=14,
     reef_crest=15,
+    terrestrial_reef_flat=16,
     sheltered_reef_slope=21,
     reef_slope=22,
     plateau=23,
@@ -135,7 +145,7 @@ global ACA_FLAT_IDS = [
     "Terrestrial Reef Flat", "Plateau", "Inner Reef Flat", "Outer Reef Flat"
 ]
 global ACA_SLOPE_IDS = ["Sheltered Reef Slope", "Back Reef Slope", "Reef Slope"]
-global ACA_BENTHIC_IDS = ["Rock", "Coral/Algae"]
+global ACA_BENTHIC_IDS = ["Rock", "Coral/Algae", "Sand", "Rubble", "Seagrass", "Microalgal Mats"]
 
 # Known Proj strings for each GBRMPA zone - may remove in later cleanup?
 global REGION_CRS_UTM = Dict(
