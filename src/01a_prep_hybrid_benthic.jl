@@ -9,7 +9,10 @@ include("common.jl")
 
 if !@isdefined(management_zones)
     management_zones = GDF.read(
-        joinpath(CONFIG["gda2020_data"]["GDA2020_DATA_DIR"], "Great_Barrier_Reef_Marine_Park_Management_Areas_20_1685154518472315942.gpkg")
+        joinpath(
+            CONFIG["gda2020_data"]["GDA2020_DATA_DIR"],
+            "Great_Barrier_Reef_Marine_Park_Management_Areas_20_1685154518472315942.gpkg"
+        )
     )
 end
 
@@ -19,12 +22,9 @@ mpa_benthic_data = Raster(
     missingval=0
 )
 
-aca_benthic_data = GDF.read(
+target_polys = GDF.read(
     joinpath(CONFIG["aca_data"]["ACA_DATA_DIR"], "Benthic-Map", "benthic.geojson")
 )
-
-target_polys = aca_benthic_data[aca_benthic_data.class.∈Ref(ACA_BENTHIC_IDS), :]
-aca_benthic_data = nothing
 
 # Reproject ACA data to target CRS
 target_polys = GDF.reproject(target_polys, GI.crs(target_polys), EPSG_7844)
@@ -33,9 +33,18 @@ tree = STRT.STRtree(target_polys.geometry)
 reg_poly_idx = vcat(STRT.query.(Ref(tree), management_zones.SHAPE)...)
 target_polys = target_polys[reg_poly_idx, :]
 
+# Rebuild query tree
+tree = STRT.STRtree(target_polys.geometry)
+
 # Standardize text
-target_polys.class .= lowercase.(replace.(target_polys.class, " " => "_", "/" => "_"))
-target_polys.class_id = map(x -> Symbol(x) in keys(MPA_BENTHIC_IDS) ? getindex(MPA_BENTHIC_IDS, Symbol(x)) : 0, target_polys.class)
+target_polys.class .= lowercase.(
+    replace.(target_polys.class, " " => "_", "/" => "_")
+)
+
+target_polys.class_id = map(
+    x -> Symbol(x) in keys(MPA_FULL_BENTHIC_IDS) ? getindex(MPA_FULL_BENTHIC_IDS, Symbol(x)) : 0,
+    target_polys.class
+)
 
 @info "Prepping hybrid benthic data"
 for reg in REGIONS
@@ -58,8 +67,8 @@ for reg in REGIONS
         )
     )
 
-    @info "Marking valid areas"
-    cropped_mz = read(cropped_mz .* Bool.(cropped_mz .∈ Ref(values(MPA_BENTHIC_IDS))))
+    # @info "Marking valid areas"
+    # cropped_mz = read(cropped_mz .* Bool.(cropped_mz .∈ Ref(values(MPA_FULL_BENTHIC_IDS))))
 
     # Select benthic classes of interest and reproject to target CRS to ensure alignment
     @info "Ensuring reprojection is EPSG:7844"
@@ -71,7 +80,6 @@ for reg in REGIONS
     )
     cropped_mz = Raster(tmp_fn; lazy=true, missingval=0)
 
-    tree = STRT.STRtree(target_polys.geometry)
     reg_poly_idx = vcat(STRT.query.(Ref(tree), r.SHAPE)...)
     reg_polys = target_polys[reg_poly_idx, :]
 

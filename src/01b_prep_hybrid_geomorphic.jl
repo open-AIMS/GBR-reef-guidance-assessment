@@ -44,10 +44,11 @@ for reg in REGIONS
 
     force_gc_cleanup()
 
+    # Get management region area
     reg_idx = occursin.(reg[1:3], management_zones.AREA_DESCR)
     r = management_zones[reg_idx, :]
 
-    @info "Cropping raster to management zone $reg"
+    @info "Cropping MPA GBR10 raster to management zone $reg"
     @time cropped_mz = Rasters.trim(
         Rasters.mask(
             Rasters.crop(mpa_geomorphic_data; to=r.SHAPE);
@@ -55,10 +56,7 @@ for reg in REGIONS
         )
     )
 
-    @info "Marking valid areas"
-    cropped_mz = read(cropped_mz .* Bool.(cropped_mz .∈ Ref(values(MPA_GEOMORPHIC_IDS))))
-
-    # Select benthic classes of interest and reproject to target CRS to ensure alignment
+    # Select geomorphic classes of interest and reproject to target CRS to ensure alignment
     tmp_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic_tmp.tif")
     @info "Ensuring reprojection is EPSG:7844"
     @time cropped_mz = Rasters.resample(
@@ -69,11 +67,12 @@ for reg in REGIONS
 
     cropped_mz = Raster(tmp_fn; lazy=true, missingval=0)
 
+    # Extract out the ACA polygons within the management region
     tree = STRT.STRtree(target_polys.geometry)
     reg_poly_idx = vcat(STRT.query.(Ref(tree), r.SHAPE)...)
     reg_polys = target_polys[reg_poly_idx, :]
 
-    @info "Rasterizing polygons"
+    @info "Rasterizing ACA polygons"
     @time d = Rasters.rasterize(
         maximum,
         reg_polys;
