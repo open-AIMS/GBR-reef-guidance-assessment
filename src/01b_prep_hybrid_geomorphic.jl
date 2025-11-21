@@ -45,11 +45,11 @@ for reg in REGIONS
     force_gc_cleanup()
 
     # Get management region area
-    reg_idx = occursin.(reg[1:3], management_zones.AREA_DESCR)
-    r = management_zones[reg_idx, :]
+    region_idx = occursin.(reg[1:3], management_zones.AREA_DESCR)
+    r = management_zones[region_idx, :]
 
     @info "Cropping MPA GBR10 raster to management zone $reg"
-    @time cropped_mz = Rasters.trim(
+    @time cropped_gbr10 = Rasters.trim(
         Rasters.mask(
             Rasters.crop(mpa_geomorphic_data; to=r.SHAPE);
             with=r.SHAPE
@@ -59,13 +59,13 @@ for reg in REGIONS
     # Select geomorphic classes of interest and reproject to target CRS to ensure alignment
     tmp_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic_tmp.tif")
     @info "Ensuring reprojection is EPSG:7844"
-    @time cropped_mz = Rasters.resample(
-        cropped_mz;
+    @time cropped_gbr10 = Rasters.resample(
+        cropped_gbr10;
         crs=EPSG_7844,
         filename=tmp_fn
     )
 
-    cropped_mz = Raster(tmp_fn; lazy=true, missingval=0)
+    cropped_gbr10 = Raster(tmp_fn; lazy=true, missingval=0)
 
     # Extract out the ACA polygons within the management region
     tree = STRT.STRtree(target_polys.geometry)
@@ -73,16 +73,20 @@ for reg in REGIONS
     reg_polys = target_polys[reg_poly_idx, :]
 
     @info "Rasterizing ACA polygons"
-    @time d = Rasters.rasterize(
+    @time cropped_aca = Rasters.rasterize(
         maximum,
         reg_polys;
-        to=cropped_mz,
+        to=cropped_gbr10,
         fill=:class_id,
         missingval=0
     )
 
+    # Mask GBR10 with ACA so that areas that *do not* have data in GBR10 are selected
+    @info "Masking ACA"
+    @time masked_aca = mask(cropped_aca; with=cropped_gbr10, invert=true)
+
     @info "Writing hybrid data for $reg"
-    write_cog(fn, Raster(cropped_mz; data=sparse(Int8.(max.(cropped_mz, d)))))
+    @time write_cog(fn, Int8.(masked_aca .| cropped_gbr10))
     rm(tmp_fn)
 end
 

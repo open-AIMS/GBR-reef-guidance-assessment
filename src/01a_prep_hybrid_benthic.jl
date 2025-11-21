@@ -60,7 +60,7 @@ for reg in REGIONS
     r = management_zones[reg_idx, :]
 
     @info "Cropping raster to management zone $reg"
-    @time cropped_mz = Rasters.trim(
+    @time cropped_gbr10 = Rasters.trim(
         Rasters.mask(
             Rasters.crop(mpa_benthic_data; to=r.SHAPE);
             with=r.SHAPE
@@ -74,40 +74,30 @@ for reg in REGIONS
     @info "Ensuring reprojection is EPSG:7844"
     tmp_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_benthic_tmp.tif")
     @time Rasters.resample(
-        cropped_mz;
+        cropped_gbr10;
         crs=EPSG_7844,
         filename=tmp_fn
     )
-    cropped_mz = Raster(tmp_fn; lazy=true, missingval=0)
+    cropped_gbr10 = Raster(tmp_fn; lazy=true, missingval=0)
 
     reg_poly_idx = vcat(STRT.query.(Ref(tree), r.SHAPE)...)
     reg_polys = target_polys[reg_poly_idx, :]
 
-    @info "Rasterizing polygons"
-    @time d = Rasters.rasterize(
+    @info "Rasterizing ACA polygons"
+    @time cropped_aca = Rasters.rasterize(
         maximum,
         reg_polys;
-        to=cropped_mz,
+        to=cropped_gbr10,
         fill=:class_id,
         missingval=0
     )
 
-    # target_benthic = crop_to_region(
-    #     raw_benthic_fn,
-    #     regions_4326[reg_idx_4326, :geometry],
-    #     criteria_paths[:Benthic]
-    # )
-    # resample_and_write(
-    #     target_benthic,
-    #     bathy_gda2020,
-    #     criteria_paths[:Benthic];
-    #     method=:near
-    # )
-    # target_benthic = nothing
-    # force_gc_cleanup()
+    # Mask GBR10 with ACA so that areas that *do not* have data in GBR10 are selected
+    @info "Masking ACA"
+    @time masked_aca = mask(cropped_aca; with=cropped_gbr10, invert=true)
 
     @info "Writing hybrid data for $reg"
-    write_cog(fn, Raster(cropped_mz; data=sparse(Int8.(max.(cropped_mz, d)))))
+    @time write_cog(fn, Int8.(masked_aca .| cropped_gbr10))
     rm(tmp_fn)
 end
 
