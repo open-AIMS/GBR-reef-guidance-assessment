@@ -13,7 +13,7 @@ include("common.jl")
 function proportion_suitable(x::BitMatrix)::Matrix{Int16}
     x′ = zeros(Int16, size(x))
 
-    @floop for row_col in ThreadsX.findall(x)
+    for row_col in ThreadsX.findall(x)
         (row, col) = Tuple(row_col)
         x_left = max(col - 4, 1)
         x_right = min(col + 4, size(x, 2))

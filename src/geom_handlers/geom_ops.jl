@@ -1,7 +1,5 @@
 using Statistics
 
-using FLoops
-
 import ArchGDAL as AG
 import GeoInterface as GI
 import GeometryOps as GO

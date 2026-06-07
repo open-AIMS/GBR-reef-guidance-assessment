@@ -26,7 +26,7 @@ target_slope_poly = geomorphic_poly[target_slopes, :]
 target_benthic_features = benthic_poly.class .∈ Ref(ACA_BENTHIC_IDS)
 target_benthic_poly = benthic_poly[target_benthic_features, :]
 
-@floop for reg in REGIONS
+for reg in REGIONS
     reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
     region_4326_geom = regions_4326[reg_idx_4326, :geometry][1]
 
