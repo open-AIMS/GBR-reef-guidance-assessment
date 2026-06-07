@@ -34,6 +34,9 @@ target_polys = target_polys[reg_poly_idx, :]
 target_polys.class .= lowercase.(replace.(target_polys.class, " " => "_", "/" => "_"))
 target_polys.class_id = map(x -> Symbol(x) in keys(MPA_GEOMORPHIC_IDS) ? getindex(MPA_GEOMORPHIC_IDS, Symbol(x)) : 0, target_polys.class)
 
+# Rebuild tree from filtered/standardized polygons for per-region queries
+tree = STRT.STRtree(target_polys.geometry)
+
 @info "Prepping hybrid geomorphic data"
 for reg in REGIONS
     fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_hybrid_geomorphic.tif")
@@ -68,7 +71,6 @@ for reg in REGIONS
     cropped_gbr10 = Raster(tmp_fn; lazy=true, missingval=0)
 
     # Extract out the ACA polygons within the management region
-    tree = STRT.STRtree(target_polys.geometry)
     reg_poly_idx = vcat(STRT.query.(Ref(tree), r.SHAPE)...)
     reg_polys = target_polys[reg_poly_idx, :]
 

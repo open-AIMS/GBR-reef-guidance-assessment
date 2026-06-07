@@ -383,17 +383,12 @@ function process_wave_data(
         mappedcrs=EPSG_4326
     )
 
-    # 1. Manually set -infinite missing data value to exact value
+    # 1. Flip the y-axis (data was stored south-up) and convert type in one allocation
+    # 2. Fill missing values in-place on the flipped array
     #    This is necessary as the netCDF was provided without a set `no data` value
-    # 2. We also want to make the type explicit, from Union{Missing,Float32} -> Float32
-    # 3. Important to flip the y-axis as the data was stored in reverse orientation
-    #    (south-up), so we flip it back (2nd dimension is the y-axis)
-    wave_rst.data[wave_rst.data.<target_missingval] .= target_missingval
-    wave_rst = Raster(
-        wave_rst;
-        data=Float32.(wave_rst.data[:, end:-1:1]),
-        missingval=target_missingval
-    )
+    data = Float32.(wave_rst.data[:, end:-1:1])
+    data[data .< target_missingval] .= target_missingval
+    wave_rst = Raster(wave_rst; data=data, missingval=target_missingval)
 
     wave_rst = crop(wave_rst; to=rst_template)
 
@@ -555,7 +550,8 @@ function write_valid_locs(
             rast = rast .∈ [geomorph_ids]
         end
 
-        valid_areas = valid_areas .& boolmask(rast)
+        valid_areas.data .&= boolmask(rast).data
+        rast = nothing
     end
 
     # Clean up orphaned pixels (first and second pass)

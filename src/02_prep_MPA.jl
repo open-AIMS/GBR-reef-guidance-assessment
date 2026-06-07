@@ -297,11 +297,6 @@ end
         criteria_paths[:PortDistSlopes],
     )
 
-    # Create copy for reef flats (TODO: Could reuse just the one file)
-    if !isfile(criteria_paths[:PortDistFlats])
-        cp(criteria_paths[:PortDistSlopes], criteria_paths[:PortDistFlats]; force=true)
-    end
-
     @debug "$(now()) - Processing $(reg) - Valid area"
     # Find locations containing valid data
     valid_slopes_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes.tif")
