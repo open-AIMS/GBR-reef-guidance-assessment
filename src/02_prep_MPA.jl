@@ -249,6 +249,18 @@ end
         method=:bilinear
     )
 
+    @debug "$(now()) - Processing $(reg) - Waves Ubed90"
+    waves_Ubed_path = first(glob("*ubed90*.nc", joinpath(WAVE_DATA_DIR, "Ubed", reg)))
+    process_wave_data(
+        waves_Ubed_path,
+        criteria_paths[:WavesUbed],
+        :ubed90,
+        rst_template,
+        bathy_gda2020,
+        -9999.0;
+        method=:bilinear
+    )
+
     # Tidal data is already separated into management regions
     # so we only need to reproject into consistent datum
     @debug "$(now()) - Processing $(reg) - High Tide"

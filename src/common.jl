@@ -25,7 +25,7 @@ using DataFrames
 import GeoDataFrames as GDF
 import GeoParquet as GP
 
-using Images, ImageFiltering
+using ImageFiltering
 using ImageMorphology: label_components
 
 using CairoMakie, GeoMakie
@@ -184,6 +184,7 @@ function create_criteria_paths(region_name::String)
         Turbidity=joinpath(MPA_OUTPUT_DIR, "$(region_name)_turbid.tif"),
         WavesHs=joinpath(MPA_OUTPUT_DIR, "$(region_name)_waves_Hs.tif"),
         WavesTp=joinpath(MPA_OUTPUT_DIR, "$(region_name)_waves_Tp.tif"),
+        WavesUbed=joinpath(MPA_OUTPUT_DIR, "$(region_name)_VarWind_ubed90.tif"),
         HighTide=joinpath(MPA_OUTPUT_DIR, "$(region_name)_high_tide.tif"),
         LowTide=joinpath(MPA_OUTPUT_DIR, "$(region_name)_low_tide.tif"),
         PortDistSlopes=joinpath(MPA_OUTPUT_DIR, "$(region_name)_port_distance_slopes.tif"),
