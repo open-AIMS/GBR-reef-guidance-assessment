@@ -240,6 +240,8 @@ used for pilot deployment scenarios for 2025.
 
 `Hs` and `Tp` data from the 90th percentile of values are used (`Hs90` and `Tp90`).
 
+`ub` is `ubed90` (90th percentile bottom stress).
+
 ### ACA data
 
 Downloaded via: https://www.allencoralatlas.org/
