@@ -1,7 +1,8 @@
 using
     Rasters,
     ImageMorphology,
-    DataFrames
+    DataFrames,
+    NearestNeighbors
 
 import ArchGDAL as AG
 import GeoInterface as GI
@@ -149,32 +150,29 @@ function calc_distances(
     raster_lon = Vector{Float64}(tmp_areas.dims[1].val)
     raster_lat = Vector{Float64}(tmp_areas.dims[2].val)
 
-    FLoops.assistant(false)
-    @floop for (lon_ind, lon) in enumerate(raster_lon)
-        for (lat_ind, lat) in enumerate(raster_lat)
-            if tmp_areas[lon_ind, lat_ind] != 0.0
-                point = AG.createpoint()
-                AG.addpoint!(point, lon, lat)
+    # Build KDTree from port coordinates once for O(log n) nearest-port lookup.
+    # NearestNeighbors uses Euclidean distance for the tree traversal; Haversine
+    # is then computed only for the single nearest port per pixel.
+    port_coords = reduce(hcat, [Float64[AG.getx(g, 0), AG.gety(g, 0)] for g in gdf.geometry])
+    kdtree = KDTree(port_coords)
 
-                pixel_dists = AG.distance.([point], gdf.geometry)
-                geom_point = gdf[argmin(pixel_dists), :geometry]
-                geom_point = (AG.getx(geom_point, 0), AG.gety(geom_point, 0))
+    conv = units == "NM" ? 1852.0 : units == "km" ? 1000.0 : 1.0
 
-                dist_nearest = Distances.haversine(geom_point, (lon, lat))
+    valid_idx = findall(!=(0.0f0), tmp_areas.data)
 
-                # Convert from meters to nautical miles
-                if units == "NM"
-                    dist_nearest = dist_nearest / 1852
-                end
+    # Collect all valid pixel coordinates into a matrix for bulk knn query
+    pixel_coords = reduce(
+        hcat,
+        [Float64[raster_lon[i[1]], raster_lat[i[2]]] for i in valid_idx]
+    )
 
-                # Convert from meters to kilometers
-                if units == "km"
-                    dist_nearest = dist_nearest / 1000
-                end
+    # Single bulk nearest-neighbour lookup across all valid pixels
+    nearest_idxs, _ = knn(kdtree, pixel_coords, 1)
 
-                tmp_areas.data[lon_ind, lat_ind] = Float32(dist_nearest)
-            end
-        end
+    for (i, idx) in enumerate(valid_idx)
+        nearest_port = port_coords[:, nearest_idxs[i][1]]
+        dist_nearest = Distances.haversine(nearest_port, pixel_coords[:, i])
+        tmp_areas.data[idx] = Float32(dist_nearest / conv)
     end
 
     tmp_areas = rebuild(tmp_areas, missingval=Float32(0.0))
