@@ -4,3 +4,5 @@
 outputs/
 
 src/.config.toml
+
+.claude/
