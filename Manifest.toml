@@ -2,7 +2,7 @@
 
 julia_version = "1.11.7"
 manifest_format = "2.0"
-project_hash = "80e2348618c222b32dff48215bb4fae5070224b5"
+project_hash = "54d91e13aceec63a724602953d0d76456a5664f8"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "be7ae030256b8ef14a441726c4c37766b90b93a3"
@@ -1758,10 +1758,10 @@ uuid = "436b0209-26ab-4e65-94a9-6526d86fea76"
 version = "0.1.0"
 
 [[deps.NearestNeighbors]]
-deps = ["Distances", "StaticArrays"]
-git-tree-sha1 = "8a3271d8309285f4db73b4f662b1b290c715e85e"
+deps = ["AbstractTrees", "Distances", "StaticArrays"]
+git-tree-sha1 = "e2c3bba08dd6dedfe17a17889131b885b8c082f0"
 uuid = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
-version = "0.4.21"
+version = "0.4.27"
 
 [[deps.NetCDF_jll]]
 deps = ["Artifacts", "Blosc_jll", "Bzip2_jll", "HDF5_jll", "JLLWrappers", "LibCURL_jll", "Libdl", "OpenMPI_jll", "XML2_jll", "Zlib_jll", "Zstd_jll", "libzip_jll"]
