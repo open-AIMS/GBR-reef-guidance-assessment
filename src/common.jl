@@ -14,7 +14,6 @@ using
 
 import GeometryOps as GO
 import GeoInterface as GI
-import GeometryOps as GO
 import GeoFormatTypes as GFT
 import ArchGDAL as AG
 import SortTileRecursiveTree as STRT
@@ -55,7 +54,6 @@ global ACA_OUTPUT_DIR = joinpath(OUTPUT_DIR, "ACA")
 global MPA_ANALYSIS_RESULTS = joinpath(MPA_OUTPUT_DIR, "analysis_results")
 global ACA_ANALYSIS_RESULTS = joinpath(ACA_OUTPUT_DIR, "analysis_results")
 
-CONFIG = TOML.parsefile(".config.toml")
 global MPA_DATA_DIR = CONFIG["mpa_data"]["MPA_DATA_DIR"]
 global ACA_DATA_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
 global WAVE_DATA_DIR = CONFIG["wave_data"]["WAVE_DATA_DIR"]
@@ -187,8 +185,7 @@ function create_criteria_paths(region_name::String)
         WavesUbed=joinpath(MPA_OUTPUT_DIR, "$(region_name)_VarWind_ubed90.tif"),
         HighTide=joinpath(MPA_OUTPUT_DIR, "$(region_name)_high_tide.tif"),
         LowTide=joinpath(MPA_OUTPUT_DIR, "$(region_name)_low_tide.tif"),
-        PortDistSlopes=joinpath(MPA_OUTPUT_DIR, "$(region_name)_port_distance_slopes.tif"),
-        PortDistFlats=joinpath(MPA_OUTPUT_DIR, "$(region_name)_port_distance_flats.tif")
+        PortDistSlopes=joinpath(MPA_OUTPUT_DIR, "$(region_name)_port_distance_slopes.tif")
     )
     if region_name == "Townsville-Whitsunday"
         criteria_paths = NamedTupleTools.merge(
