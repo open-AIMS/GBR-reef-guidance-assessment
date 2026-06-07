@@ -233,7 +233,7 @@ function process_UTM_raster(
     end
 
     input_raster = nothing
-    force_gc_cleanup(; wait_time=2)
+    force_gc_cleanup()
 
     return nothing
 end
@@ -417,7 +417,7 @@ function process_wave_data(
     # orders of magnitude bigger, so write out manually
     target_waves = resample(target_waves; to=target_rst, method=method)
     Rasters.write(dst_file, target_waves)
-    force_gc_cleanup(; wait_time=2)
+    force_gc_cleanup()
 
     return nothing
 end
@@ -567,7 +567,7 @@ function write_valid_locs(
     Rasters.write(dst_file, valid_areas)
 
     cleaned_areas = nothing
-    force_gc_cleanup(; wait_time=2)
+    force_gc_cleanup()
 
     return nothing
 end

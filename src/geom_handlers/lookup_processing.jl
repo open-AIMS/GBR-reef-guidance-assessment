@@ -62,7 +62,7 @@ function stack_values(valid_mask, rst_stack)
 
         rst_tmp = nothing
         extracted = nothing
-        force_gc_cleanup(; wait_time=5)
+        force_gc_cleanup()
     end
 
     return v_store
@@ -143,7 +143,7 @@ function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_fi
     area_values = nothing
     _valid = nothing
     rst_stack = nothing
-    force_gc_cleanup(; wait_time=4)
+    force_gc_cleanup()
 
     return nothing
 end
