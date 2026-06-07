@@ -24,20 +24,14 @@ include("geom_handlers/raster_processing.jl")
 include("geom_handlers/lookup_processing.jl")
 
 using Dates
-
-# This processing step requires all the memory available so we actually remove the workers
-# that were just set up.
-# This can be commented out if working on a system with large enough amounts of memory
-rmprocs(workers()[2:end]...)
-GC.gc()
-
 using SparseArrays, NamedTupleTools
 using ExtendableSparse
 
-# Loading regions_4326 for cropping of vector and raster data.
-regions_4326 = GDF.read(REGION_PATH_4326)
+function prep_MPA()
+    # Loading regions_4326 for cropping of vector and raster data.
+    regions_4326 = GDF.read(REGION_PATH_4326)
 
-# 1a. Process GBRMPA zoning geopackage (used to avoid Pink/Exclusion zones)
+    # 1a. Process GBRMPA zoning geopackage (used to avoid Pink/Exclusion zones)
 MPA_zoning_input = "$(GDA2020_DATA_DIR)/Great_Barrier_Reef_Marine_Park_Zoning_20_4418126048110066699.gpkg"
 MPA_preservation_zone_fn = joinpath(MPA_OUTPUT_DIR, "GBRMPA_preservation_zone_exclusion.gpkg")
 geometry_exclusion_process(
@@ -340,4 +334,7 @@ end
     #     valid_flats_fn,
     #     flats_lookup_fn
     # )
+    end
+
+    return nothing
 end
