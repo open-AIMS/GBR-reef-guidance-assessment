@@ -63,7 +63,7 @@ include("common.jl")
         raster_lat = Vector{Float64}(tmp_areas.dims[1].val)
         raster_lon = Vector{Float64}(tmp_areas.dims[2].val)
 
-        @floop for row_col in findall(tmp_areas)
+        Threads.@threads for row_col in findall(tmp_areas)
             (lat_ind, lon_ind) = Tuple(row_col)
             point = AG.createpoint()
 
