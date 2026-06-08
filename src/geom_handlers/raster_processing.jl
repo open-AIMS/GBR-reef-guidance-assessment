@@ -387,6 +387,7 @@ function process_wave_data(
     data = Float32.(wave_rst.data[:, end:-1:1])
     data[data .< target_missingval] .= target_missingval
     wave_rst = Raster(wave_rst; data=data, missingval=target_missingval)
+    data = nothing
 
     wave_rst = crop(wave_rst; to=rst_template)
 
@@ -408,8 +409,12 @@ function process_wave_data(
     # Reproject raster to GDA2020 (degree projection)
     # Using `filename` argument reduces memory use but the resulting file is
     # orders of magnitude bigger, so write out manually
-    target_waves = resample(target_waves; to=target_rst, method=method)
-    Rasters.write(dst_file, target_waves)
+    try
+        target_waves = resample(target_waves; to=target_rst, method=method)
+        Rasters.write(dst_file, target_waves)
+    catch
+        resample(target_waves; to=target_rst, method=method, filename=dst_file)
+    end
     force_gc_cleanup()
 
     return nothing
