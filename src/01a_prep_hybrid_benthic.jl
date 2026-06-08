@@ -21,29 +21,41 @@ function prep_hybrid_benthic()
         missingval=0
     )
 
-    target_polys = GDF.read(
-        joinpath(CONFIG["aca_data"]["ACA_DATA_DIR"], "Benthic-Map", "benthic.geojson")
-    )
+    # Cache reprojected+filtered ACA polygons as GeoPackage to skip slow GeoJSON parsing
+    # and reprojection on subsequent runs
+    aca_cache_fn = joinpath(CONFIG["aca_data"]["ACA_DATA_DIR"], "Benthic-Map", "cache_benthic_GDA2020.gpkg")
+    if isfile(aca_cache_fn)
+        @debug "Loading cached ACA benthic data"
+        target_polys = GDF.read(aca_cache_fn)
+    else
+        target_polys = GDF.read(
+            joinpath(CONFIG["aca_data"]["ACA_DATA_DIR"], "Benthic-Map", "benthic.geojson")
+        )
 
-    # Reproject ACA data to target CRS
-    target_polys = GDF.reproject(target_polys, GI.crs(target_polys), EPSG_7844)
+        @debug "Reprojecting ACA to target CRS"
+        @time target_polys = GDF.reproject(target_polys, GI.crs(target_polys), EPSG_7844)
 
-    tree = STRT.STRtree(target_polys.geometry)
-    reg_poly_idx = vcat(STRT.query.(Ref(tree), management_zones.SHAPE)...)
-    target_polys = target_polys[reg_poly_idx, :]
+        @debug "Building STR tree for ACA"
+        tree = STRT.STRtree(target_polys.geometry)
+        reg_poly_idx = vcat(STRT.query.(Ref(tree), management_zones.SHAPE)...)
+        target_polys = target_polys[reg_poly_idx, :]
+
+        # Standardize text
+        target_polys.class .= lowercase.(
+            replace.(target_polys.class, " " => "_", "/" => "_")
+        )
+
+        target_polys.class_id = map(
+            x -> Symbol(x) in keys(MPA_FULL_BENTHIC_IDS) ? getindex(MPA_FULL_BENTHIC_IDS, Symbol(x)) : 0,
+            target_polys.class
+        )
+
+        @debug "Caching reprojected ACA benthic data"
+        GDF.write(aca_cache_fn, target_polys; crs=EPSG_7844)
+    end
 
     # Rebuild query tree
     tree = STRT.STRtree(target_polys.geometry)
-
-    # Standardize text
-    target_polys.class .= lowercase.(
-        replace.(target_polys.class, " " => "_", "/" => "_")
-    )
-
-    target_polys.class_id = map(
-        x -> Symbol(x) in keys(MPA_FULL_BENTHIC_IDS) ? getindex(MPA_FULL_BENTHIC_IDS, Symbol(x)) : 0,
-        target_polys.class
-    )
 
     @info "Prepping hybrid benthic data"
     for reg in REGIONS
@@ -91,12 +103,11 @@ function prep_hybrid_benthic()
             missingval=0
         )
 
-        # Mask GBR10 with ACA so that areas that *do not* have data in GBR10 are selected
-        @info "Masking ACA"
-        @time masked_aca = mask(cropped_aca; with=cropped_gbr10, invert=true)
-
+        # Where GBR10 has data use it, otherwise fall back to ACA (fused, single-pass)
+        # Mask ACA to management zone boundary to avoid filling bounding-box border areas
+        cropped_aca = mask(cropped_aca; with=r.SHAPE)
         @info "Writing hybrid data for $reg"
-        @time write_cog(fn, Int8.(masked_aca .| cropped_gbr10))
+        @time write_cog(fn, Int8.(ifelse.(!=(0).(cropped_gbr10), cropped_gbr10, cropped_aca)))
         rm(tmp_fn)
     end
 
