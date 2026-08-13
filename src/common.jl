@@ -21,22 +21,18 @@ using Distances
 
 using DataFrames
 import GeoDataFrames as GDF
-import GeoParquet as GP
+import Arrow
+import WellKnownGeometry
 
 using ImageFiltering
 using ImageMorphology: label_components
 
 using CairoMakie, GeoMakie
 
-try
-    global CONFIG = TOML.parsefile(".config.toml")
-catch err
-    if occursin("No such file", string(err))
-        @info "Configuration file `.config.toml` not found. See README for instructions."
-    end
-
-    rethrow(err)
+if !isfile(".config.toml")
+    error("Configuration file `.config.toml` not found. See README for instructions.")
 end
+global CONFIG = TOML.parsefile(".config.toml")
 
 FIG_DIR = "../figs/"
 global MPA_FIG_DIR = joinpath(FIG_DIR, "MPA")
@@ -52,6 +48,17 @@ global ACA_OUTPUT_DIR = joinpath(OUTPUT_DIR, "ACA")
 
 global MPA_ANALYSIS_RESULTS = joinpath(MPA_OUTPUT_DIR, "analysis_results")
 global ACA_ANALYSIS_RESULTS = joinpath(ACA_OUTPUT_DIR, "analysis_results")
+
+# Ensure output/fig/qgis directories exist so writes below (and in downstream scripts)
+# don't fail with GDALError: No such file or directory
+for dir in (
+    MPA_FIG_DIR, ACA_FIG_DIR,
+    MPA_QGIS_DIR, ACA_QGIS_DIR,
+    MPA_OUTPUT_DIR, ACA_OUTPUT_DIR,
+    MPA_ANALYSIS_RESULTS, ACA_ANALYSIS_RESULTS
+)
+    mkpath(dir)
+end
 
 global MPA_DATA_DIR = CONFIG["mpa_data"]["MPA_DATA_DIR"]
 global ACA_DATA_DIR = CONFIG["aca_data"]["ACA_DATA_DIR"]
@@ -155,6 +162,16 @@ global REGION_CRS_UTM = Dict(
 # GBRMPA zones to exclude from site selection
 global MPA_EXCLUSION_ZONES = ["Preservation Zone"]
 
+# Unit conversion factors (degrees are the common working unit for buffers)
+global NM_PER_DEGREE = 60.0   # 60 NM = 1 degree
+global KM_PER_DEGREE = 111.0  # 111 km = 1 degree
+
+# Consistent missingval used across all output raster products
+global DEFAULT_MISSINGVAL = -9999.0
+
+# Maximum port range considered for the port-distance criteria (nautical miles)
+global PORT_RANGE_NM = 200.0
+
 """
     create_intermediate_filenames(region_name::String)
 
@@ -196,6 +213,23 @@ function create_criteria_paths(region_name::String)
     return criteria_paths
 end
 
+function _draw_polys!(ga::GeoAxis, gdf::DataFrame; geom_col=:geometry, color=nothing)::Nothing
+    plottable = GeoMakie.geo2basic(AG.forceto.(gdf[!, geom_col], AG.wkbPolygon))
+
+    if !isnothing(color)
+        poly!(ga, plottable; color=color)
+    else
+        poly!(ga, plottable)
+    end
+
+    # Need to auto-set limits explicitly, otherwise tick labels don't appear properly (?)
+    # autolimits!(ga)
+    xlims!(ga)
+    ylims!(ga)
+
+    return nothing
+end
+
 function plot_map(gdf::DataFrame; geom_col=:geometry, color=nothing)
     f = Figure(; size=(600, 900))
     ga = GeoAxis(
@@ -212,56 +246,16 @@ function plot_map(gdf::DataFrame; geom_col=:geometry, color=nothing)
         ygridwidth=0.5
     )
 
-    plottable = GeoMakie.geo2basic(AG.forceto.(gdf[!, geom_col], AG.wkbPolygon))
-
-    if !isnothing(color)
-        poly!(ga, plottable, color=color)
-    else
-        poly!(ga, plottable)
-    end
-
-    # Need to auto-set limits explicitly, otherwise tick labels don't appear properly (?)
-    # autolimits!(ga)
-    xlims!(ga)
-    ylims!(ga)
-
+    _draw_polys!(ga, gdf; geom_col, color)
     display(f)
 
     return f
 end
 function plot_map!(ga::GeoAxis, gdf::DataFrame; geom_col=:geometry, color=nothing)::Nothing
-
-    plottable = GeoMakie.geo2basic(AG.forceto.(gdf[!, geom_col], AG.wkbPolygon))
-
-    if !isnothing(color)
-        poly!(ga, plottable; color=color)
-    else
-        poly!(ga, plottable)
-    end
-
-    # Need to auto-set limits explicitly, otherwise tick labels don't appear properly (?)
-    # autolimits!(ga)
-    xlims!(ga)
-    ylims!(ga)
-
-    return nothing
+    return _draw_polys!(ga, gdf; geom_col, color)
 end
 function plot_map!(gdf::DataFrame; geom_col=:geometry, color=nothing)::Nothing
-    ga = current_axis()
-    plottable = GeoMakie.geo2basic(AG.forceto.(gdf[!, geom_col], AG.wkbPolygon))
-
-    if !isnothing(color)
-        poly!(ga, plottable; color=color)
-    else
-        poly!(ga, plottable)
-    end
-
-    # Need to auto-set limits explicitly, otherwise tick labels don't appear properly (?)
-    # autolimits!(ga)
-    xlims!(ga)
-    ylims!(ga)
-
-    return nothing
+    return _draw_polys!(current_axis(), gdf; geom_col, color)
 end
 
 """
@@ -281,6 +275,40 @@ function force_gc_cleanup()::Nothing
 end
 
 """
+    skip_if_exists(f::Function, dst_file::String; label::String="Data")
+
+Run `f()` unless `dst_file` already exists, in which case skip processing and
+return `nothing`. Centralizes the `isfile(dst_file)` skip-guard repeated
+throughout the pipeline's caching layer (previously logged inconsistently as
+`@warn` or `@info` despite being a normal, expected skip path).
+
+# Arguments
+- `f` : Zero-argument function performing the work, invoked via `do`-block
+- `dst_file` : Output file path to check for existence
+- `label` : Description used in the skip log message
+"""
+function skip_if_exists(f::Function, dst_file::String; label::String="Data")
+    if isfile(dst_file)
+        @info "$label not processed as $(dst_file) already exists."
+        return nothing
+    end
+
+    return f()
+end
+
+"""
+    region_geom_index(gdf::DataFrame, reg::String; col::Symbol=:AREA_DESCR)::BitVector
+
+Boolean index into `gdf` selecting rows belonging to region `reg`, matched by
+its 3-letter prefix against `col`. Region names currently have unique
+3-letter prefixes (e.g. "Cairns-Cooktown" -> "Cai") - that assumption lives
+here so it's easy to revisit if new regions are added.
+"""
+function region_geom_index(gdf::DataFrame, reg::String; col::Symbol=:AREA_DESCR)::BitVector
+    return occursin.(reg[1:3], gdf[!, col])
+end
+
+"""
     port_buffer_mask(gdf::DataFrame, dist::Float64; unit::String="NM")
 
 Create a masking buffer around indicated port locations.
@@ -294,9 +322,9 @@ function port_buffer_mask(gdf::DataFrame, dist::Float64; unit::String="NM")
     # Determine conversion factor (nautical miles or kilometers)
     conv_factor = 1.0
     if unit == "NM"
-        conv_factor = 60.0  # 60 NM = 1 degree
+        conv_factor = NM_PER_DEGREE
     elseif unit == "km"
-        conv_factor = 111.0  # 111 km = 1 degree
+        conv_factor = KM_PER_DEGREE
     elseif unit != "deg"
         error("Unknown distance unit requested. Can only be one of `NM` or `km` or `deg`")
     end
@@ -306,8 +334,9 @@ function port_buffer_mask(gdf::DataFrame, dist::Float64; unit::String="NM")
     # Make buffer around ports
     buffered_ports = LibGEOS.buffer.(ports, dist / conv_factor)
 
-    # Combine all geoms into one
-    port_mask = reduce((x1, x2) -> LibGEOS.union(x1, x2), buffered_ports)
+    # Combine all geoms into one via cascaded/unary union - faster than a
+    # pairwise `reduce(union, ...)` since GEOS can process them as a batch.
+    port_mask = LibGEOS.unaryUnion(LibGEOS.MultiPolygon(buffered_ports))
 
     return port_mask
 end
@@ -315,3 +344,4 @@ end
 include("geom_handlers/raster_processing.jl")
 include("geom_handlers/lookup_processing.jl")
 include("geom_handlers/geom_ops.jl")
+include("geom_handlers/hybrid_prep.jl")

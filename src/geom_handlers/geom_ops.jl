@@ -72,16 +72,12 @@ function rotate_geom(geom, degrees::Float64)
     # Center is used as pivot point
     cx, cy = GO.centroid(geom)
 
-    # Extract points
-    new_points = try
-        getfield.(GI.getpoint(geom), :geom)
-    catch err
-        if !contains(err.msg, "type SArray has no field geom")
-            throw(err)
-        end
-
-        collect(GI.getpoint(geom))
-    end
+    # Extract points. ArchGDAL-backed points wrap a `.geom` pointer field;
+    # GeometryOps-native points (e.g. StaticArrays.SVector, produced by
+    # `GO.transform`) do not, so check up front rather than via exceptions.
+    pts = GI.getpoint(geom)
+    first_pt = first(pts)
+    new_points = hasfield(typeof(first_pt), :geom) ? getfield.(pts, :geom) : collect(pts)
 
     # Calculate new coordinates of each vertex
     for (i, p) in enumerate(new_points)
@@ -102,26 +98,6 @@ function move_geom(geom, new_centroid::Tuple)
     f = CoordinateTransformations.Translation(tf_lon, tf_lat)
     return GO.transform(f, geom)
 end
-
-
-# using GLMakie, GeoMakie
-
-# include("geom_handlers/site_assessment.jl")
-
-
-# rst = Raster("../outputs/MPA/_Cairns-Cooktown_suitable_flats_new.tif")
-# Flip so that longs are along the X dimension, and lats are along the Y dimension
-# Note: This is largely unnecessary, and was really on to make X = lon and Y = lat
-# rst2 = resample(rst; crs=EPSG(7856))'
-
-# # b_score, b_degree, b_polys = identify_potential_sites(rst2, 80.0, 10, 150, EPSG(7856))
-
-# # Define the polygon shape to search for (and auto-rotate)
-# xs = (1, 450)
-# ys = (1, 10)
-# search_plot = create_poly(create_bbox(xs, ys), EPSG(7856))
-
-# b_score, b_degree, b_polys = identify_potential_sites(rst2, 80.0, search_plot, 5.0)
 
 """
     geometry_exclusion_process(
@@ -156,27 +132,24 @@ function geometry_exclusion_process(
     exclude_ids::Vector;
     geom_col::Symbol=:geometry
 )::Nothing
-    if isfile(dst_file)
-        @warn "Data not processed as $(dst_file) already exists."
+    return skip_if_exists(dst_file) do
+        target_gdf = GDF.read(input_file)
+        if geom_col != :geometry
+            rename!(target_gdf, geom_col => :geometry)
+        end
+
+        if input_crs != target_crs
+            target_gdf.geometry = AG.reproject(
+                target_gdf.geometry,
+                input_crs,
+                target_crs;
+                order=:trad
+            )
+        end
+
+        target_gdf = target_gdf[target_gdf[:, exclude_col].∈[exclude_ids], :]
+        GDF.write(dst_file, target_gdf; crs=target_crs, geom_columns=(:geometry,))
+
         return nothing
     end
-
-    target_gdf = GDF.read(input_file)
-    if geom_col != :geometry
-        rename!(target_gdf, geom_col => :geometry)
-    end
-
-    if input_crs != target_crs
-        target_gdf.geometry = AG.reproject(
-            target_gdf.geometry,
-            input_crs,
-            target_crs;
-            order=:trad
-        )
-    end
-
-    target_gdf = target_gdf[target_gdf[:, exclude_col].∈[exclude_ids], :]
-    GDF.write(dst_file, target_gdf; crs=target_crs, geom_columns=(:geometry,))
-
-    return nothing
 end

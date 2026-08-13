@@ -1,20 +1,55 @@
 """
-    stack_values(valid_mask, rst_stack)
+    wkb_point(lon::Float64, lat::Float64)::Vector{UInt8}
+
+Build the 21-byte little-endian WKB encoding of a 2D Point directly (1 byte byte-order
+marker, `UInt32` geometry type, two `Float64` coordinates), without round-tripping
+through a geometry object and `WellKnownGeometry.getwkb`.
+
+# Notes
+Must byte-match `WellKnownGeometry.getwkb` applied to the equivalent point geometry -
+verify against a sample before trusting a full pipeline run.
+"""
+function wkb_point(lon::Float64, lat::Float64)::Vector{UInt8}
+    buf = IOBuffer()
+    write(buf, UInt8(1))         # byte order: little-endian
+    write(buf, htol(UInt32(1)))  # geometry type: Point
+    write(buf, htol(lon))
+    write(buf, htol(lat))
+    return take!(buf)
+end
+
+"""
+    stack_values(valid_mask, rst_stack; band_height::Int=2048)
 
 Extract values at specific lon/lat coordinates from a raster stack.
-Loads each stack into memory and extracts values a layer at a time.
+
+Reads each layer in GDAL-aligned row bands (height a multiple of 256, matching the
+256x256 COG block layout of the criteria rasters) instead of materialising each
+layer's full bounding box, and scatters values directly into preallocated typed
+columns instead of a boxed `Matrix{Any}`.
 
 # Notes
 Currently expects the raster to have the default X/Y dimensions set.
 
 # Arguments
-- `valid_mask` : mask indicating locations of valid data
+- `valid_mask` : mask (anything `SparseArrays.SparseMatrixCSC` can be built from)
+  indicating locations of valid data
 - `rst_stack` : raster stack to extract data from
+- `band_height` : number of Y rows to read per band; must be a multiple of 256 to
+  stay aligned with the criteria layers' COG block size
 
 # Returns
-Tables.jl-compatible vector of named tuples (to build a dataframe with)
+Tuple of `(value_cols, lon_idx_col, lat_idx_col, centroid_lons, centroid_lats)`.
+`value_cols` is a `NamedTuple` of one typed vector per stack layer (eltype matches
+`eltype(rst_stack[name])`), `lon_idx_col`/`lat_idx_col` are `Int64` source-pixel
+indices, and `centroid_lons`/`centroid_lats` are centroid-adjusted coordinates - all
+five are in the same row order: sorted `(x, y)` lexicographically (X-major), matching
+the pipeline's existing Arrow output. Callers that also need lon/lat columns (e.g.
+`valid_lookup`) should reuse these rather than re-deriving them.
 """
-function stack_values(valid_mask, rst_stack)
+function stack_values(valid_mask, rst_stack; band_height::Int=2048)
+    @assert band_height % 256 == 0 "band_height must be a multiple of 256 to stay aligned with COG blocks"
+
     # Calculate cell sizes
     x_res = abs(step(lookup(rst_stack, X)))
     y_res = abs(step(lookup(rst_stack, Y)))
@@ -23,74 +58,74 @@ function stack_values(valid_mask, rst_stack)
     lons = collect(lookup(rst_stack, X))
     lats = collect(lookup(rst_stack, Y))
 
-    sorted_valid_idx = sort(Tuple.(findall(valid_mask)))
+    # Walk the mask's nonzeros in native column-major (Y-major) order: for a matrix
+    # with dims (X, Y), that is every valid pixel in image row (Y) 1, then row 2, and
+    # so on - the same order the GDAL row-band reads below visit pixels in, so no
+    # separate re-ordering pass is needed to line the two up.
+    csc_mask = SparseArrays.SparseMatrixCSC(valid_mask)
+    x_idx, y_idx, _ = findnz(csc_mask)
+    n_valid = length(x_idx)
 
-    # Create centroid-adjusted coordinates
-    centroid_lons = [lon + (x_res / 2) for lon in lons[first.(sorted_valid_idx)]]
-    centroid_lats = [lat + (y_res / 2) for lat in lats[last.(sorted_valid_idx)]]
-    lon_lats = collect(zip(centroid_lons, centroid_lats))
+    # Output row order must stay X-major (sorted (x, y) lexicographically) to match
+    # the pipeline's existing Arrow output (every valid pixel in column 1, then
+    # column 2, ...). `perm[k]` is the destination row for the k-th pixel visited
+    # during the Y-major scan below.
+    #
+    # `sortperm` alone gives *source* indices (coord_list[p[r]] is the pixel of rank
+    # r), not destinations. Scattering with `dest[perm[k]] = src[k]` needs each
+    # pixel's own rank, which is `invperm(sortperm(coord_list))`.
+    perm = invperm(sortperm(collect(zip(x_idx, y_idx))))
 
-    # Create store, with three additional columns to make space for geometry, lon/lat index
-    v_store = Matrix(undef, length(lon_lats), length(names(rst_stack)) + 3)
-    for (i, stack_name) in enumerate(names(rst_stack))
-        # Read in valid subset
-        rst_tmp = view(
-            rst_stack[stack_name],
-            sort(unique(first.(sorted_valid_idx))),
-            sort(unique(last.(sorted_valid_idx)))
-        )
+    centroid_lons = Vector{Float64}(undef, n_valid)
+    centroid_lats = Vector{Float64}(undef, n_valid)
+    lon_idx_col = Vector{Int64}(undef, n_valid)
+    lat_idx_col = Vector{Int64}(undef, n_valid)
+    for k in 1:n_valid
+        dest = perm[k]
+        centroid_lons[dest] = lons[x_idx[k]] + (x_res / 2)
+        centroid_lats[dest] = lats[y_idx[k]] + (y_res / 2)
+        lon_idx_col[dest] = x_idx[k]
+        lat_idx_col[dest] = y_idx[k]
+    end
 
-        get_index = i == 1  # only get the indices for the first raster
+    # Typed column store: one preallocated vector per layer, eltype derived from the
+    # layer itself (Benthic/Geomorphic are Int8 class IDs, the rest are Float32).
+    stack_names = names(rst_stack)
+    value_cols = NamedTuple{Tuple(stack_names)}(
+        Tuple(Vector{eltype(rst_stack[name])}(undef, n_valid) for name in stack_names)
+    )
 
-        # Extract data from lazily loaded dataset. Indexing (`[:, :]`) is to force
-        # data to be read into memory (for speed!)
-        extracted = extract(rst_tmp[:, :], lon_lats; index=get_index)
-        if get_index
-            # Returned indices are relative to the view, not the source raster
-            # so we jump through some hoops to obtain the canonical indices.
-            inds = getfield.(extracted, :index)
-            true_lon_inds = lookup(rst_tmp, X).data.indices[1][first.(inds)]
-            true_lat_inds = lookup(rst_tmp, Y).data.indices[1][last.(inds)]
+    ny = length(lats)
+    k = 1
+    y_start = 1
+    while y_start <= ny
+        y_end = min(y_start + band_height - 1, ny)
 
-            v_store[:, 1] .= getfield.(extracted, :geometry)
-            v_store[:, 2] .= true_lon_inds
-            v_store[:, 3] .= true_lat_inds
-            v_store[:, 4] .= getfield.(extracted, stack_name)
-        else
-            v_store[:, i+3] .= getfield.(extracted, stack_name)
+        # y_idx is non-decreasing (CSC column-major order), so the pixels belonging
+        # to this band form one contiguous run starting at k.
+        band_start = k
+        while k <= n_valid && y_idx[k] <= y_end
+            k += 1
+        end
+        band_end = k - 1
+
+        if band_start <= band_end
+            for stack_name in stack_names
+                # Plain getindex on the lazy raster is a windowed GDAL read; `[:, :]`
+                # forces that window to be read into memory.
+                band_data = rst_stack[stack_name][:, y_start:y_end][:, :]
+                col = value_cols[stack_name]
+                for j in band_start:band_end
+                    col[perm[j]] = band_data[x_idx[j], y_idx[j]-y_start+1]
+                end
+            end
         end
 
-        rst_tmp = nothing
-        extracted = nothing
+        y_start = y_end + 1
         force_gc_cleanup()
     end
 
-    return v_store
-end
-
-"""
-    geoparquet_df!(store_values::Matrix, col_names::Vector{Symbol})::DataFrame
-
-Create a GeoParquet-compatible dataframe by assigning correct type information
-for each column.
-
-# Arguments
-- `store_values` : Values to put into store
-- `col_names` : column names to use
-"""
-function geoparquet_df!(store_values::Matrix, col_names::Vector{Symbol})::DataFrame
-    store = try
-        DataFrame(store_values, col_names)
-    catch
-        @warn "Assuming values are in compatible namedtuple"
-        DataFrame(store_values)
-    end
-
-    for (i, col) in enumerate(eachcol(store))
-        store[!, i] = convert.(typeof(store[1, i]), col)
-    end
-
-    return store
+    return value_cols, lon_idx_col, lat_idx_col, centroid_lons, centroid_lats
 end
 
 """
@@ -101,49 +136,41 @@ Create a lookup table of valid data pixels for fast querying of data layers.
 # Arguments
 - `raster_files` : NamedTuple containing the file path for each criteria raster file.
 - `valid_areas_file` : Path for file containing target valid areas (slopes or flats).
-- `dst_file` : Path to write parquet lookup file to.
+- `dst_file` : Path to write Arrow lookup file to.
 """
 function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_file::String)::Nothing
-    if isfile(dst_file)
-        @warn "Data not processed as $(dst_file) already exists."
+    return skip_if_exists(dst_file) do
+        # Create stack of prepared data
+        rst_stack = RasterStack(raster_files; lazy=true)
+
+        # Create lookup of valid data
+        valid_areas = Raster(valid_areas_file; lazy=true)
+        _valid = ExtendableSparseMatrix(sparse(boolmask(valid_areas).data))
+        valid_areas = nothing
+        force_gc_cleanup()
+
+        value_cols, lon_idx_col, lat_idx_col, centroid_lons, centroid_lats =
+            stack_values(_valid, rst_stack)
+
+        area_store = DataFrame(; lon_idx=lon_idx_col, lat_idx=lat_idx_col, value_cols...)
+
+        # Reuse the centroid coordinates already computed in `stack_values` instead of
+        # re-deriving them from a geometry column via a redundant geometry decode pass.
+        area_store[!, :lons] = centroid_lons
+        area_store[!, :lats] = centroid_lats
+
+        # Encode geometry as WKB bytes for compact Arrow storage; ReefGuide.jl decodes
+        # this back into GeoInterface-compatible geometries via WellKnownGeometry.wrap.
+        area_store[!, :geometry_wkb] = wkb_point.(centroid_lons, centroid_lats)
+
+        Arrow.write(dst_file, area_store; compress=:zstd)
+
+        area_store = nothing
+        value_cols = nothing
+        _valid = nothing
+        rst_stack = nothing
+        force_gc_cleanup()
+
         return nothing
     end
-
-    # Create stack of prepared data
-    rst_stack = RasterStack(raster_files; lazy=true)
-
-    # Create lookup of valid data
-    valid_areas = Raster(valid_areas_file)
-    _valid = ExtendableSparseMatrix(boolmask(valid_areas).data)
-    valid_areas = nothing
-    force_gc_cleanup()
-
-    col_names = vcat(:geometry, :lon_idx, :lat_idx, keys(raster_files)...)
-    area_values = stack_values(_valid, rst_stack)
-    area_store = geoparquet_df!(area_values, col_names)
-
-    # Store pre-extracted lon/lats
-    lon_lats = GI.coordinates.(area_store.geometry)
-    area_store[!, :lons] = first.(lon_lats)
-    area_store[!, :lats] = last.(lon_lats)
-
-    # Reset CRS for geometries (gets lost when creating the dataframe)
-    # Currently being ignored when written out so no point in doing this right now.
-    # Convert tuple to point
-    # area_store.geometry .= AG.createpoint.(area_store.geometry)
-    # area_store = GDF.reproject(
-    #     area_store,
-    #     Rasters.crs(rst_stack),
-    #     Rasters.crs(rst_stack)
-    # )
-
-    GP.write(dst_file, area_store, (:geometry,))
-
-    area_store = nothing
-    area_values = nothing
-    _valid = nothing
-    rst_stack = nothing
-    force_gc_cleanup()
-
-    return nothing
 end

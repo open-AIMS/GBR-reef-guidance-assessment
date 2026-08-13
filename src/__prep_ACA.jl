@@ -27,7 +27,7 @@ target_benthic_features = benthic_poly.class .∈ Ref(ACA_BENTHIC_IDS)
 target_benthic_poly = benthic_poly[target_benthic_features, :]
 
 for reg in REGIONS
-    reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
+    reg_idx_4326 = region_geom_index(regions_4326, reg)
     region_4326_geom = regions_4326[reg_idx_4326, :geometry][1]
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "aca_target_flats_$(reg).gpkg"))
@@ -70,7 +70,7 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG_4326, lazy=true)
 
 # If a file already exists it is skipped
 @showprogress dt = 10 "Prepping bathymetry/turbidity/wave data..." for reg in REGIONS
-    reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
+    reg_idx_4326 = region_geom_index(regions_4326, reg)
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_bathy.tif"))
         target_bathy = Rasters.crop(aca_bathy; to=regions_4326[reg_idx_4326, :])
@@ -83,7 +83,7 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG_4326, lazy=true)
         )
 
         target_bathy = nothing
-        GC.gc()
+        force_gc_cleanup()
     end
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_turbid.tif"))
@@ -101,7 +101,7 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG_4326, lazy=true)
 
         target_turbid = nothing
         bathy_gda2020 = nothing
-        GC.gc()
+        force_gc_cleanup()
     end
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Hs.tif"))
@@ -142,7 +142,7 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG_4326, lazy=true)
         mpa_bathy = nothing
         aca_bathy = nothing
         target_waves_Hs = nothing
-        GC.gc()
+        force_gc_cleanup()
     end
 
     if !isfile(joinpath(ACA_OUTPUT_DIR, "$(reg)_waves_Tp.tif"))
@@ -182,6 +182,6 @@ aca_turbid = Raster(aca_turbid_path, mappedcrs=EPSG_4326, lazy=true)
         mpa_bathy = nothing
         aca_bathy = nothing
         target_waves_Tp = nothing
-        GC.gc()
+        force_gc_cleanup()
     end
 end

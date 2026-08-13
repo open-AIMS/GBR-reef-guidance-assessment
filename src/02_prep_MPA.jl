@@ -27,6 +27,12 @@ using Dates
 using SparseArrays, NamedTupleTools
 using ExtendableSparse
 
+# Orphaned-pixel cleanup parameters for `write_valid_locs` (first pass, second pass)
+const ORPHAN_CLEANUP_FIRST_MIN_SIZE = 7
+const ORPHAN_CLEANUP_FIRST_WINDOW = (3, 3)
+const ORPHAN_CLEANUP_SECOND_MIN_SIZE = 70
+const ORPHAN_CLEANUP_SECOND_WINDOW = (9, 9)
+
 function prep_MPA()
     # Loading regions_4326 for cropping of vector and raster data.
     regions_4326 = GDF.read(REGION_PATH_4326)
@@ -61,11 +67,11 @@ function prep_MPA()
         )
     end
 
-    # 1c. Create buffer around ports (200 NM said to be max range considered)
+    # 1c. Create buffer around ports (PORT_RANGE_NM said to be max range considered)
     if !isfile(joinpath(MPA_OUTPUT_DIR, "ports_buffer.gpkg"))
         port_locs = GDF.read(joinpath(MPA_OUTPUT_DIR, "ports_GDA2020.gpkg"))
 
-        port_buffer = port_buffer_mask(port_locs, 200.0, unit="NM")
+        port_buffer = port_buffer_mask(port_locs, PORT_RANGE_NM, unit="NM")
         port_buffer = DataFrame(; Name="ports_buffer", geometry=port_buffer)
         GDF.write(
             joinpath(MPA_OUTPUT_DIR, "port_buffer.gpkg"),
@@ -79,7 +85,7 @@ function prep_MPA()
 
     # If a file already exists it is skipped
     @showprogress dt = 10 "Prepping benthic/geomorphic/wave data..." for reg in REGIONS
-        reg_idx_4326 = occursin.(reg[1:3], regions_4326.AREA_DESCR)
+        reg_idx_4326 = region_geom_index(regions_4326, reg)
 
         # Create NamedTuple to hold all output file paths.
         criteria_paths = create_criteria_paths(reg)
@@ -96,7 +102,7 @@ function prep_MPA()
                 raw_bathy_fn,
                 criteria_paths[:Depth] * ".tif",
                 EPSG_7844,
-                -9999.0,
+                DEFAULT_MISSINGVAL,
                 reg;
                 method=:bilinear
             )
@@ -131,7 +137,7 @@ function prep_MPA()
                 raw_slope_fn,
                 criteria_paths[:Slope] * ".tif",
                 EPSG_7844,
-                -9999.0,
+                DEFAULT_MISSINGVAL,
                 reg;
                 method=:bilinear
             )
@@ -202,7 +208,7 @@ function prep_MPA()
             @debug "$(now()) - Processing $(reg) - Rugosity"
             raw_rugosity_fn = joinpath(RUG_DATA_DIR, "std25_Rugosity_Townsville-Whitsunday.tif")
             resample_and_write(
-                Raster(raw_rugosity_fn; crs=REGION_CRS_UTM[reg], mappedcrs=EPSG_4326),
+                Raster(raw_rugosity_fn; crs=REGION_CRS_UTM[reg], mappedcrs=EPSG_4326, lazy=true),
                 bathy_gda2020,
                 criteria_paths[:Rugosity];
                 method=:bilinear
@@ -227,7 +233,7 @@ function prep_MPA()
             :Hs90,
             rst_template,
             bathy_gda2020,
-            -9999.0;
+            DEFAULT_MISSINGVAL;
             method=:bilinear
         )
 
@@ -239,7 +245,7 @@ function prep_MPA()
             :Tp90,
             rst_template,
             bathy_gda2020,
-            -9999.0;
+            DEFAULT_MISSINGVAL;
             method=:bilinear
         )
 
@@ -251,7 +257,7 @@ function prep_MPA()
             :ubed90,
             rst_template,
             bathy_gda2020,
-            -9999.0;
+            DEFAULT_MISSINGVAL;
             method=:bilinear
         )
 
@@ -260,26 +266,28 @@ function prep_MPA()
         @debug "$(now()) - Processing $(reg) - High Tide"
         hightide_fn = first(glob("*_hightide_*_$reg*.tif", TIDAL_DATA_DIR))
         if !isfile(criteria_paths[:HighTide])
-            high_tide = resample(Raster(hightide_fn); to=bathy_gda2020, method=:bilinear)
-            Rasters.write(
-                criteria_paths[:HighTide],
-                Rasters.crop(high_tide; to=bathy_gda2020)
+            # Disk-based resample is the normal path (GDAL streams block-by-block),
+            # not a fallback for OOM. The in-memory branch this replaced applied a
+            # `Rasters.crop(...; to=bathy_gda2020)` after resampling `to=bathy_gda2020`,
+            # which is a no-op since the result is already at that extent.
+            resample_to_disk(
+                Raster(hightide_fn; lazy=true), criteria_paths[:HighTide];
+                to=bathy_gda2020, method=:bilinear
             )
-
-            high_tide = nothing
             force_gc_cleanup()
         end
 
         @debug "$(now()) - Processing $(reg) - Low Tide"
         lowtide_fn = first(glob("*_lowtide_*_$reg*.tif", TIDAL_DATA_DIR))
         if !isfile(criteria_paths[:LowTide])
-            low_tide = resample(Raster(lowtide_fn); to=bathy_gda2020, method=:bilinear)
-            Rasters.write(
-                criteria_paths[:LowTide],
-                Rasters.crop(low_tide; to=bathy_gda2020)
+            # Disk-based resample is the normal path (GDAL streams block-by-block),
+            # not a fallback for OOM. The in-memory branch this replaced applied a
+            # `Rasters.crop(...; to=bathy_gda2020)` after resampling `to=bathy_gda2020`,
+            # which is a no-op since the result is already at that extent.
+            resample_to_disk(
+                Raster(lowtide_fn; lazy=true), criteria_paths[:LowTide];
+                to=bathy_gda2020, method=:bilinear
             )
-
-            low_tide = nothing
             force_gc_cleanup()
         end
 
@@ -299,7 +307,8 @@ function prep_MPA()
                 criteria_paths,
                 [values(MPA_BENTHIC_IDS)...],
                 [values(MPA_SLOPE_IDS)...],
-                7, (3, 3), 70, (9, 9),
+                ORPHAN_CLEANUP_FIRST_MIN_SIZE, ORPHAN_CLEANUP_FIRST_WINDOW,
+                ORPHAN_CLEANUP_SECOND_MIN_SIZE, ORPHAN_CLEANUP_SECOND_WINDOW,
                 valid_slopes_fn
             )
 
@@ -311,29 +320,12 @@ function prep_MPA()
 
         # Create lookup tables to support fast querying
         @debug "$(now()) - Processing $(reg) - Lookup table"
-        slopes_lookup_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.parq")
+        slopes_lookup_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_slopes_lookup.arrow")
         valid_lookup(
             criteria_paths,
             valid_slopes_fn,
             slopes_lookup_fn
         )
-
-        # valid_flats_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats.tif")
-        # write_valid_locs(
-        #     criteria_paths,
-        #     MPA_BENTHIC_IDS,
-        #     MPA_FLAT_IDS,
-        #     7, (3, 3), 70, (9, 9),
-        #     valid_flats_fn,
-        #     reg
-        # )
-
-        # flats_lookup_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_valid_flats_lookup.parq")
-        # valid_lookup(
-        #     criteria_paths,
-        #     valid_flats_fn,
-        #     flats_lookup_fn
-        # )
     end
 
     return nothing
