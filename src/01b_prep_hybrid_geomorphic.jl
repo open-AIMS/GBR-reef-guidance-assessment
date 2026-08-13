@@ -7,100 +7,11 @@ This script creates the hybridization of the two data products for geomorphic da
 
 include("common.jl")
 
-function prep_hybrid_geomorphic()
-    management_zones = GDF.read(
-        joinpath(CONFIG["gda2020_data"]["GDA2020_DATA_DIR"], "Great_Barrier_Reef_Marine_Park_Management_Areas_20_1685154518472315942.gpkg")
+function prep_hybrid_geomorphic()::Nothing
+    return prep_hybrid_layer(
+        "geomorphic",
+        joinpath("geomorphic", "GBR10 GBRMP Geomorphic.tif"),
+        "Geomorphic-Map",
+        MPA_GEOMORPHIC_IDS
     )
-
-    mpa_geomorphic_data = Raster(
-        joinpath(CONFIG["mpa_data"]["MPA_DATA_DIR"], "geomorphic", "GBR10 GBRMP Geomorphic.tif");
-        lazy=true,
-        missingval=0
-    )
-
-    # Cache reprojected+filtered ACA polygons as GeoPackage to skip slow GeoJSON parsing
-    # and reprojection on subsequent runs
-    aca_cache_fn = joinpath(CONFIG["aca_data"]["ACA_DATA_DIR"], "Geomorphic-Map", "cache_geomorphic_GDA2020.gpkg")
-    if isfile(aca_cache_fn)
-        @debug "Loading cached ACA geomorphic data"
-        target_polys = GDF.read(aca_cache_fn)
-    else
-        target_polys = GDF.read(
-            joinpath(CONFIG["aca_data"]["ACA_DATA_DIR"], "Geomorphic-Map", "geomorphic.geojson")
-        )
-
-        @debug "Reprojecting ACA to target CRS"
-        @time target_polys = GDF.reproject(target_polys, GI.crs(target_polys), EPSG_7844)
-
-        @debug "Building STR tree for ACA"
-        tree = STRT.STRtree(target_polys.geometry)
-        reg_poly_idx = unique(vcat(STRT.query.(Ref(tree), management_zones.SHAPE)...))
-        target_polys = target_polys[reg_poly_idx, :]
-
-        # Standardize text
-        target_polys.class .= lowercase.(replace.(target_polys.class, " " => "_", "/" => "_"))
-        target_polys.class_id = map(x -> Symbol(x) in keys(MPA_GEOMORPHIC_IDS) ? getindex(MPA_GEOMORPHIC_IDS, Symbol(x)) : 0, target_polys.class)
-
-        @debug "Caching reprojected ACA geomorphic data"
-        GDF.write(aca_cache_fn, target_polys; crs=EPSG_7844)
-    end
-
-    # Rebuild tree from filtered/standardized polygons for per-region queries
-    tree = STRT.STRtree(target_polys.geometry)
-
-    @info "Prepping hybrid geomorphic data"
-    for reg in REGIONS
-        fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_hybrid_geomorphic.tif")
-        if isfile(fn)
-            @info "Skipping $reg as file already exists..."
-            continue
-        end
-
-        force_gc_cleanup()
-
-        # Get management region area
-        region_idx = occursin.(reg[1:3], management_zones.AREA_DESCR)
-        r = management_zones[region_idx, :]
-
-        @info "Cropping MPA GBR10 raster to management zone $reg"
-        @time cropped_gbr10 = Rasters.trim(
-            Rasters.mask(
-                Rasters.crop(mpa_geomorphic_data; to=r.SHAPE);
-                with=r.SHAPE
-            )
-        )
-
-        # Select geomorphic classes of interest and reproject to target CRS to ensure alignment
-        tmp_fn = joinpath(MPA_OUTPUT_DIR, "$(reg)_geomorphic_tmp.tif")
-        @info "Ensuring reprojection is EPSG:7844"
-        @time cropped_gbr10 = Rasters.resample(
-            cropped_gbr10;
-            crs=EPSG_7844,
-            filename=tmp_fn
-        )
-
-        cropped_gbr10 = Raster(tmp_fn; lazy=true, missingval=0)
-
-        # Extract out the ACA polygons within the management region
-        reg_poly_idx = vcat(STRT.query.(Ref(tree), r.SHAPE)...)
-        reg_polys = target_polys[reg_poly_idx, :]
-
-        @info "Rasterizing ACA polygons"
-        @time cropped_aca = Rasters.rasterize(
-            maximum,
-            reg_polys;
-            to=cropped_gbr10,
-            fill=:class_id,
-            missingval=0
-        )
-
-        # Where GBR10 has data use it, otherwise fall back to ACA (fused, single-pass)
-        # Mask ACA to management zone boundary to avoid filling bounding-box border areas
-        cropped_aca = mask(cropped_aca; with=r.SHAPE)
-        @info "Writing hybrid data for $reg"
-        @time write_cog(fn, Int8.(ifelse.(!=(0).(cropped_gbr10), cropped_gbr10, cropped_aca)))
-        rm(tmp_fn)
-    end
-
-    return nothing
 end

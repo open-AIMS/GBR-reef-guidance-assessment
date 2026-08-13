@@ -15,13 +15,6 @@ Initialize the project the usual way:
 ]instantiate
 ```
 
-This project currently relies on a fork of Rasters.jl with customizations to allow
-writing compressed resampled rasters direct to disk.
-
-```code
-]add https://www.github.com/ConnectedSystems/Rasters.jl#resample-default-compress
-```
-
 ## Project Layout
 
 Assumes `src` is the project root. Each file in `src` is expected to be run in order.
