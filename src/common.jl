@@ -22,7 +22,7 @@ using Distances
 using DataFrames
 import GeoDataFrames as GDF
 import Arrow
-import WellKnownGeometry
+using JSON3
 
 using ImageFiltering
 using ImageMorphology: label_components
@@ -275,22 +275,50 @@ function force_gc_cleanup()::Nothing
 end
 
 """
-    skip_if_exists(f::Function, dst_file::String; label::String="Data")
+    skip_if_exists(f::Function, dst_file::String; label::String="Data", sources=nothing)
 
-Run `f()` unless `dst_file` already exists, in which case skip processing and
-return `nothing`. Centralizes the `isfile(dst_file)` skip-guard repeated
-throughout the pipeline's caching layer (previously logged inconsistently as
-`@warn` or `@info` despite being a normal, expected skip path).
+Run `f()` unless `dst_file` already exists and is up to date, in which case skip
+processing and return `nothing`. Centralizes the `isfile(dst_file)` skip-guard
+repeated throughout the pipeline's caching layer (previously logged inconsistently
+as `@warn` or `@info` despite being a normal, expected skip path).
 
 # Arguments
 - `f` : Zero-argument function performing the work, invoked via `do`-block
 - `dst_file` : Output file path to check for existence
 - `label` : Description used in the skip log message
+- `sources` : Optional source file path, or collection of source file paths, that
+  `dst_file` is derived from. When given, `dst_file` is only treated as current
+  (and processing skipped) if it exists AND its mtime is not older than any source
+  file's mtime; otherwise it's treated as stale and `f()` re-runs. When omitted
+  (the default), behaviour is existence-only, matching prior call sites that don't
+  yet declare their sources.
 """
-function skip_if_exists(f::Function, dst_file::String; label::String="Data")
+function skip_if_exists(
+    f::Function, dst_file::String; label::String="Data", sources=nothing
+)
     if isfile(dst_file)
-        @info "$label not processed as $(dst_file) already exists."
-        return nothing
+        if isnothing(sources)
+            @info "$label not processed as $(dst_file) already exists."
+            return nothing
+        end
+
+        src_list = sources isa AbstractString ? (sources,) : sources
+        existing_srcs = filter(isfile, collect(src_list))
+        missing_srcs = setdiff(collect(src_list), existing_srcs)
+        if !isempty(missing_srcs)
+            @warn "$label: source file(s) not found, cannot verify staleness: $(missing_srcs). Assuming $(dst_file) is current."
+            @info "$label not processed as $(dst_file) already exists."
+            return nothing
+        end
+
+        dst_mtime = mtime(dst_file)
+        stale = any(src -> mtime(src) > dst_mtime, existing_srcs)
+        if !stale
+            @info "$label not processed as $(dst_file) already exists and is newer than its source(s)."
+            return nothing
+        end
+
+        @info "$label: $(dst_file) exists but is older than its source(s); reprocessing."
     end
 
     return f()

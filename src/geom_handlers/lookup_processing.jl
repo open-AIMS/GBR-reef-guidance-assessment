@@ -1,24 +1,4 @@
 """
-    wkb_point(lon::Float64, lat::Float64)::Vector{UInt8}
-
-Build the 21-byte little-endian WKB encoding of a 2D Point directly (1 byte byte-order
-marker, `UInt32` geometry type, two `Float64` coordinates), without round-tripping
-through a geometry object and `WellKnownGeometry.getwkb`.
-
-# Notes
-Must byte-match `WellKnownGeometry.getwkb` applied to the equivalent point geometry -
-verify against a sample before trusting a full pipeline run.
-"""
-function wkb_point(lon::Float64, lat::Float64)::Vector{UInt8}
-    buf = IOBuffer()
-    write(buf, UInt8(1))         # byte order: little-endian
-    write(buf, htol(UInt32(1)))  # geometry type: Point
-    write(buf, htol(lon))
-    write(buf, htol(lat))
-    return take!(buf)
-end
-
-"""
     stack_values(valid_mask, rst_stack; band_height::Int=2048)
 
 Extract values at specific lon/lat coordinates from a raster stack.
@@ -139,7 +119,8 @@ Create a lookup table of valid data pixels for fast querying of data layers.
 - `dst_file` : Path to write Arrow lookup file to.
 """
 function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_file::String)::Nothing
-    return skip_if_exists(dst_file) do
+    lookup_sources = (collect(values(raster_files))..., valid_areas_file)
+    return skip_if_exists(dst_file; sources=lookup_sources) do
         # Create stack of prepared data
         rst_stack = RasterStack(raster_files; lazy=true)
 
@@ -159,11 +140,32 @@ function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_fi
         area_store[!, :lons] = centroid_lons
         area_store[!, :lats] = centroid_lats
 
-        # Encode geometry as WKB bytes for compact Arrow storage; ReefGuide.jl decodes
-        # this back into GeoInterface-compatible geometries via WellKnownGeometry.wrap.
-        area_store[!, :geometry_wkb] = wkb_point.(centroid_lons, centroid_lats)
-
         Arrow.write(dst_file, area_store; compress=:zstd)
+
+        # Write a JSON sidecar of per-criterion (min, max) bounds alongside the Arrow
+        # lookup, for lazy-scoped readers that need to know a column's value range
+        # without loading the full Arrow table.
+        bounds_path = replace(
+            dst_file, "_valid_slopes_lookup.arrow" => "_valid_slopes_bounds.json"
+        )
+        skip_cols = Set([:lon_idx, :lat_idx, :lons, :lats])
+        skip_if_exists(bounds_path; label="Bounds sidecar") do
+            bounds_dict = Dict{String,Any}()
+            for col in names(area_store)
+                sym = Symbol(col)
+                sym in skip_cols && continue
+                vals = area_store[!, col]
+                if eltype(vals) <: Real
+                    bounds_dict[col] =
+                        Dict("min" => Float64(minimum(vals)), "max" => Float64(maximum(vals)))
+                end
+            end
+            open(bounds_path, "w") do io
+                JSON3.write(io, bounds_dict)
+            end
+
+            return nothing
+        end
 
         area_store = nothing
         value_cols = nothing
