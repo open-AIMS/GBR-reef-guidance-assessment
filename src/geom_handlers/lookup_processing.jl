@@ -155,9 +155,14 @@ function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_fi
                 sym = Symbol(col)
                 sym in skip_cols && continue
                 vals = area_store[!, col]
-                if eltype(vals) <: Real
-                    bounds_dict[col] =
-                        Dict("min" => Float64(minimum(vals)), "max" => Float64(maximum(vals)))
+                if nonmissingtype(eltype(vals)) <: Real
+                    non_missing = skipmissing(vals)
+                    if !isempty(non_missing)
+                        bounds_dict[col] = Dict(
+                            "min" => Float64(minimum(non_missing)),
+                            "max" => Float64(maximum(non_missing))
+                        )
+                    end
                 end
             end
             open(bounds_path, "w") do io
