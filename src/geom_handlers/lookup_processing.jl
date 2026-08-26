@@ -21,7 +21,7 @@ Currently expects the raster to have the default X/Y dimensions set.
 # Returns
 Tuple of `(value_cols, lon_idx_col, lat_idx_col, centroid_lons, centroid_lats)`.
 `value_cols` is a `NamedTuple` of one typed vector per stack layer (eltype matches
-`eltype(rst_stack[name])`), `lon_idx_col`/`lat_idx_col` are `Int64` source-pixel
+`eltype(rst_stack[name])`), `lon_idx_col`/`lat_idx_col` are `Int32` source-pixel
 indices, and `centroid_lons`/`centroid_lats` are centroid-adjusted coordinates - all
 five are in the same row order: sorted `(x, y)` lexicographically (X-major), matching
 the pipeline's existing Arrow output. Callers that also need lon/lat columns (e.g.
@@ -58,8 +58,8 @@ function stack_values(valid_mask, rst_stack; band_height::Int=2048)
 
     centroid_lons = Vector{Float64}(undef, n_valid)
     centroid_lats = Vector{Float64}(undef, n_valid)
-    lon_idx_col = Vector{Int64}(undef, n_valid)
-    lat_idx_col = Vector{Int64}(undef, n_valid)
+    lon_idx_col = Vector{Int32}(undef, n_valid)
+    lat_idx_col = Vector{Int32}(undef, n_valid)
     for k in 1:n_valid
         dest = perm[k]
         centroid_lons[dest] = lons[x_idx[k]] + (x_res / 2)
