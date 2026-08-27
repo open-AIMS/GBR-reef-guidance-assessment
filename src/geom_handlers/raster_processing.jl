@@ -584,7 +584,11 @@ end
         dst_file::String
     )::Nothing
 
-Find the pixels that are covered by valid data for all criteria and benthic/geomorphic IDs.
+Find the pixels covered by valid bathymetry data and matching benthic/geomorphic IDs. Bounds
+the mask by bathymetry coverage (the analysis domain's natural ceiling - every other criterion
+is resampled onto the bathymetry grid) rather than requiring every criteria layer to have data,
+so pixels with partial coverage in other layers (e.g. turbidity, waves) are still included -
+`stack_values` records their missing values as `missing` rather than excluding the pixel.
 Applies a two-pass process to remove orphaned pixels - single points of data unconnected to
 any other pixel.
 
@@ -614,19 +618,26 @@ function write_valid_locs(
     @assert band_height % 256 == 0 "band_height must be a multiple of 256 to stay aligned with COG blocks"
 
     return skip_if_exists(dst_file) do
-        crits = keys(criteria_paths)
-        rsts = NamedTuple{crits}(Tuple(Raster(criteria_paths[c]; lazy=true) for c in crits))
-        nx, ny = size(rsts[first(crits)])
+        # Bound the valid mask by bathymetry coverage (the analysis domain's natural
+        # ceiling - every other criterion is resampled onto the bathymetry grid) plus
+        # the Benthic/Geomorphic class-ID filters (a *habitat* restriction, not a
+        # coverage one, so they stay). This deliberately does not AND-reduce across
+        # every criteria layer any more: a pixel missing data in, say, Turbidity or
+        # Waves is still a valid (if partially-covered) row, since `stack_values`
+        # records per-layer nodata as `missing` rather than excluding the pixel.
+        mask_crits = (:Depth, :Benthic, :Geomorphic)
+        rsts = NamedTuple{mask_crits}(Tuple(Raster(criteria_paths[c]; lazy=true) for c in mask_crits))
+        nx, ny = size(rsts[:Depth])
 
-        # AND-reduce across all criteria layers, one row band at a time, so no
-        # layer's full multi-GB extent is ever materialised - only the current band
-        # of each of the 12 layers is resident at once.
+        # AND-reduce across just the bathymetry + habitat-class layers, one row band
+        # at a time, so no layer's full multi-GB extent is ever materialised - only
+        # the current band of each of the 3 layers is resident at once.
         valid_areas = falses(nx, ny)
         y_start = 1
         while y_start <= ny
             y_end = min(y_start + band_height - 1, ny)
             band_acc = nothing
-            for crit in crits
+            for crit in mask_crits
                 # Slicing the lazy raster keeps this a windowed GDAL read; `boolmask`
                 # is applied identically to every criterion (including the class
                 # layers, after their `.∈` filter) to exactly replicate the original
@@ -664,7 +675,7 @@ function write_valid_locs(
         x_range = findfirst(x_any):findlast(x_any)
         y_range = findfirst(y_any):findlast(y_any)
 
-        template = rsts[first(crits)][x_range, y_range]
+        template = rsts[:Depth][x_range, y_range]
         cropped = Raster(template; data=UInt8.(cleaned_areas[x_range, y_range]), missingval=UInt8(0))
 
         Rasters.write(dst_file, cropped)
@@ -679,8 +690,8 @@ end
 """
     resize_to_valid_area(criteria_paths::NamedTuple, valid_fn::String)
 
-Resize processed data files to the area that has data across all criteria layers.
-Replaces existing file.
+Resize processed data files to the valid-data area (bathymetry coverage plus
+Benthic/Geomorphic habitat filters - see `write_valid_locs`). Replaces existing file.
 
 # Arguments
 - `criteria_paths` : Named collection of criteria paths

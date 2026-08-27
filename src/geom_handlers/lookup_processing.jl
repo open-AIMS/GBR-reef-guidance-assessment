@@ -20,12 +20,14 @@ Currently expects the raster to have the default X/Y dimensions set.
 
 # Returns
 Tuple of `(value_cols, lon_idx_col, lat_idx_col, centroid_lons, centroid_lats)`.
-`value_cols` is a `NamedTuple` of one typed vector per stack layer (eltype matches
-`eltype(rst_stack[name])`), `lon_idx_col`/`lat_idx_col` are `Int32` source-pixel
-indices, and `centroid_lons`/`centroid_lats` are centroid-adjusted coordinates - all
-five are in the same row order: sorted `(x, y)` lexicographically (X-major), matching
-the pipeline's existing Arrow output. Callers that also need lon/lat columns (e.g.
-`valid_lookup`) should reuse these rather than re-deriving them.
+`value_cols` is a `NamedTuple` of one typed, nullable vector per stack layer (eltype
+`Union{Missing,T}` where `T` is `eltype(rst_stack[name])`) - a pixel valid under
+`valid_mask` may still lack data for any individual layer, in which case that layer's
+`missingval` sentinel is substituted with `missing`. `lon_idx_col`/`lat_idx_col` are
+`Int32` source-pixel indices, and `centroid_lons`/`centroid_lats` are centroid-adjusted
+coordinates - all five are in the same row order: sorted `(x, y)` lexicographically
+(X-major), matching the pipeline's existing Arrow output. Callers that also need
+lon/lat columns (e.g. `valid_lookup`) should reuse these rather than re-deriving them.
 """
 function stack_values(valid_mask, rst_stack; band_height::Int=2048)
     @assert band_height % 256 == 0 "band_height must be a multiple of 256 to stay aligned with COG blocks"
@@ -68,11 +70,14 @@ function stack_values(valid_mask, rst_stack; band_height::Int=2048)
         lat_idx_col[dest] = y_idx[k]
     end
 
-    # Typed column store: one preallocated vector per layer, eltype derived from the
-    # layer itself (Benthic/Geomorphic are Int8 class IDs, the rest are Float32).
+    # Typed, nullable column store: one preallocated vector per layer, eltype
+    # `Union{Missing,T}` derived from the layer itself (Benthic/Geomorphic are Int8
+    # class IDs, the rest are Float32). Nullable because a pixel valid under the
+    # bathymetry-bound mask (see `write_valid_locs`) may still fall outside any
+    # individual layer's own coverage.
     stack_names = names(rst_stack)
     value_cols = NamedTuple{Tuple(stack_names)}(
-        Tuple(Vector{eltype(rst_stack[name])}(undef, n_valid) for name in stack_names)
+        Tuple(Vector{Union{Missing,eltype(rst_stack[name])}}(undef, n_valid) for name in stack_names)
     )
 
     ny = length(lats)
@@ -94,9 +99,12 @@ function stack_values(valid_mask, rst_stack; band_height::Int=2048)
                 # Plain getindex on the lazy raster is a windowed GDAL read; `[:, :]`
                 # forces that window to be read into memory.
                 band_data = rst_stack[stack_name][:, y_start:y_end][:, :]
+                layer_missingval = missingval(rst_stack[stack_name])
                 col = value_cols[stack_name]
                 for j in band_start:band_end
-                    col[perm[j]] = band_data[x_idx[j], y_idx[j]-y_start+1]
+                    v = band_data[x_idx[j], y_idx[j]-y_start+1]
+                    # `isequal` (not `==`) so a NaN sentinel compares true to itself.
+                    col[perm[j]] = isequal(v, layer_missingval) ? missing : v
                 end
             end
         end
