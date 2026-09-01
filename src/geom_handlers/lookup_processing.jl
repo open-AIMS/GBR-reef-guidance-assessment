@@ -157,7 +157,9 @@ function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_fi
             dst_file, "_valid_slopes_lookup.arrow" => "_valid_slopes_bounds.json"
         )
         skip_cols = Set([:lon_idx, :lat_idx, :lons, :lats])
-        skip_if_exists(bounds_path; label="Bounds sidecar") do
+        # Key the sidecar's freshness on the Arrow written just above: a region
+        # regenerated with a new mask must not keep bounds computed under the old one.
+        skip_if_exists(bounds_path; label="Bounds sidecar", sources=(dst_file,)) do
             bounds_dict = Dict{String,Any}()
             for col in names(area_store)
                 sym = Symbol(col)
