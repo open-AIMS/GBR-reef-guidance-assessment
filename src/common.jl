@@ -275,50 +275,59 @@ function force_gc_cleanup()::Nothing
 end
 
 """
-    skip_if_exists(f::Function, dst_file::String; label::String="Data", sources=nothing)
+    skip_if_exists(f::Function, dst_files::Union{AbstractString,Tuple,AbstractVector}; label::String="Data", sources=nothing)
 
-Run `f()` unless `dst_file` already exists and is up to date, in which case skip
-processing and return `nothing`. Centralizes the `isfile(dst_file)` skip-guard
+Run `f()` unless all of `dst_files` already exist and are up to date, in which case
+skip processing and return `nothing`. Centralizes the `isfile(dst_file)` skip-guard
 repeated throughout the pipeline's caching layer (previously logged inconsistently
 as `@warn` or `@info` despite being a normal, expected skip path).
 
 # Arguments
 - `f` : Zero-argument function performing the work, invoked via `do`-block
-- `dst_file` : Output file path to check for existence
+- `dst_files` : Output file path, or collection of output file paths, to check for
+  existence. The guard is satisfied (and `f()` skipped) only when *every* destination
+  exists; a single `String` is accepted for existing single-destination call sites.
 - `label` : Description used in the skip log message
 - `sources` : Optional source file path, or collection of source file paths, that
-  `dst_file` is derived from. When given, `dst_file` is only treated as current
-  (and processing skipped) if it exists AND its mtime is not older than any source
-  file's mtime; otherwise it's treated as stale and `f()` re-runs. When omitted
-  (the default), behaviour is existence-only, matching prior call sites that don't
-  yet declare their sources.
+  `dst_files` is derived from. When given, `dst_files` are only treated as current
+  (and processing skipped) if all exist AND the oldest of their mtimes is not older
+  than any source file's mtime; otherwise they're treated as stale and `f()` re-runs.
+  When omitted (the default), behaviour is existence-only, matching prior call sites
+  that don't yet declare their sources.
 """
 function skip_if_exists(
-    f::Function, dst_file::String; label::String="Data", sources=nothing
+    f::Function,
+    dst_files::Union{AbstractString,Tuple,AbstractVector};
+    label::String="Data",
+    sources=nothing,
 )
-    if isfile(dst_file)
+    dst_list = dst_files isa AbstractString ? (dst_files,) : collect(dst_files)
+    dst_desc = join(dst_list, ", ")
+
+    if all(isfile, dst_list)
         if isnothing(sources)
-            @info "$label not processed as $(dst_file) already exists."
+            @info "$label not processed as $(dst_desc) already exist(s)."
             return nothing
         end
 
-        src_list = sources isa AbstractString ? (sources,) : sources
-        existing_srcs = filter(isfile, collect(src_list))
-        missing_srcs = setdiff(collect(src_list), existing_srcs)
+        src_list = sources isa AbstractString ? (sources,) : collect(sources)
+        existing_srcs = filter(isfile, src_list)
+        missing_srcs = setdiff(src_list, existing_srcs)
         if !isempty(missing_srcs)
-            @warn "$label: source file(s) not found, cannot verify staleness: $(missing_srcs). Assuming $(dst_file) is current."
-            @info "$label not processed as $(dst_file) already exists."
+            @warn "$label: source file(s) not found, cannot verify staleness: $(missing_srcs). Assuming $(dst_desc) is current."
+            @info "$label not processed as $(dst_desc) already exist(s)."
             return nothing
         end
 
-        dst_mtime = mtime(dst_file)
+        # Oldest destination mtime: every destination must be newer than every source.
+        dst_mtime = minimum(mtime, dst_list)
         stale = any(src -> mtime(src) > dst_mtime, existing_srcs)
         if !stale
-            @info "$label not processed as $(dst_file) already exists and is newer than its source(s)."
+            @info "$label not processed as $(dst_desc) already exist(s) and are newer than their source(s)."
             return nothing
         end
 
-        @info "$label: $(dst_file) exists but is older than its source(s); reprocessing."
+        @info "$label: one or more of $(dst_desc) exist but are older than their source(s); reprocessing."
     end
 
     return f()

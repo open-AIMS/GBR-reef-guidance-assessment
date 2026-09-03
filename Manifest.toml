@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "be552d3abd89063684018ed636fc51b41bad34c2"
+project_hash = "3e8952b0804c15d6f2ca200bc0154412e08431ed"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "0a81a018463de6c3f4f2c9360121c562e5add9e4"
@@ -540,6 +540,11 @@ git-tree-sha1 = "1a3f97f907e6dd8983b744d2642651bb162a3f7a"
 uuid = "dc8bdbbb-1ca9-579f-8c36-e416f6a65cce"
 version = "1.0.2"
 
+[[deps.DBInterface]]
+git-tree-sha1 = "265d7f87f329c063cbde41920f9d00713a43cedd"
+uuid = "a10d1c49-ce27-4219-8d33-6db1a4562965"
+version = "2.7.0"
+
 [[deps.DataAPI]]
 git-tree-sha1 = "abe83f3a2f1b857aac70ef8b269080af17764bbe"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
@@ -754,6 +759,18 @@ deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 version = "1.7.0"
 
+[[deps.DuckDB]]
+deps = ["DBInterface", "Dates", "DuckDB_jll", "FixedPointDecimals", "Tables", "UUIDs", "WeakRefStrings"]
+git-tree-sha1 = "656133510fa02a4f70a9d3ce6c1d083318406550"
+uuid = "d2f5444f-75bc-4fdf-ac35-56f514c445e1"
+version = "1.5.2"
+
+[[deps.DuckDB_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "3a1f1414db56a663bdff3b1c756d2cfd2c090a93"
+uuid = "2cbbab25-fc8b-58cf-88d4-687a02676033"
+version = "1.5.5+0"
+
 [[deps.EarCut_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "e3290f2d49e661fbd94046d7e3726ffcb2d41053"
@@ -923,6 +940,12 @@ version = "2.32.0"
     BlockBandedMatrices = "ffab5731-97b5-5995-9138-79e8c1846df0"
     SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
     StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
+[[deps.FixedPointDecimals]]
+deps = ["BitIntegers", "Parsers"]
+git-tree-sha1 = "41d3a5de0eab320cc04833a373f0fcb3640073d5"
+uuid = "fb4d412d-6eee-574d-9565-ede6634db7b0"
+version = "0.6.5"
 
 [[deps.FixedPointNumbers]]
 deps = ["Random", "Statistics"]
@@ -2295,6 +2318,18 @@ git-tree-sha1 = "c69da20496799bbdd56c15ecf5d80a5e6cbcc904"
 uuid = "784f63db-0788-585a-bace-daefebcd302b"
 version = "10008.0.1004+0"
 
+[[deps.QuackIO]]
+deps = ["DataAPI", "DuckDB", "Tables"]
+git-tree-sha1 = "38c58fc9f61e84b598049bd812de99f470c03517"
+uuid = "7b8617ff-c43a-4c37-a28b-ad5a1791f8ae"
+version = "0.1.5"
+
+    [deps.QuackIO.extensions]
+    SQLCollectionsExt = "SQLCollections"
+
+    [deps.QuackIO.weakdeps]
+    SQLCollections = "3934435e-e6e6-4fea-a5c0-3a716143d619"
+
 [[deps.QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
 git-tree-sha1 = "5e8e8b0ab68215d7a2b14b9921a946fee794749e"
@@ -3075,17 +3110,6 @@ version = "0.6.4"
 
     [deps.WeightedOnlineStats.weakdeps]
     MultivariateStats = "6f286f6a-111f-5878-ab1e-185364afe411"
-
-[[deps.WellKnownGeometry]]
-deps = ["GeoFormatTypes", "GeoInterface"]
-git-tree-sha1 = "7954cccbdf5af33a677ad7e8a4436f073703fe61"
-uuid = "0f680547-7be7-4555-8820-bb198eeb646b"
-version = "0.2.7"
-weakdeps = ["Makie", "RecipesBase"]
-
-    [deps.WellKnownGeometry.extensions]
-    WellKnownGeometryMakieExt = "Makie"
-    WellKnownGeometryRecipesBaseExt = "RecipesBase"
 
 [[deps.WoodburyMatrices]]
 deps = ["LinearAlgebra", "SparseArrays"]
