@@ -1,3 +1,5 @@
+import QuackIO
+
 """
     stack_values(valid_mask, rst_stack; band_height::Int=2048)
 
@@ -128,7 +130,12 @@ Create a lookup table of valid data pixels for fast querying of data layers.
 """
 function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_file::String)::Nothing
     lookup_sources = (collect(values(raster_files))..., valid_areas_file)
-    return skip_if_exists(dst_file; sources=lookup_sources) do
+    parquet_dst_file = replace(
+        dst_file, "_valid_slopes_lookup.arrow" => "_valid_slopes_lookup.parquet"
+    )
+    # Guard on both destinations at the outer level so a region with a stale/missing
+    # Parquet sibling (even if its Arrow file is already current) still reprocesses.
+    return skip_if_exists((dst_file, parquet_dst_file); sources=lookup_sources) do
         # Create stack of prepared data
         rst_stack = RasterStack(raster_files; lazy=true)
 
@@ -149,6 +156,73 @@ function valid_lookup(raster_files::NamedTuple, valid_areas_file::String, dst_fi
         area_store[!, :lats] = centroid_lats
 
         Arrow.write(dst_file, area_store; compress=:zstd)
+
+        # Second, additive lookup format (see duckdb-switch.md): a real DuckDB engine
+        # (via QuackIO) gets genuine row-group/column pushdown against Parquet, which
+        # the pipeline's previous Parquet tooling (GeoParquet.jl/Parquet2.jl) never
+        # provided. Arrow remains the only format the full-region worker load path
+        # reads - this is not a replacement.
+        QuackIO.write_table(parquet_dst_file, area_store; format=:parquet)
+
+        # Mandatory round-trip verification (not deferred to a follow-up): a silently
+        # stale/corrupt Parquet copy is the same class of risk already flagged for the
+        # historical `.parq` files. Fail the whole run rather than warn.
+        let
+            roundtrip = QuackIO.read_parquet(DataFrame, parquet_dst_file)
+
+            if nrow(roundtrip) != nrow(area_store)
+                error(
+                    "Parquet round-trip verification failed for $(parquet_dst_file): " *
+                    "row count $(nrow(roundtrip)) != $(nrow(area_store))"
+                )
+            end
+
+            orig_cols = Set(names(area_store))
+            rt_cols = Set(names(roundtrip))
+            if orig_cols != rt_cols
+                error(
+                    "Parquet round-trip verification failed for $(parquet_dst_file): " *
+                    "column set mismatch (original: $(orig_cols), round-trip: $(rt_cols))"
+                )
+            end
+
+            # Same (min, max) computation the bounds sidecar below uses, over the same
+            # non-index/coordinate columns, checked against the round-tripped values
+            # rather than assuming any column's dtype (e.g. Turbidity is UInt16, not
+            # Float32 like the other continuous criteria).
+            bounds_skip_cols = Set([:lon_idx, :lat_idx, :lons, :lats])
+            for col in names(area_store)
+                Symbol(col) in bounds_skip_cols && continue
+                orig_vals = area_store[!, col]
+                nonmissingtype(eltype(orig_vals)) <: Real || continue
+                orig_non_missing = collect(skipmissing(orig_vals))
+                isempty(orig_non_missing) && continue
+
+                rt_non_missing = collect(skipmissing(roundtrip[!, col]))
+                if minimum(orig_non_missing) != minimum(rt_non_missing) ||
+                    maximum(orig_non_missing) != maximum(rt_non_missing)
+                    error(
+                        "Parquet round-trip verification failed for $(parquet_dst_file): " *
+                        "min/max mismatch for column $(col)"
+                    )
+                end
+            end
+
+            n_spot_check = min(100, nrow(area_store))
+            for row in rand(1:nrow(area_store), n_spot_check)
+                for col in names(area_store)
+                    if !isequal(area_store[row, col], roundtrip[row, col])
+                        error(
+                            "Parquet round-trip verification failed for $(parquet_dst_file): " *
+                            "value mismatch at row $(row), column $(col) " *
+                            "($(area_store[row, col]) != $(roundtrip[row, col]))"
+                        )
+                    end
+                end
+            end
+
+            roundtrip = nothing
+        end
 
         # Write a JSON sidecar of per-criterion (min, max) bounds alongside the Arrow
         # lookup, for lazy-scoped readers that need to know a column's value range
